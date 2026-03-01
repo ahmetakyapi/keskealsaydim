@@ -309,7 +309,7 @@ export default function LandingPage() {
               <span className="text-lg font-bold text-white">Keşke Alsaydım</span>
             </div>
             <p className="text-white/40 text-sm">
-              © 2024 Keşke Alsaydım. Tüm hakları saklıdır.
+              © 2026 Keşke Alsaydım. Tüm hakları saklıdır.
             </p>
           </div>
         </div>

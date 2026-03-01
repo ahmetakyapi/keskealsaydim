@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keşke Alsaydım | Hisse Pişmanlık Hesaplayıcı</title>
+  <meta name="description" content="Geçmişe dön, bir tarih seç, ne kadar kazanacağını gör. Hisse senedi yatırım hesaplayıcı.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       CSS CUSTOM PROPERTIES
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+      /* Dark Theme (Default) */
+      --bg: #080C14;
+      --surface: #0F1623;
+      --surface-2: #151D2E;
+      --border: rgba(255,255,255,0.06);
+      --primary: #00E5A0;
+      --primary-glow: rgba(0,229,160,0.4);
+      --danger: #FF4560;
+      --danger-glow: rgba(255,69,96,0.4);
+      --accent: #3B82F6;
+      --accent-glow: rgba(59,130,246,0.4);
+      --text: #F0F4FF;
+      --text-muted: #6B7A99;
+      --gradient-hero: linear-gradient(135deg, #080C14 0%, #0A1628 50%, #080C14 100%);
+
+      /* Spacing */
+      --space-xs: 0.25rem;
+      --space-sm: 0.5rem;
+      --space-md: 1rem;
+      --space-lg: 1.5rem;
+      --space-xl: 2rem;
+      --space-2xl: 3rem;
+      --space-3xl: 4rem;
+      --space-4xl: 6rem;
+
+      /* Border Radius */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --radius-full: 9999px;
+
+      /* Transitions */
+      --transition-fast: 0.15s ease;
+      --transition-base: 0.2s ease;
+      --transition-slow: 0.3s ease;
+
+      /* Typography */
+      --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #F4F7FF;
+      --surface: #FFFFFF;
+      --surface-2: #EEF2FF;
+      --border: rgba(0,0,0,0.07);
+      --primary: #00B87A;
+      --primary-glow: rgba(0,184,122,0.3);
+      --danger: #E03050;
+      --danger-glow: rgba(224,48,80,0.3);
+      --accent: #2563EB;
+      --accent-glow: rgba(37,99,235,0.3);
+      --text: #0A0F1E;
+      --text-muted: #6B7A99;
+      --gradient-hero: linear-gradient(135deg, #F4F7FF 0%, #E8EDFF 50%, #F4F7FF 100%);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      transition: background var(--transition-slow), color var(--transition-slow);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    input {
+      font-family: inherit;
+      border: none;
+      outline: none;
+      background: none;
+    }
+
+    /* Tabular numbers for all numeric content */
+    .num {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       UTILITIES
+    ═══════════════════════════════════════════════════════════════ */
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 var(--space-lg);
+    }
+
+    .glass {
+      background: rgba(15, 22, 35, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+    }
+
+    [data-theme="light"] .glass {
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .text-primary { color: var(--primary); }
+    .text-danger { color: var(--danger); }
+    .text-accent { color: var(--accent); }
+    .text-muted { color: var(--text-muted); }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    /* Focus visible */
+    :focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ANIMATIONS
+    ═══════════════════════════════════════════════════════════════ */
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
+      50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px var(--primary-glow); }
+    }
+
+    @keyframes gradient-rotate {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes dash {
+      to { stroke-dashoffset: 0; }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .animate-on-scroll {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .animate-on-scroll.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NAVBAR
+    ═══════════════════════════════════════════════════════════════ */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: var(--space-md) 0;
+      transition: all var(--transition-slow);
+    }
+
+    .navbar.scrolled {
+      background: rgba(15, 22, 35, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    [data-theme="light"] .navbar.scrolled {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .navbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+    }
+
+    .logo-keske { color: var(--text); }
+    .logo-alsaydim { color: var(--primary); }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .theme-toggle {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all var(--transition-base);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-toggle:hover {
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    .theme-toggle .icon {
+      position: absolute;
+      transition: all var(--transition-slow);
+    }
+
+    .theme-toggle .sun { opacity: 0; transform: rotate(-90deg) scale(0); }
+    .theme-toggle .moon { opacity: 1; transform: rotate(0) scale(1); }
+
+    [data-theme="light"] .theme-toggle .sun { opacity: 1; transform: rotate(0) scale(1); }
+    [data-theme="light"] .theme-toggle .moon { opacity: 0; transform: rotate(90deg) scale(0); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-lg);
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      transition: all var(--transition-base);
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #080C14;
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px var(--primary-glow);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-lg {
+      padding: var(--space-md) var(--space-xl);
+      font-size: 1.0625rem;
+      min-height: 56px;
+    }
+
+    .btn-xl {
+      padding: var(--space-lg) var(--space-2xl);
+      font-size: 1.125rem;
+      min-height: 64px;
+      border-radius: var(--radius-lg);
+    }
+
+    /* Mobile menu */
+    .mobile-menu-btn {
+      display: none;
+      width: 44px;
+      height: 44px;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+    }
+
+    @media (max-width: 768px) {
+      .mobile-menu-btn { display: flex; }
+      .nav-cta { display: none; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HERO SECTION
+    ═══════════════════════════════════════════════════════════════ */
+    .hero {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      padding: calc(80px + var(--space-2xl)) var(--space-lg) var(--space-2xl);
+      background: var(--gradient-hero);
+      overflow: hidden;
+    }
+
+    /* Animated background orbs */
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.12;
+      animation: float 20s ease-in-out infinite alternate;
+    }
+
+    .orb-1 {
+      width: 600px;
+      height: 600px;
+      background: var(--primary);
+      top: -200px;
+      left: -200px;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 500px;
+      height: 500px;
+      background: var(--accent);
+      bottom: -150px;
+      right: -150px;
+      animation-delay: -5s;
+    }
+
+    .orb-3 {
+      width: 400px;
+      height: 400px;
+      background: var(--danger);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: -10s;
+      opacity: 0.08;
+    }
+
+    /* Noise texture */
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      max-width: 900px;
+      margin-bottom: var(--space-3xl);
+    }
+
+    .hero-headline {
+      margin-bottom: var(--space-lg);
+    }
+
+    .hero-headline-top {
+      display: block;
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 300;
+      color: var(--text-muted);
+      margin-bottom: var(--space-sm);
+    }
+
+    .hero-headline-main {
+      display: block;
+      font-size: clamp(2.8rem, 7vw, 6rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    /* Hero Demo Widget */
+    .demo-widget {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .demo-card {
+      background: rgba(15, 22, 35, 0.7);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    [data-theme="light"] .demo-card {
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    }
+
+    .demo-inputs {
+      display: grid;
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+    }
+
+    .input-group {
+      position: relative;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: var(--space-md) var(--space-lg);
+      padding-left: 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text);
+      font-size: 1rem;
+      transition: all var(--transition-base);
+    }
+
+    .input-group input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .input-group input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .input-group .input-icon {
+      position: absolute;
+      left: var(--space-md);
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .demo-cta {
+      width: 100%;
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    /* Demo Result Preview */
+    .demo-result {
+      margin-top: var(--space-xl);
+      padding-top: var(--space-xl);
+      border-top: 1px solid var(--border);
+    }
+
+    .demo-result-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-md);
+    }
+
+    .stock-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: #080C14;
+    }
+
+    .stock-info h4 {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .stock-info p {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    .demo-result-value {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+    }
+
+    .result-amount {
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-amount.gain { color: var(--primary); }
+    .result-amount.loss { color: var(--danger); }
+
+    .result-badge {
+      padding: var(--space-xs) var(--space-md);
+      border-radius: var(--radius-full);
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+
+    .result-badge.gain {
+      background: rgba(0, 229, 160, 0.15);
+      color: var(--primary);
+    }
+
+    .result-badge.loss {
+      background: rgba(255, 69, 96, 0.15);
+      color: var(--danger);
+    }
+
+    .sparkline-container {
+      height: 60px;
+      margin-top: var(--space-md);
+    }
+
+    .sparkline {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Scroll indicator */
+    .scroll-indicator {
+      position: absolute;
+      bottom: var(--space-xl);
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-sm);
+      color: var(--text-muted);
+      animation: bounce 2s ease-in-out infinite;
+    }
+
+    .scroll-indicator span {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SOCIAL PROOF BAR
+    ═══════════════════════════════════════════════════════════════ */
+    .social-proof {
+      padding: var(--space-xl) 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .social-proof-inner {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: var(--space-2xl);
+      flex-wrap: wrap;
+    }
+
+    .proof-stat {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      text-align: center;
+    }
+
+    .proof-stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .proof-stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .proof-divider {
+      width: 1px;
+      height: 40px;
+      background: var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .proof-divider { display: none; }
+      .social-proof-inner { gap: var(--space-xl); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HOW IT WORKS SECTION
+    ═══════════════════════════════════════════════════════════════ */
+    .how-it-works {
+      padding: var(--space-4xl) 0;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: var(--space-3xl);
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      margin-bottom: var(--space-md);
+    }
+
+    .section-subtitle {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .steps-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-xl);
+      position: relative;
+    }
+
+    @media (max-width: 768px) {
+      .steps-container {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+      }
+    }
+
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl);
+      text-align: center;
+      transition: all var(--transition-base);
+      position: relative;
+    }
+
+    .step-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 229, 160, 0.3);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2), 0 0 30px var(--primary-glow);
+    }
+
+    .step-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto var(--space-lg);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #080C14;
+    }
+
+    .step-number {
+      position: absolute;
+      top: var(--space-md);
+      right: var(--space-md);
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .step-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: var(--space-sm);
+    }
+
+    .step-desc {
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* Connection arrows */
+    .step-arrow {
+      display: none;
+    }
+
+    @media (min-width: 769px) {
+      .step-arrow {
+        display: block;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--primary);
+        opacity: 0.5;
+      }
+
+      .step-card:nth-child(1) .step-arrow { right: -36px; }
+      .step-card:nth-child(2) .step-arrow { right: -36px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       COMPARISON SECTION
+    ═══════════════════════════════════════════════════════════════ */
+    .comparison-section {
+      padding: var(--space-4xl) 0;
+      background: var(--surface);
+    }
+
+    .comparison-card {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+    }
+
+    .comparison-header {
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--space-md);
+    }
+
+    .comparison-title {
+      font-weight: 700;
+      font-size: 1.125rem;
+    }
+
+    .time-tabs {
+      display: flex;
+      gap: var(--space-xs);
+      background: var(--surface);
+      padding: var(--space-xs);
+      border-radius: var(--radius-full);
+    }
+
+    .time-tab {
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-full);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: all var(--transition-base);
+    }
+
+    .time-tab:hover { color: var(--text); }
+
+    .time-tab.active {
+      background: var(--primary);
+      color: #080C14;
+    }
+
+    .chart-container {
+      padding: var(--space-xl);
+      height: 400px;
+      position: relative;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .chart-grid line {
+      stroke: var(--border);
+      stroke-width: 1;
+    }
+
+    .chart-line {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .chart-line-nvda { stroke: var(--primary); }
+    .chart-line-aapl { stroke: var(--accent); }
+    .chart-line-tsla { stroke: #F59E0B; }
+
+    .chart-area {
+      opacity: 0.1;
+    }
+
+    .chart-area-nvda { fill: var(--primary); }
+    .chart-area-aapl { fill: var(--accent); }
+    .chart-area-tsla { fill: #F59E0B; }
+
+    .chart-labels {
+      font-size: 11px;
+      fill: var(--text-muted);
+    }
+
+    .stock-pills {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-md);
+      padding: var(--space-lg) var(--space-xl);
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .stock-pill {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      background: var(--surface);
+      border-radius: var(--radius-full);
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .stock-pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .stock-pill-dot.nvda { background: var(--primary); }
+    .stock-pill-dot.aapl { background: var(--accent); }
+    .stock-pill-dot.tsla { background: #F59E0B; }
+
+    .stock-pill-change { margin-left: var(--space-xs); }
+    .stock-pill-change.gain { color: var(--primary); }
+    .stock-pill-change.loss { color: var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       STORIES SECTION
+    ═══════════════════════════════════════════════════════════════ */
+    .stories-section {
+      padding: var(--space-4xl) 0;
+    }
+
+    .stories-container {
+      display: flex;
+      gap: var(--space-xl);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding: var(--space-md) 0;
+      margin: 0 calc(-1 * var(--space-lg));
+      padding-left: var(--space-lg);
+      padding-right: var(--space-lg);
+    }
+
+    .stories-container::-webkit-scrollbar { display: none; }
+
+    .story-card {
+      flex: 0 0 340px;
+      scroll-snap-align: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .story-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+
+    .story-card.gain::before { background: var(--primary); }
+    .story-card.loss::before { background: var(--danger); }
+
+    .story-amount {
+      font-size: 2.5rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: var(--space-sm);
+    }
+
+    .story-amount.gain { color: var(--primary); }
+    .story-amount.loss { color: var(--danger); }
+
+    .story-context {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+      margin-bottom: var(--space-lg);
+    }
+
+    .story-quote {
+      font-size: 1rem;
+      font-style: italic;
+      line-height: 1.6;
+      margin-bottom: var(--space-lg);
+      padding-left: var(--space-md);
+      border-left: 2px solid var(--border);
+    }
+
+    .story-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .story-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-full);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      color: #080C14;
+    }
+
+    .story-ticker {
+      padding: var(--space-xs) var(--space-md);
+      border-radius: var(--radius-full);
+      font-weight: 700;
+      font-size: 0.8125rem;
+    }
+
+    .story-ticker.gain {
+      background: rgba(0, 229, 160, 0.15);
+      color: var(--primary);
+    }
+
+    .story-ticker.loss {
+      background: rgba(255, 69, 96, 0.15);
+      color: var(--danger);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TICKER MARQUEE
+    ═══════════════════════════════════════════════════════════════ */
+    .ticker-marquee {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: var(--space-md) 0;
+      overflow: hidden;
+    }
+
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: marquee 30s linear infinite;
+    }
+
+    .ticker-marquee:hover .ticker-track {
+      animation-play-state: paused;
+    }
+
+    .ticker-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: 0 var(--space-xl);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      white-space: nowrap;
+    }
+
+    .ticker-item .symbol { color: var(--text); }
+    .ticker-item .change.gain { color: var(--primary); }
+    .ticker-item .change.loss { color: var(--danger); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CTA SECTION
+    ═══════════════════════════════════════════════════════════════ */
+    .cta-section {
+      padding: var(--space-4xl) 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(0,229,160,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-card {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+      padding: var(--space-3xl);
+      position: relative;
+      background: var(--surface);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+    }
+
+    /* Animated gradient border */
+    .cta-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      padding: 2px;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
+      background-size: 200% 100%;
+      animation: gradient-rotate 3s linear infinite;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+
+    .cta-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-pretitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      margin-bottom: var(--space-sm);
+    }
+
+    .cta-title {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      margin-bottom: var(--space-xl);
+    }
+
+    .cta-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .cta-link {
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      transition: color var(--transition-base);
+    }
+
+    .cta-link:hover { color: var(--primary); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════════════════════════ */
+    .footer {
+      padding: var(--space-2xl) 0;
+      border-top: 1px solid var(--border);
+      position: relative;
+    }
+
+    .footer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--space-lg);
+    }
+
+    .footer-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: var(--space-xl);
+    }
+
+    .footer-link {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      transition: color var(--transition-base);
+    }
+
+    .footer-link:hover { color: var(--text); }
+
+    .footer-copy {
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+    }
+
+    @media (max-width: 768px) {
+      .footer-inner {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE ADJUSTMENTS
+    ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .hero {
+        padding-top: calc(70px + var(--space-xl));
+      }
+
+      .demo-widget {
+        max-width: 100%;
+      }
+
+      .demo-card {
+        padding: var(--space-lg);
+        border-radius: var(--radius-lg);
+      }
+
+      .chart-container {
+        height: 300px;
+        padding: var(--space-md);
+      }
+
+      .comparison-header {
+        padding: var(--space-md);
+      }
+
+      .stock-pills {
+        padding: var(--space-md);
+      }
+
+      .story-card {
+        flex: 0 0 300px;
+      }
+
+      .cta-card {
+        padding: var(--space-xl);
+      }
+    }
+
+    @media (max-width: 375px) {
+      .hero-headline-main {
+        font-size: 2.25rem;
+      }
+
+      .result-amount {
+        font-size: 1.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ═══════════════════════════════════════════════════════════════
+       NAVBAR
+  ═══════════════════════════════════════════════════════════════ -->
+  <nav class="navbar" id="navbar">
+    <div class="container navbar-inner">
+      <a href="#" class="logo">
+        <span class="logo-keske">Keşke</span>
+        <span class="logo-alsaydim">Alsaydım</span>
+      </a>
+
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" aria-label="Tema değiştir">
+          <i data-lucide="sun" class="icon sun" style="width: 20px; height: 20px;"></i>
+          <i data-lucide="moon" class="icon moon" style="width: 20px; height: 20px;"></i>
+        </button>
+        <a href="#hero" class="btn btn-primary nav-cta">
+          Hesapla
+          <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
+        </a>
+        <button class="mobile-menu-btn" aria-label="Menü">
+          <i data-lucide="menu" style="width: 24px; height: 24px;"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ═══════════════════════════════════════════════════════════════
+         HERO SECTION
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="hero" id="hero">
+      <div class="hero-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+      </div>
+
+      <div class="hero-content animate-on-scroll">
+        <h1 class="hero-headline">
+          <span class="hero-headline-top">Ya o hisseyi</span>
+          <span class="hero-headline-main">gerçekten alsaydın?</span>
+        </h1>
+        <p class="hero-subtitle">
+          Geçmişe dön, bir tarih seç, ne kadar kazanacağını gör.
+        </p>
+      </div>
+
+      <div class="demo-widget animate-on-scroll" style="transition-delay: 0.2s;">
+        <div class="demo-card">
+          <div class="demo-inputs">
+            <div class="input-group">
+              <i data-lucide="search" class="input-icon" style="width: 18px; height: 18px;"></i>
+              <input type="text" placeholder="AAPL, TSLA, THYAO..." id="stockInput">
+            </div>
+            <div class="input-group">
+              <i data-lucide="calendar" class="input-icon" style="width: 18px; height: 18px;"></i>
+              <input type="text" placeholder="Bir tarih seç" id="dateInput">
+            </div>
+            <div class="input-group">
+              <i data-lucide="banknote" class="input-icon" style="width: 18px; height: 18px;"></i>
+              <input type="text" placeholder="₺10.000" id="amountInput">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-lg demo-cta">
+            Hesapla
+            <i data-lucide="arrow-right" style="width: 20px; height: 20px;"></i>
+          </button>
+
+          <div class="demo-result" id="demoResult">
+            <div class="demo-result-header">
+              <div class="stock-avatar" id="stockAvatar">NV</div>
+              <div class="stock-info">
+                <h4 id="stockName">NVIDIA (NVDA)</h4>
+                <p id="stockContext">01 Ocak 2023'te ₺10.000 yatırsaydın</p>
+              </div>
+            </div>
+            <div class="demo-result-value">
+              <span class="result-amount gain num" id="resultAmount">+₺847.320</span>
+              <span class="result-badge gain" id="resultBadge">+847%</span>
+            </div>
+            <div class="sparkline-container">
+              <svg class="sparkline" id="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scroll-indicator">
+        <span>Keşfet</span>
+        <i data-lucide="chevron-down" style="width: 24px; height: 24px;"></i>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         SOCIAL PROOF BAR
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="social-proof">
+      <div class="container">
+        <div class="social-proof-inner">
+          <div class="proof-stat">
+            <span class="proof-stat-value num" data-count="2400000000" data-prefix="₺" data-suffix="+">₺0</span>
+            <span class="proof-stat-label">Hesaplandı</span>
+          </div>
+          <div class="proof-divider"></div>
+          <div class="proof-stat">
+            <span class="proof-stat-value num" data-count="340000" data-suffix="+">0</span>
+            <span class="proof-stat-label">Kullanıcı</span>
+          </div>
+          <div class="proof-divider"></div>
+          <div class="proof-stat">
+            <span class="proof-stat-value num" data-count="50000" data-suffix="+">0</span>
+            <span class="proof-stat-label">Hisse</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         HOW IT WORKS
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="how-it-works" id="how-it-works">
+      <div class="container">
+        <div class="section-header animate-on-scroll">
+          <h2 class="section-title">Nasıl Çalışır?</h2>
+          <p class="section-subtitle">Sadece üç adımda geçmişin kapılarını aralayın.</p>
+        </div>
+
+        <div class="steps-container">
+          <div class="step-card animate-on-scroll" style="transition-delay: 0.1s;">
+            <div class="step-number">1</div>
+            <div class="step-icon">
+              <i data-lucide="search" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h3 class="step-title">Hisseyi Seç</h3>
+            <p class="step-desc">Dünya borsalarından binlerce hisse arasından istediğini seç.</p>
+            <div class="step-arrow">
+              <i data-lucide="arrow-right" style="width: 24px; height: 24px;"></i>
+            </div>
+          </div>
+
+          <div class="step-card animate-on-scroll" style="transition-delay: 0.2s;">
+            <div class="step-number">2</div>
+            <div class="step-icon">
+              <i data-lucide="calendar" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h3 class="step-title">Tarihi Belirle</h3>
+            <p class="step-desc">Ne zaman alsaydın? Yıllar öncesine kadar gidebilirsin.</p>
+            <div class="step-arrow">
+              <i data-lucide="arrow-right" style="width: 24px; height: 24px;"></i>
+            </div>
+          </div>
+
+          <div class="step-card animate-on-scroll" style="transition-delay: 0.3s;">
+            <div class="step-number">3</div>
+            <div class="step-icon">
+              <i data-lucide="trending-up" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h3 class="step-title">Sonucu Gör</h3>
+            <p class="step-desc">Kazanç, kayıp ve alternatif senaryolar anında önünde.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         COMPARISON SECTION
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="comparison-section" id="comparison">
+      <div class="container">
+        <div class="section-header animate-on-scroll">
+          <h2 class="section-title">Karşılaştır. Pişman Ol. Güzel.</h2>
+          <p class="section-subtitle">Birden fazla hisseyi yan yana koy.</p>
+        </div>
+
+        <div class="comparison-card animate-on-scroll" style="transition-delay: 0.2s;">
+          <div class="comparison-header">
+            <span class="comparison-title">Performans Karşılaştırması</span>
+            <div class="time-tabs">
+              <button class="time-tab">1Y</button>
+              <button class="time-tab">3Y</button>
+              <button class="time-tab active">5Y</button>
+              <button class="time-tab">Tümü</button>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <svg class="chart-svg" id="comparisonChart" viewBox="0 0 900 350" preserveAspectRatio="xMidYMid meet">
+              <!-- Grid lines -->
+              <g class="chart-grid">
+                <line x1="60" y1="50" x2="860" y2="50" />
+                <line x1="60" y1="125" x2="860" y2="125" />
+                <line x1="60" y1="200" x2="860" y2="200" />
+                <line x1="60" y1="275" x2="860" y2="275" />
+              </g>
+
+              <!-- Y-axis labels -->
+              <g class="chart-labels">
+                <text x="50" y="55" text-anchor="end">+400%</text>
+                <text x="50" y="130" text-anchor="end">+300%</text>
+                <text x="50" y="205" text-anchor="end">+200%</text>
+                <text x="50" y="280" text-anchor="end">+100%</text>
+                <text x="50" y="330" text-anchor="end">0%</text>
+              </g>
+
+              <!-- X-axis labels -->
+              <g class="chart-labels">
+                <text x="100" y="345">2020</text>
+                <text x="300" y="345">2021</text>
+                <text x="500" y="345">2022</text>
+                <text x="700" y="345">2023</text>
+                <text x="840" y="345">2024</text>
+              </g>
+
+              <!-- Area fills -->
+              <path class="chart-area chart-area-nvda" id="areaNvda" />
+              <path class="chart-area chart-area-aapl" id="areaAapl" />
+              <path class="chart-area chart-area-tsla" id="areaTsla" />
+
+              <!-- Lines -->
+              <path class="chart-line chart-line-nvda" id="lineNvda" />
+              <path class="chart-line chart-line-aapl" id="lineAapl" />
+              <path class="chart-line chart-line-tsla" id="lineTsla" />
+            </svg>
+          </div>
+
+          <div class="stock-pills">
+            <div class="stock-pill">
+              <span class="stock-pill-dot nvda"></span>
+              NVDA
+              <span class="stock-pill-change gain">+847%</span>
+            </div>
+            <div class="stock-pill">
+              <span class="stock-pill-dot aapl"></span>
+              AAPL
+              <span class="stock-pill-change gain">+184%</span>
+            </div>
+            <div class="stock-pill">
+              <span class="stock-pill-dot tsla"></span>
+              TSLA
+              <span class="stock-pill-change loss">-12%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         STORIES SECTION
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="stories-section" id="stories">
+      <div class="container">
+        <div class="section-header animate-on-scroll">
+          <h2 class="section-title">Her kayıpta bir hikaye var.</h2>
+          <p class="section-subtitle">Ya da büyük bir kazanç.</p>
+        </div>
+
+        <div class="stories-container">
+          <article class="story-card gain animate-on-scroll" style="transition-delay: 0.1s;">
+            <div class="story-amount gain num" data-count="1240000" data-prefix="+₺">+₺0</div>
+            <p class="story-context">2019'da Tesla'ya ₺50.000 yatırsaydım</p>
+            <blockquote class="story-quote">
+              "Arkadaşım söylemişti, ben dinlemedim..."
+            </blockquote>
+            <div class="story-footer">
+              <div class="story-avatar">MK</div>
+              <span class="story-ticker gain">TSLA +2480%</span>
+            </div>
+          </article>
+
+          <article class="story-card loss animate-on-scroll" style="transition-delay: 0.2s;">
+            <div class="story-amount loss num" data-count="23400" data-prefix="-₺">-₺0</div>
+            <p class="story-context">2021'de Peloton'a yatırsaydım</p>
+            <blockquote class="story-quote">
+              "Bazen kaçırmak da güzel olabilir."
+            </blockquote>
+            <div class="story-footer">
+              <div class="story-avatar">AY</div>
+              <span class="story-ticker loss">PTON -78%</span>
+            </div>
+          </article>
+
+          <article class="story-card gain animate-on-scroll" style="transition-delay: 0.3s;">
+            <div class="story-amount gain num" data-count="380000" data-prefix="+₺">+₺0</div>
+            <p class="story-context">2020 başında NVIDIA'ya ₺40.000 yatırsaydım</p>
+            <blockquote class="story-quote">
+              "Hesapladım, şimdi geri gelmez ama..."
+            </blockquote>
+            <div class="story-footer">
+              <div class="story-avatar">ZD</div>
+              <span class="story-ticker gain">NVDA +950%</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         TICKER MARQUEE
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="ticker-marquee">
+      <div class="ticker-track">
+        <div class="ticker-item"><span class="symbol">AAPL</span> <span class="change gain">+2.4%</span></div>
+        <div class="ticker-item"><span class="symbol">TSLA</span> <span class="change loss">-1.2%</span></div>
+        <div class="ticker-item"><span class="symbol">NVDA</span> <span class="change gain">+5.8%</span></div>
+        <div class="ticker-item"><span class="symbol">BIST100</span> <span class="change gain">+0.3%</span></div>
+        <div class="ticker-item"><span class="symbol">BTC</span> <span class="change gain">+3.1%</span></div>
+        <div class="ticker-item"><span class="symbol">THYAO</span> <span class="change gain">+1.7%</span></div>
+        <div class="ticker-item"><span class="symbol">GOOG</span> <span class="change gain">+0.9%</span></div>
+        <div class="ticker-item"><span class="symbol">AMZN</span> <span class="change loss">-0.4%</span></div>
+        <div class="ticker-item"><span class="symbol">MSFT</span> <span class="change gain">+1.8%</span></div>
+        <div class="ticker-item"><span class="symbol">META</span> <span class="change gain">+2.1%</span></div>
+        <!-- Duplicate for seamless loop -->
+        <div class="ticker-item"><span class="symbol">AAPL</span> <span class="change gain">+2.4%</span></div>
+        <div class="ticker-item"><span class="symbol">TSLA</span> <span class="change loss">-1.2%</span></div>
+        <div class="ticker-item"><span class="symbol">NVDA</span> <span class="change gain">+5.8%</span></div>
+        <div class="ticker-item"><span class="symbol">BIST100</span> <span class="change gain">+0.3%</span></div>
+        <div class="ticker-item"><span class="symbol">BTC</span> <span class="change gain">+3.1%</span></div>
+        <div class="ticker-item"><span class="symbol">THYAO</span> <span class="change gain">+1.7%</span></div>
+        <div class="ticker-item"><span class="symbol">GOOG</span> <span class="change gain">+0.9%</span></div>
+        <div class="ticker-item"><span class="symbol">AMZN</span> <span class="change loss">-0.4%</span></div>
+        <div class="ticker-item"><span class="symbol">MSFT</span> <span class="change gain">+1.8%</span></div>
+        <div class="ticker-item"><span class="symbol">META</span> <span class="change gain">+2.1%</span></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         CTA SECTION
+    ═══════════════════════════════════════════════════════════════ -->
+    <section class="cta-section" id="cta">
+      <div class="container">
+        <div class="cta-card animate-on-scroll">
+          <div class="cta-content">
+            <p class="cta-pretitle">Geçmişi değiştiremezsin.</p>
+            <h2 class="cta-title">Ama hesaplayabilirsin.</h2>
+            <div class="cta-actions">
+              <a href="#hero" class="btn btn-primary btn-xl">
+                Hemen Hesapla
+                <i data-lucide="sparkles" style="width: 20px; height: 20px;"></i>
+              </a>
+              <a href="#how-it-works" class="cta-link">Nasıl çalışır? ↓</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <a href="#" class="footer-logo">
+        <span class="logo-keske">Keşke</span>
+        <span class="logo-alsaydim">Alsaydım</span>
+      </a>
+      <nav class="footer-links">
+        <a href="#" class="footer-link">Hakkında</a>
+        <a href="#" class="footer-link">Gizlilik</a>
+        <a href="#" class="footer-link">İletişim</a>
+      </nav>
+      <p class="footer-copy">© 2025 Keşke Alsaydım</p>
+    </div>
+  </footer>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // Initialize Lucide Icons
+    // ═══════════════════════════════════════════════════════════════
+    lucide.createIcons();
+
+    // ═══════════════════════════════════════════════════════════════
+    // Theme Toggle
+    // ═══════════════════════════════════════════════════════════════
+    const html = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+
+    // Check for saved theme or system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      html.setAttribute('data-theme', savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      html.setAttribute('data-theme', 'light');
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // Navbar Scroll Effect
+    // ═══════════════════════════════════════════════════════════════
+    const navbar = document.getElementById('navbar');
+
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    // ═══════════════════════════════════════════════════════════════
+    // Intersection Observer for Animations
+    // ═══════════════════════════════════════════════════════════════
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const animationObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+
+          // Trigger count-up for numeric elements
+          const countElements = entry.target.querySelectorAll('[data-count]');
+          countElements.forEach(el => animateCountUp(el));
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.animate-on-scroll').forEach(el => {
+      animationObserver.observe(el);
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // Count Up Animation
+    // ═══════════════════════════════════════════════════════════════
+    function animateCountUp(el) {
+      if (el.dataset.animated) return;
+      el.dataset.animated = 'true';
+
+      const target = parseInt(el.dataset.count);
+      const prefix = el.dataset.prefix || '';
+      const suffix = el.dataset.suffix || '';
+      const duration = 2000;
+      const startTime = performance.now();
+
+      const formatNumber = (num) => {
+        if (num >= 1000000000) {
+          return (num / 1000000000).toFixed(1) + ' Milyar';
+        } else if (num >= 1000000) {
+          return (num / 1000000).toFixed(0) + ' Milyon';
+        } else if (num >= 1000) {
+          return num.toLocaleString('tr-TR');
+        }
+        return num.toString();
+      };
+
+      const animate = (currentTime) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (ease-out-expo)
+        const easeOutExpo = 1 - Math.pow(2, -10 * progress);
+        const current = Math.floor(easeOutExpo * target);
+
+        el.textContent = prefix + formatNumber(current) + suffix;
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          el.textContent = prefix + formatNumber(target) + suffix;
+        }
+      };
+
+      requestAnimationFrame(animate);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Hero Demo Auto-Cycle
+    // ═══════════════════════════════════════════════════════════════
+    const demoStocks = [
+      {
+        avatar: 'NV',
+        name: 'NVIDIA (NVDA)',
+        context: "01 Ocak 2023'te ₺10.000 yatırsaydın",
+        amount: '+₺847.320',
+        badge: '+847%',
+        isGain: true,
+        sparkline: [20, 25, 22, 35, 45, 42, 55, 52, 48, 60, 58, 65, 70, 68, 75, 80, 78, 85, 90, 95]
+      },
+      {
+        avatar: 'TS',
+        name: 'Tesla (TSLA)',
+        context: "01 Ocak 2020'de ₺10.000 yatırsaydın",
+        amount: '+₺248.000',
+        badge: '+2480%',
+        isGain: true,
+        sparkline: [10, 15, 18, 25, 30, 45, 60, 55, 70, 85, 80, 95, 90, 100, 110, 105, 115, 120, 130, 140]
+      },
+      {
+        avatar: 'PL',
+        name: 'Peloton (PTON)',
+        context: "01 Ocak 2021'de ₺10.000 yatırsaydın",
+        amount: '-₺7.800',
+        badge: '-78%',
+        isGain: false,
+        sparkline: [90, 95, 100, 85, 70, 60, 55, 45, 40, 35, 30, 28, 25, 22, 20, 18, 15, 12, 10, 8]
+      }
+    ];
+
+    let currentDemoIndex = 0;
+    const stockAvatar = document.getElementById('stockAvatar');
+    const stockName = document.getElementById('stockName');
+    const stockContext = document.getElementById('stockContext');
+    const resultAmount = document.getElementById('resultAmount');
+    const resultBadge = document.getElementById('resultBadge');
+    const demoResult = document.getElementById('demoResult');
+
+    function updateDemoStock() {
+      const stock = demoStocks[currentDemoIndex];
+
+      demoResult.style.opacity = '0';
+      demoResult.style.transform = 'translateY(10px)';
+
+      setTimeout(() => {
+        stockAvatar.textContent = stock.avatar;
+        stockName.textContent = stock.name;
+        stockContext.textContent = stock.context;
+        resultAmount.textContent = stock.amount;
+        resultAmount.className = 'result-amount num ' + (stock.isGain ? 'gain' : 'loss');
+        resultBadge.textContent = stock.badge;
+        resultBadge.className = 'result-badge ' + (stock.isGain ? 'gain' : 'loss');
+
+        drawSparkline(stock.sparkline, stock.isGain);
+
+        demoResult.style.opacity = '1';
+        demoResult.style.transform = 'translateY(0)';
+      }, 300);
+
+      currentDemoIndex = (currentDemoIndex + 1) % demoStocks.length;
+    }
+
+    // Add transition to demo result
+    demoResult.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+
+    // Start auto-cycle
+    setInterval(updateDemoStock, 4000);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Sparkline Drawing
+    // ═══════════════════════════════════════════════════════════════
+    function drawSparkline(data, isGain) {
+      const svg = document.getElementById('sparkline');
+      const width = 300;
+      const height = 60;
+      const padding = 5;
+
+      const maxVal = Math.max(...data);
+      const minVal = Math.min(...data);
+      const range = maxVal - minVal || 1;
+
+      const points = data.map((val, i) => {
+        const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+        const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
+        return `${x},${y}`;
+      });
+
+      const color = isGain ? 'var(--primary)' : 'var(--danger)';
+      const fillColor = isGain ? 'rgba(0, 229, 160, 0.1)' : 'rgba(255, 69, 96, 0.1)';
+
+      svg.innerHTML = `
+        <defs>
+          <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path
+          d="M ${points.join(' L ')} L ${width - padding},${height - padding} L ${padding},${height - padding} Z"
+          fill="url(#sparklineGradient)"
+        />
+        <path
+          d="M ${points.join(' L ')}"
+          fill="none"
+          stroke="${color}"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      `;
+    }
+
+    // Initial sparkline
+    drawSparkline(demoStocks[0].sparkline, true);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Comparison Chart Drawing
+    // ═══════════════════════════════════════════════════════════════
+    function drawComparisonChart() {
+      // Data points (y values from 0-300 representing chart area)
+      const nvdaData = [280, 275, 260, 240, 200, 180, 150, 120, 100, 80, 60, 50];
+      const aaplData = [280, 270, 265, 250, 230, 220, 200, 190, 170, 160, 150, 145];
+      const tslaData = [220, 180, 160, 200, 240, 280, 300, 280, 250, 290, 300, 295];
+
+      const startX = 80;
+      const endX = 850;
+      const startY = 310;
+
+      const createPath = (data) => {
+        const stepX = (endX - startX) / (data.length - 1);
+        let path = `M ${startX} ${startY - data[0] * 0.8}`;
+
+        for (let i = 1; i < data.length; i++) {
+          const x = startX + i * stepX;
+          const y = startY - data[i] * 0.8;
+          const prevX = startX + (i - 1) * stepX;
+          const prevY = startY - data[i - 1] * 0.8;
+
+          // Bezier curve control points
+          const cpX = (prevX + x) / 2;
+          path += ` C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y}`;
+        }
+
+        return path;
+      };
+
+      const createAreaPath = (data) => {
+        const linePath = createPath(data);
+        const stepX = (endX - startX) / (data.length - 1);
+        const lastX = startX + (data.length - 1) * stepX;
+        return `${linePath} L ${lastX} ${startY} L ${startX} ${startY} Z`;
+      };
+
+      // Draw lines with animation
+      const lineNvda = document.getElementById('lineNvda');
+      const lineAapl = document.getElementById('lineAapl');
+      const lineTsla = document.getElementById('lineTsla');
+      const areaNvda = document.getElementById('areaNvda');
+      const areaAapl = document.getElementById('areaAapl');
+      const areaTsla = document.getElementById('areaTsla');
+
+      const nvdaPath = createPath(nvdaData);
+      const aaplPath = createPath(aaplData);
+      const tslaPath = createPath(tslaData);
+
+      lineNvda.setAttribute('d', nvdaPath);
+      lineAapl.setAttribute('d', aaplPath);
+      lineTsla.setAttribute('d', tslaPath);
+
+      areaNvda.setAttribute('d', createAreaPath(nvdaData));
+      areaAapl.setAttribute('d', createAreaPath(aaplData));
+      areaTsla.setAttribute('d', createAreaPath(tslaData));
+
+      // Animate lines
+      [lineNvda, lineAapl, lineTsla].forEach((line, index) => {
+        const length = line.getTotalLength();
+        line.style.strokeDasharray = length;
+        line.style.strokeDashoffset = length;
+        line.style.animation = `dash 1.5s ease-out ${index * 0.3}s forwards`;
+      });
+    }
+
+    // Observe comparison chart section
+    const chartObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          drawComparisonChart();
+          chartObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    chartObserver.observe(document.getElementById('comparisonChart'));
+
+    // ═══════════════════════════════════════════════════════════════
+    // Time Tabs Interaction
+    // ═══════════════════════════════════════════════════════════════
+    document.querySelectorAll('.time-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // Observe story cards for count-up
+    // ═══════════════════════════════════════════════════════════════
+    document.querySelectorAll('.story-card').forEach(card => {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const amountEl = entry.target.querySelector('.story-amount');
+            if (amountEl && !amountEl.dataset.animated) {
+              animateCountUp(amountEl);
+            }
+          }
+        });
+      }, { threshold: 0.5 });
+
+      observer.observe(card);
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // Social proof count-up trigger
+    // ═══════════════════════════════════════════════════════════════
+    const proofObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.querySelectorAll('[data-count]').forEach(el => {
+            animateCountUp(el);
+          });
+          proofObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    proofObserver.observe(document.querySelector('.social-proof'));
+
+    // ═══════════════════════════════════════════════════════════════
+    // Smooth scroll for anchor links
+    // ═══════════════════════════════════════════════════════════════
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

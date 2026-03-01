@@ -19,22 +19,26 @@
        CSS CUSTOM PROPERTIES
     ═══════════════════════════════════════════════════════════════ */
     :root {
-      /* Dark Theme (Default) */
-      --bg: #080C14;
-      --surface: #0F1623;
-      --surface-2: #151D2E;
+      --bg: #050508;
+      --bg-gradient: linear-gradient(180deg, #050508 0%, #0a0d14 50%, #050508 100%);
+      --surface: #0c0f16;
+      --surface-2: #12161f;
+      --surface-glass: rgba(12, 15, 22, 0.7);
       --border: rgba(255,255,255,0.06);
+      --border-glow: rgba(0,229,160,0.3);
       --primary: #00E5A0;
-      --primary-glow: rgba(0,229,160,0.4);
+      --primary-dim: #00B880;
+      --primary-glow: rgba(0,229,160,0.5);
+      --primary-glow-intense: rgba(0,229,160,0.8);
       --danger: #FF4560;
-      --danger-glow: rgba(255,69,96,0.4);
+      --danger-glow: rgba(255,69,96,0.5);
       --accent: #3B82F6;
-      --accent-glow: rgba(59,130,246,0.4);
+      --accent-2: #8B5CF6;
+      --accent-glow: rgba(59,130,246,0.5);
       --text: #F0F4FF;
       --text-muted: #6B7A99;
-      --gradient-hero: linear-gradient(135deg, #080C14 0%, #0A1628 50%, #080C14 100%);
+      --text-dim: #4A5568;
 
-      /* Spacing */
       --space-xs: 0.25rem;
       --space-sm: 0.5rem;
       --space-md: 1rem;
@@ -44,36 +48,39 @@
       --space-3xl: 4rem;
       --space-4xl: 6rem;
 
-      /* Border Radius */
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
       --radius-xl: 24px;
+      --radius-2xl: 32px;
       --radius-full: 9999px;
 
-      /* Transitions */
       --transition-fast: 0.15s ease;
-      --transition-base: 0.2s ease;
-      --transition-slow: 0.3s ease;
-
-      /* Typography */
-      --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-bounce: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     [data-theme="light"] {
-      --bg: #F4F7FF;
+      --bg: #F8FAFF;
+      --bg-gradient: linear-gradient(180deg, #F8FAFF 0%, #EEF2FF 50%, #F8FAFF 100%);
       --surface: #FFFFFF;
-      --surface-2: #EEF2FF;
-      --border: rgba(0,0,0,0.07);
+      --surface-2: #F0F4FF;
+      --surface-glass: rgba(255, 255, 255, 0.8);
+      --border: rgba(0,0,0,0.08);
+      --border-glow: rgba(0,184,122,0.3);
       --primary: #00B87A;
-      --primary-glow: rgba(0,184,122,0.3);
+      --primary-dim: #00A06A;
+      --primary-glow: rgba(0,184,122,0.4);
+      --primary-glow-intense: rgba(0,184,122,0.6);
       --danger: #E03050;
-      --danger-glow: rgba(224,48,80,0.3);
+      --danger-glow: rgba(224,48,80,0.4);
       --accent: #2563EB;
-      --accent-glow: rgba(37,99,235,0.3);
+      --accent-2: #7C3AED;
+      --accent-glow: rgba(37,99,235,0.4);
       --text: #0A0F1E;
-      --text-muted: #6B7A99;
-      --gradient-hero: linear-gradient(135deg, #F4F7FF 0%, #E8EDFF 50%, #F4F7FF 100%);
+      --text-muted: #5A6A85;
+      --text-dim: #8A9AB0;
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -100,29 +107,102 @@
       transition: background var(--transition-slow), color var(--transition-slow);
     }
 
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+    input { font-family: inherit; border: none; outline: none; background: none; }
 
-    button {
-      font-family: inherit;
-      cursor: pointer;
-      border: none;
-      background: none;
-    }
-
-    input {
-      font-family: inherit;
-      border: none;
-      outline: none;
-      background: none;
-    }
-
-    /* Tabular numbers for all numeric content */
     .num {
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum";
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       KEYFRAME ANIMATIONS
+    ═══════════════════════════════════════════════════════════════ */
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(50px, -30px) rotate(5deg); }
+      50% { transform: translate(-30px, 40px) rotate(-5deg); }
+      75% { transform: translate(40px, 20px) rotate(3deg); }
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+
+    @keyframes glow-pulse {
+      0%, 100% {
+        box-shadow: 0 0 20px var(--primary-glow), 0 0 40px var(--primary-glow), inset 0 0 20px rgba(0,229,160,0.1);
+      }
+      50% {
+        box-shadow: 0 0 40px var(--primary-glow-intense), 0 0 80px var(--primary-glow), inset 0 0 30px rgba(0,229,160,0.2);
+      }
+    }
+
+    @keyframes text-shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+
+    @keyframes gradient-flow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(60px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slide-in-right {
+      from { opacity: 0; transform: translateX(100px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes scale-in {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes bounce-gentle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes rotate-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    @keyframes dash {
+      to { stroke-dashoffset: 0; }
+    }
+
+    @keyframes number-roll {
+      0% { transform: translateY(100%); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes sparkle {
+      0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1) rotate(180deg); }
+    }
+
+    @keyframes typing {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -136,97 +216,36 @@
     }
 
     .glass {
-      background: rgba(15, 22, 35, 0.6);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: var(--surface-glass);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border: 1px solid var(--border);
     }
 
-    [data-theme="light"] .glass {
-      background: rgba(255, 255, 255, 0.7);
+    .text-gradient {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, var(--accent-2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
-    .text-primary { color: var(--primary); }
-    .text-danger { color: var(--danger); }
-    .text-accent { color: var(--accent); }
-    .text-muted { color: var(--text-muted); }
+    .text-shimmer {
+      background: linear-gradient(90deg, var(--text) 0%, var(--primary) 25%, var(--text) 50%, var(--primary) 75%, var(--text) 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: text-shimmer 4s linear infinite;
+    }
 
     .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      border: 0;
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
     }
 
-    /* Focus visible */
     :focus-visible {
       outline: 2px solid var(--primary);
       outline-offset: 2px;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════
-       ANIMATIONS
-    ═══════════════════════════════════════════════════════════════ */
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(30px, -30px) scale(1.05); }
-      66% { transform: translate(-20px, 20px) scale(0.95); }
-    }
-
-    @keyframes fadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
-      50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px var(--primary-glow); }
-    }
-
-    @keyframes gradient-rotate {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
-    @keyframes marquee {
-      0% { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
-    }
-
-    @keyframes dash {
-      to { stroke-dashoffset: 0; }
-    }
-
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-
-    .animate-on-scroll {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-
-    .animate-on-scroll.visible {
-      opacity: 1;
-      transform: translateY(0);
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -243,14 +262,10 @@
     }
 
     .navbar.scrolled {
-      background: rgba(15, 22, 35, 0.8);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: var(--surface-glass);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border-bottom: 1px solid var(--border);
-    }
-
-    [data-theme="light"] .navbar.scrolled {
-      background: rgba(255, 255, 255, 0.8);
     }
 
     .navbar-inner {
@@ -265,8 +280,10 @@
       display: flex;
       align-items: center;
       gap: var(--space-xs);
+      transition: transform var(--transition-base);
     }
 
+    .logo:hover { transform: scale(1.05); }
     .logo-keske { color: var(--text); }
     .logo-alsaydim { color: var(--primary); }
 
@@ -292,6 +309,7 @@
     .theme-toggle:hover {
       color: var(--text);
       background: var(--surface);
+      transform: rotate(15deg);
     }
 
     .theme-toggle .icon {
@@ -301,7 +319,6 @@
 
     .theme-toggle .sun { opacity: 0; transform: rotate(-90deg) scale(0); }
     .theme-toggle .moon { opacity: 1; transform: rotate(0) scale(1); }
-
     [data-theme="light"] .theme-toggle .sun { opacity: 1; transform: rotate(0) scale(1); }
     [data-theme="light"] .theme-toggle .moon { opacity: 0; transform: rotate(90deg) scale(0); }
 
@@ -316,48 +333,49 @@
       font-size: 0.9375rem;
       transition: all var(--transition-base);
       min-height: 44px;
+      position: relative;
+      overflow: hidden;
     }
 
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+
+    .btn:hover::before { transform: translateX(100%); }
+
     .btn-primary {
-      background: var(--primary);
-      color: #080C14;
-      box-shadow: 0 4px 15px var(--primary-glow);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dim) 100%);
+      color: #050508;
+      box-shadow: 0 4px 20px var(--primary-glow), 0 0 0 1px var(--primary);
     }
 
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px var(--primary-glow);
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 30px var(--primary-glow-intense), 0 0 0 1px var(--primary);
     }
 
-    .btn-primary:active {
-      transform: translateY(0);
+    .btn-primary:active { transform: translateY(-1px) scale(1); }
+
+    .btn-ghost {
+      color: var(--text-muted);
+      border: 1px solid var(--border);
     }
 
-    .btn-lg {
-      padding: var(--space-md) var(--space-xl);
-      font-size: 1.0625rem;
-      min-height: 56px;
-    }
-
-    .btn-xl {
-      padding: var(--space-lg) var(--space-2xl);
-      font-size: 1.125rem;
-      min-height: 64px;
-      border-radius: var(--radius-lg);
-    }
-
-    /* Mobile menu */
-    .mobile-menu-btn {
-      display: none;
-      width: 44px;
-      height: 44px;
-      align-items: center;
-      justify-content: center;
+    .btn-ghost:hover {
       color: var(--text);
+      background: var(--surface);
+      border-color: var(--primary);
     }
+
+    .btn-lg { padding: var(--space-md) var(--space-xl); font-size: 1.0625rem; min-height: 56px; }
+    .btn-xl { padding: var(--space-lg) var(--space-2xl); font-size: 1.25rem; min-height: 64px; border-radius: var(--radius-lg); }
 
     @media (max-width: 768px) {
-      .mobile-menu-btn { display: flex; }
       .nav-cta { display: none; }
     }
 
@@ -371,12 +389,12 @@
       justify-content: center;
       align-items: center;
       position: relative;
-      padding: calc(80px + var(--space-2xl)) var(--space-lg) var(--space-2xl);
-      background: var(--gradient-hero);
+      padding: calc(80px + var(--space-xl)) var(--space-lg) var(--space-2xl);
+      background: var(--bg-gradient);
       overflow: hidden;
     }
 
-    /* Animated background orbs */
+    /* Animated background */
     .hero-bg {
       position: absolute;
       inset: 0;
@@ -387,107 +405,227 @@
     .orb {
       position: absolute;
       border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.12;
-      animation: float 20s ease-in-out infinite alternate;
+      filter: blur(100px);
+      animation: float 25s ease-in-out infinite;
     }
 
     .orb-1 {
-      width: 600px;
-      height: 600px;
-      background: var(--primary);
-      top: -200px;
-      left: -200px;
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+      top: -300px;
+      left: -300px;
+      opacity: 0.15;
       animation-delay: 0s;
     }
 
     .orb-2 {
-      width: 500px;
-      height: 500px;
-      background: var(--accent);
-      bottom: -150px;
-      right: -150px;
-      animation-delay: -5s;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+      bottom: -200px;
+      right: -200px;
+      opacity: 0.12;
+      animation-delay: -8s;
     }
 
     .orb-3 {
-      width: 400px;
-      height: 400px;
-      background: var(--danger);
-      top: 50%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent-2) 0%, transparent 70%);
+      top: 40%;
       left: 50%;
       transform: translate(-50%, -50%);
-      animation-delay: -10s;
       opacity: 0.08;
+      animation-delay: -15s;
     }
 
-    /* Noise texture */
-    .hero::before {
-      content: '';
+    /* Grid pattern overlay */
+    .hero-grid {
       position: absolute;
       inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-      opacity: 0.03;
-      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse at center, black 0%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 70%);
     }
 
+    /* Floating particles */
+    .particles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: var(--primary);
+      border-radius: 50%;
+      opacity: 0.6;
+      animation: float 15s ease-in-out infinite;
+    }
+
+    /* Hero content */
     .hero-content {
       position: relative;
       z-index: 2;
       text-align: center;
-      max-width: 900px;
+      max-width: 1000px;
       margin-bottom: var(--space-3xl);
     }
 
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-lg);
+      background: linear-gradient(135deg, rgba(0,229,160,0.15) 0%, rgba(59,130,246,0.15) 100%);
+      border: 1px solid rgba(0,229,160,0.3);
+      border-radius: var(--radius-full);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: var(--space-xl);
+      animation: scale-in 0.6s ease-out 0.2s both;
+    }
+
+    .hero-badge .badge-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--primary);
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .hero-badge .badge-dot::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: pulse-ring 2s ease-out infinite;
+    }
+
     .hero-headline {
-      margin-bottom: var(--space-lg);
+      margin-bottom: var(--space-xl);
     }
 
     .hero-headline-top {
       display: block;
-      font-size: clamp(1.5rem, 4vw, 2rem);
-      font-weight: 300;
+      font-size: clamp(1.25rem, 3vw, 1.75rem);
+      font-weight: 400;
       color: var(--text-muted);
       margin-bottom: var(--space-sm);
+      animation: slide-up 0.8s ease-out 0.3s both;
     }
 
     .hero-headline-main {
       display: block;
-      font-size: clamp(2.8rem, 7vw, 6rem);
+      font-size: clamp(3rem, 8vw, 7rem);
       font-weight: 900;
-      line-height: 1.1;
-      letter-spacing: -0.02em;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      animation: slide-up 0.8s ease-out 0.4s both;
+    }
+
+    .hero-headline-main .highlight {
+      position: relative;
+      color: var(--primary);
+      text-shadow: 0 0 40px var(--primary-glow), 0 0 80px var(--primary-glow);
+    }
+
+    .hero-headline-main .highlight::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 4px;
+      transform: scaleX(0);
+      transform-origin: left;
+      animation: scale-in 0.6s ease-out 1s forwards;
     }
 
     .hero-subtitle {
-      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      font-size: clamp(1.125rem, 2.5vw, 1.5rem);
       color: var(--text-muted);
-      max-width: 500px;
+      max-width: 600px;
       margin: 0 auto;
+      line-height: 1.6;
+      animation: slide-up 0.8s ease-out 0.5s both;
     }
 
-    /* Hero Demo Widget */
+    .hero-subtitle strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       DEMO WIDGET - THE MAIN ATTRACTION
+    ═══════════════════════════════════════════════════════════════ */
     .demo-widget {
       position: relative;
       z-index: 2;
       width: 100%;
-      max-width: 520px;
+      max-width: 580px;
       margin: 0 auto;
+      animation: slide-up 0.8s ease-out 0.7s both;
     }
 
     .demo-card {
-      background: rgba(15, 22, 35, 0.7);
-      backdrop-filter: blur(30px);
-      -webkit-backdrop-filter: blur(30px);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: var(--space-xl);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      position: relative;
+      background: var(--surface-glass);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border-radius: var(--radius-2xl);
+      padding: var(--space-2xl);
+      box-shadow:
+        0 0 0 1px var(--border),
+        0 25px 50px -12px rgba(0, 0, 0, 0.5),
+        0 0 100px var(--primary-glow);
+      animation: glow-pulse 4s ease-in-out infinite;
+    }
+
+    .demo-card::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: calc(var(--radius-2xl) + 2px);
+      background: linear-gradient(135deg, var(--primary), var(--accent), var(--accent-2), var(--primary));
+      background-size: 300% 300%;
+      animation: gradient-flow 6s ease infinite;
+      z-index: -1;
+      opacity: 0.5;
     }
 
     [data-theme="light"] .demo-card {
-      background: rgba(255, 255, 255, 0.8);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow:
+        0 0 0 1px var(--border),
+        0 25px 50px -12px rgba(0, 0, 0, 0.15),
+        0 0 60px var(--primary-glow);
+    }
+
+    .demo-header {
+      text-align: center;
+      margin-bottom: var(--space-xl);
+    }
+
+    .demo-header h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: var(--space-xs);
+    }
+
+    .demo-header p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
     }
 
     .demo-inputs {
@@ -502,69 +640,95 @@
 
     .input-group input {
       width: 100%;
-      padding: var(--space-md) var(--space-lg);
-      padding-left: 48px;
+      padding: var(--space-lg);
+      padding-left: 56px;
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
       color: var(--text);
-      font-size: 1rem;
+      font-size: 1.0625rem;
+      font-weight: 500;
       transition: all var(--transition-base);
     }
 
     .input-group input::placeholder {
-      color: var(--text-muted);
+      color: var(--text-dim);
+      font-weight: 400;
     }
 
     .input-group input:focus {
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-glow);
+      box-shadow: 0 0 0 4px var(--primary-glow), 0 0 20px var(--primary-glow);
     }
 
     .input-group .input-icon {
       position: absolute;
-      left: var(--space-md);
+      left: var(--space-lg);
       top: 50%;
       transform: translateY(-50%);
       color: var(--text-muted);
       pointer-events: none;
+      transition: color var(--transition-base);
+    }
+
+    .input-group:focus-within .input-icon {
+      color: var(--primary);
     }
 
     .demo-cta {
       width: 100%;
-      animation: pulse-glow 3s ease-in-out infinite;
+      font-size: 1.125rem;
+      padding: var(--space-lg) var(--space-xl);
+      border-radius: var(--radius-lg);
     }
 
-    /* Demo Result Preview */
+    /* Demo Result */
     .demo-result {
       margin-top: var(--space-xl);
       padding-top: var(--space-xl);
       border-top: 1px solid var(--border);
+      position: relative;
     }
 
-    .demo-result-header {
+    .demo-result::before {
+      content: 'SONUÇ';
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface-glass);
+      padding: 0 var(--space-md);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .result-stock {
       display: flex;
       align-items: center;
       gap: var(--space-md);
-      margin-bottom: var(--space-md);
+      margin-bottom: var(--space-lg);
     }
 
     .stock-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-md);
-      background: linear-gradient(135deg, var(--primary), var(--accent));
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
-      font-size: 0.875rem;
-      color: #080C14;
+      font-weight: 800;
+      font-size: 1rem;
+      color: #050508;
+      box-shadow: 0 8px 20px var(--primary-glow);
     }
 
     .stock-info h4 {
-      font-weight: 600;
-      font-size: 1rem;
+      font-weight: 700;
+      font-size: 1.125rem;
+      margin-bottom: 2px;
     }
 
     .stock-info p {
@@ -572,42 +736,62 @@
       color: var(--text-muted);
     }
 
-    .demo-result-value {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-md);
+    .result-value {
+      text-align: center;
+      padding: var(--space-lg);
+      background: linear-gradient(135deg, rgba(0,229,160,0.1) 0%, rgba(0,229,160,0.05) 100%);
+      border: 1px solid rgba(0,229,160,0.2);
+      border-radius: var(--radius-xl);
+      margin-bottom: var(--space-md);
+    }
+
+    .result-value.loss {
+      background: linear-gradient(135deg, rgba(255,69,96,0.1) 0%, rgba(255,69,96,0.05) 100%);
+      border-color: rgba(255,69,96,0.2);
     }
 
     .result-amount {
-      font-size: clamp(2rem, 5vw, 2.75rem);
-      font-weight: 800;
+      font-size: clamp(2.5rem, 7vw, 3.5rem);
+      font-weight: 900;
       font-variant-numeric: tabular-nums;
+      line-height: 1;
+      margin-bottom: var(--space-sm);
     }
 
-    .result-amount.gain { color: var(--primary); }
-    .result-amount.loss { color: var(--danger); }
+    .result-amount.gain {
+      color: var(--primary);
+      text-shadow: 0 0 30px var(--primary-glow);
+    }
+
+    .result-amount.loss {
+      color: var(--danger);
+      text-shadow: 0 0 30px var(--danger-glow);
+    }
 
     .result-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
       padding: var(--space-xs) var(--space-md);
       border-radius: var(--radius-full);
       font-weight: 700;
-      font-size: 0.875rem;
+      font-size: 1rem;
     }
 
     .result-badge.gain {
-      background: rgba(0, 229, 160, 0.15);
+      background: rgba(0, 229, 160, 0.2);
       color: var(--primary);
     }
 
     .result-badge.loss {
-      background: rgba(255, 69, 96, 0.15);
+      background: rgba(255, 69, 96, 0.2);
       color: var(--danger);
     }
 
     .sparkline-container {
-      height: 60px;
+      height: 80px;
       margin-top: var(--space-md);
+      position: relative;
     }
 
     .sparkline {
@@ -626,55 +810,70 @@
       align-items: center;
       gap: var(--space-sm);
       color: var(--text-muted);
-      animation: bounce 2s ease-in-out infinite;
+      animation: bounce-gentle 2s ease-in-out infinite;
     }
 
     .scroll-indicator span {
       font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.15em;
+      font-weight: 600;
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       SOCIAL PROOF BAR
+       SOCIAL PROOF
     ═══════════════════════════════════════════════════════════════ */
     .social-proof {
-      padding: var(--space-xl) 0;
+      padding: var(--space-2xl) 0;
       background: var(--surface);
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .social-proof::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
     }
 
     .social-proof-inner {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: var(--space-2xl);
+      gap: var(--space-3xl);
       flex-wrap: wrap;
     }
 
     .proof-stat {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
       text-align: center;
     }
 
     .proof-stat-value {
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-size: clamp(1.5rem, 4vw, 2.25rem);
+      font-weight: 800;
       font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .proof-stat-label {
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       color: var(--text-muted);
+      margin-top: var(--space-xs);
     }
 
     .proof-divider {
       width: 1px;
-      height: 40px;
-      background: var(--border);
+      height: 50px;
+      background: linear-gradient(180deg, transparent, var(--border), transparent);
     }
 
     @media (max-width: 768px) {
@@ -683,10 +882,11 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       HOW IT WORKS SECTION
+       HOW IT WORKS
     ═══════════════════════════════════════════════════════════════ */
     .how-it-works {
       padding: var(--space-4xl) 0;
+      position: relative;
     }
 
     .section-header {
@@ -694,14 +894,31 @@
       margin-bottom: var(--space-3xl);
     }
 
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-xs) var(--space-md);
+      background: rgba(0,229,160,0.1);
+      border: 1px solid rgba(0,229,160,0.2);
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: var(--space-lg);
+    }
+
     .section-title {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 800;
+      font-size: clamp(2.25rem, 5vw, 3.5rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
       margin-bottom: var(--space-md);
     }
 
     .section-subtitle {
-      font-size: 1.125rem;
+      font-size: 1.25rem;
       color: var(--text-muted);
       max-width: 600px;
       margin: 0 auto;
@@ -714,87 +931,83 @@
       position: relative;
     }
 
+    /* Connection line between steps */
+    .steps-container::before {
+      content: '';
+      position: absolute;
+      top: 60px;
+      left: calc(16.66% + 40px);
+      right: calc(16.66% + 40px);
+      height: 2px;
+      background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
+      z-index: 0;
+    }
+
     @media (max-width: 768px) {
       .steps-container {
         grid-template-columns: 1fr;
         gap: var(--space-lg);
       }
+      .steps-container::before { display: none; }
     }
 
     .step-card {
+      position: relative;
+      z-index: 1;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
       padding: var(--space-xl);
       text-align: center;
       transition: all var(--transition-base);
-      position: relative;
     }
 
     .step-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(0, 229, 160, 0.3);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2), 0 0 30px var(--primary-glow);
+      transform: translateY(-8px);
+      border-color: var(--primary);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2), 0 0 40px var(--primary-glow);
     }
 
     .step-icon {
-      width: 72px;
-      height: 72px;
+      width: 80px;
+      height: 80px;
       margin: 0 auto var(--space-lg);
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      border-radius: var(--radius-xl);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #080C14;
+      color: #050508;
+      position: relative;
+      box-shadow: 0 8px 24px var(--primary-glow);
     }
 
     .step-number {
       position: absolute;
-      top: var(--space-md);
-      right: var(--space-md);
-      width: 32px;
-      height: 32px;
+      top: -8px;
+      right: -8px;
+      width: 28px;
+      height: 28px;
       border-radius: var(--radius-full);
-      background: var(--surface-2);
-      border: 1px solid var(--border);
+      background: var(--bg);
+      border: 2px solid var(--primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
-      font-size: 0.875rem;
-      color: var(--text-muted);
+      font-weight: 800;
+      font-size: 0.75rem;
+      color: var(--primary);
     }
 
     .step-title {
-      font-size: 1.25rem;
+      font-size: 1.375rem;
       font-weight: 700;
       margin-bottom: var(--space-sm);
     }
 
     .step-desc {
       color: var(--text-muted);
-      font-size: 0.9375rem;
       line-height: 1.6;
-    }
-
-    /* Connection arrows */
-    .step-arrow {
-      display: none;
-    }
-
-    @media (min-width: 769px) {
-      .step-arrow {
-        display: block;
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--primary);
-        opacity: 0.5;
-      }
-
-      .step-card:nth-child(1) .step-arrow { right: -36px; }
-      .step-card:nth-child(2) .step-arrow { right: -36px; }
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -803,6 +1016,7 @@
     .comparison-section {
       padding: var(--space-4xl) 0;
       background: var(--surface);
+      position: relative;
     }
 
     .comparison-card {
@@ -826,7 +1040,10 @@
 
     .comparison-title {
       font-weight: 700;
-      font-size: 1.125rem;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
     }
 
     .time-tabs {
@@ -838,9 +1055,9 @@
     }
 
     .time-tab {
-      padding: var(--space-sm) var(--space-md);
+      padding: var(--space-sm) var(--space-lg);
       border-radius: var(--radius-full);
-      font-size: 0.8125rem;
+      font-size: 0.875rem;
       font-weight: 600;
       color: var(--text-muted);
       transition: all var(--transition-base);
@@ -850,12 +1067,12 @@
 
     .time-tab.active {
       background: var(--primary);
-      color: #080C14;
+      color: #050508;
     }
 
     .chart-container {
       padding: var(--space-xl);
-      height: 400px;
+      height: 420px;
       position: relative;
     }
 
@@ -876,14 +1093,11 @@
       stroke-linejoin: round;
     }
 
-    .chart-line-nvda { stroke: var(--primary); }
-    .chart-line-aapl { stroke: var(--accent); }
-    .chart-line-tsla { stroke: #F59E0B; }
+    .chart-line-nvda { stroke: var(--primary); filter: drop-shadow(0 0 8px var(--primary-glow)); }
+    .chart-line-aapl { stroke: var(--accent); filter: drop-shadow(0 0 8px var(--accent-glow)); }
+    .chart-line-tsla { stroke: #F59E0B; filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5)); }
 
-    .chart-area {
-      opacity: 0.1;
-    }
-
+    .chart-area { opacity: 0.15; }
     .chart-area-nvda { fill: var(--primary); }
     .chart-area-aapl { fill: var(--accent); }
     .chart-area-tsla { fill: #F59E0B; }
@@ -891,6 +1105,7 @@
     .chart-labels {
       font-size: 11px;
       fill: var(--text-muted);
+      font-weight: 500;
     }
 
     .stock-pills {
@@ -906,22 +1121,29 @@
       display: flex;
       align-items: center;
       gap: var(--space-sm);
-      padding: var(--space-sm) var(--space-md);
+      padding: var(--space-sm) var(--space-lg);
       background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: var(--radius-full);
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       font-weight: 600;
+      transition: all var(--transition-base);
+    }
+
+    .stock-pill:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 20px var(--primary-glow);
     }
 
     .stock-pill-dot {
-      width: 8px;
-      height: 8px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
     }
 
-    .stock-pill-dot.nvda { background: var(--primary); }
-    .stock-pill-dot.aapl { background: var(--accent); }
-    .stock-pill-dot.tsla { background: #F59E0B; }
+    .stock-pill-dot.nvda { background: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+    .stock-pill-dot.aapl { background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+    .stock-pill-dot.tsla { background: #F59E0B; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
 
     .stock-pill-change { margin-left: var(--space-xs); }
     .stock-pill-change.gain { color: var(--primary); }
@@ -940,7 +1162,7 @@
       overflow-x: auto;
       scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch;
-      padding: var(--space-md) 0;
+      padding: var(--space-lg) 0;
       margin: 0 calc(-1 * var(--space-lg));
       padding-left: var(--space-lg);
       padding-right: var(--space-lg);
@@ -949,7 +1171,7 @@
     .stories-container::-webkit-scrollbar { display: none; }
 
     .story-card {
-      flex: 0 0 340px;
+      flex: 0 0 360px;
       scroll-snap-align: center;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -957,6 +1179,12 @@
       padding: var(--space-xl);
       position: relative;
       overflow: hidden;
+      transition: all var(--transition-base);
+    }
+
+    .story-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     }
 
     .story-card::before {
@@ -968,18 +1196,29 @@
       width: 4px;
     }
 
-    .story-card.gain::before { background: var(--primary); }
-    .story-card.loss::before { background: var(--danger); }
-
-    .story-amount {
-      font-size: 2.5rem;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      margin-bottom: var(--space-sm);
+    .story-card.gain::before {
+      background: linear-gradient(180deg, var(--primary), var(--accent));
+    }
+    .story-card.loss::before {
+      background: linear-gradient(180deg, var(--danger), #FF6B6B);
     }
 
-    .story-amount.gain { color: var(--primary); }
-    .story-amount.loss { color: var(--danger); }
+    .story-amount {
+      font-size: 2.75rem;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: var(--space-sm);
+      line-height: 1;
+    }
+
+    .story-amount.gain {
+      color: var(--primary);
+      text-shadow: 0 0 20px var(--primary-glow);
+    }
+    .story-amount.loss {
+      color: var(--danger);
+      text-shadow: 0 0 20px var(--danger-glow);
+    }
 
     .story-context {
       font-size: 0.9375rem;
@@ -988,12 +1227,13 @@
     }
 
     .story-quote {
-      font-size: 1rem;
+      font-size: 1.0625rem;
       font-style: italic;
       line-height: 1.6;
       margin-bottom: var(--space-lg);
       padding-left: var(--space-md);
       border-left: 2px solid var(--border);
+      color: var(--text);
     }
 
     .story-footer {
@@ -1003,33 +1243,35 @@
     }
 
     .story-avatar {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--radius-full);
       background: linear-gradient(135deg, var(--primary), var(--accent));
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 0.75rem;
-      color: #080C14;
+      font-size: 0.8125rem;
+      color: #050508;
     }
 
     .story-ticker {
-      padding: var(--space-xs) var(--space-md);
+      padding: var(--space-sm) var(--space-md);
       border-radius: var(--radius-full);
       font-weight: 700;
-      font-size: 0.8125rem;
+      font-size: 0.875rem;
     }
 
     .story-ticker.gain {
       background: rgba(0, 229, 160, 0.15);
       color: var(--primary);
+      border: 1px solid rgba(0, 229, 160, 0.3);
     }
 
     .story-ticker.loss {
       background: rgba(255, 69, 96, 0.15);
       color: var(--danger);
+      border: 1px solid rgba(255, 69, 96, 0.3);
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -1039,14 +1281,14 @@
       background: var(--surface);
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
-      padding: var(--space-md) 0;
+      padding: var(--space-lg) 0;
       overflow: hidden;
     }
 
     .ticker-track {
       display: flex;
       width: max-content;
-      animation: marquee 30s linear infinite;
+      animation: marquee 40s linear infinite;
     }
 
     .ticker-marquee:hover .ticker-track {
@@ -1057,13 +1299,16 @@
       display: flex;
       align-items: center;
       gap: var(--space-sm);
-      padding: 0 var(--space-xl);
+      padding: 0 var(--space-2xl);
       font-weight: 600;
-      font-size: 0.9375rem;
+      font-size: 1rem;
       white-space: nowrap;
     }
 
-    .ticker-item .symbol { color: var(--text); }
+    .ticker-item .symbol {
+      color: var(--text);
+      font-weight: 700;
+    }
     .ticker-item .change.gain { color: var(--primary); }
     .ticker-item .change.loss { color: var(--danger); }
 
@@ -1080,65 +1325,79 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at center, rgba(0,229,160,0.12) 0%, transparent 70%);
+      background: radial-gradient(ellipse at center, var(--primary-glow) 0%, transparent 60%);
+      opacity: 0.15;
       pointer-events: none;
     }
 
     .cta-card {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
       text-align: center;
-      padding: var(--space-3xl);
+      padding: var(--space-4xl) var(--space-2xl);
       position: relative;
       background: var(--surface);
-      border-radius: var(--radius-xl);
+      border-radius: var(--radius-2xl);
       overflow: hidden;
     }
 
-    /* Animated gradient border */
     .cta-card::before {
       content: '';
       position: absolute;
       inset: 0;
       padding: 2px;
-      border-radius: var(--radius-xl);
-      background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
-      background-size: 200% 100%;
-      animation: gradient-rotate 3s linear infinite;
+      border-radius: var(--radius-2xl);
+      background: linear-gradient(135deg, var(--primary), var(--accent), var(--accent-2), var(--primary));
+      background-size: 300% 300%;
+      animation: gradient-flow 4s ease infinite;
       -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
       mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
       -webkit-mask-composite: xor;
       mask-composite: exclude;
     }
 
-    .cta-content {
-      position: relative;
-      z-index: 1;
+    .cta-content { position: relative; z-index: 1; }
+
+    .cta-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--space-xl);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #050508;
+      box-shadow: 0 8px 32px var(--primary-glow);
     }
 
     .cta-pretitle {
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       color: var(--text-muted);
       margin-bottom: var(--space-sm);
     }
 
     .cta-title {
-      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-size: clamp(2.5rem, 6vw, 4rem);
       font-weight: 900;
-      margin-bottom: var(--space-xl);
+      margin-bottom: var(--space-2xl);
+      letter-spacing: -0.02em;
     }
 
     .cta-actions {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: var(--space-md);
+      gap: var(--space-lg);
     }
 
     .cta-link {
       color: var(--text-muted);
-      font-size: 0.9375rem;
-      transition: color var(--transition-base);
+      font-size: 1rem;
+      transition: all var(--transition-base);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
     }
 
     .cta-link:hover { color: var(--primary); }
@@ -1170,90 +1429,65 @@
       gap: var(--space-lg);
     }
 
-    .footer-logo {
-      font-size: 1.25rem;
-      font-weight: 800;
-    }
+    .footer-logo { font-size: 1.25rem; font-weight: 800; }
 
-    .footer-links {
-      display: flex;
-      gap: var(--space-xl);
-    }
+    .footer-links { display: flex; gap: var(--space-xl); }
 
     .footer-link {
       color: var(--text-muted);
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       transition: color var(--transition-base);
     }
 
-    .footer-link:hover { color: var(--text); }
+    .footer-link:hover { color: var(--primary); }
 
-    .footer-copy {
-      color: var(--text-muted);
-      font-size: 0.8125rem;
-    }
+    .footer-copy { color: var(--text-muted); font-size: 0.875rem; }
 
     @media (max-width: 768px) {
-      .footer-inner {
-        flex-direction: column;
-        text-align: center;
-      }
+      .footer-inner { flex-direction: column; text-align: center; }
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       RESPONSIVE ADJUSTMENTS
+       ANIMATIONS ON SCROLL
     ═══════════════════════════════════════════════════════════════ */
-    @media (max-width: 768px) {
-      .hero {
-        padding-top: calc(70px + var(--space-xl));
-      }
-
-      .demo-widget {
-        max-width: 100%;
-      }
-
-      .demo-card {
-        padding: var(--space-lg);
-        border-radius: var(--radius-lg);
-      }
-
-      .chart-container {
-        height: 300px;
-        padding: var(--space-md);
-      }
-
-      .comparison-header {
-        padding: var(--space-md);
-      }
-
-      .stock-pills {
-        padding: var(--space-md);
-      }
-
-      .story-card {
-        flex: 0 0 300px;
-      }
-
-      .cta-card {
-        padding: var(--space-xl);
-      }
+    .animate-on-scroll {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
     }
 
-    @media (max-width: 375px) {
-      .hero-headline-main {
-        font-size: 2.25rem;
-      }
+    .animate-on-scroll.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
-      .result-amount {
-        font-size: 1.75rem;
-      }
+    .animate-on-scroll.from-left {
+      transform: translateX(-40px);
+    }
+
+    .animate-on-scroll.from-left.visible {
+      transform: translateX(0);
+    }
+
+    .animate-on-scroll.from-right {
+      transform: translateX(40px);
+    }
+
+    .animate-on-scroll.from-right.visible {
+      transform: translateX(0);
+    }
+
+    .animate-on-scroll.scale {
+      transform: scale(0.9);
+    }
+
+    .animate-on-scroll.scale.visible {
+      transform: scale(1);
     }
   </style>
 </head>
 <body>
-  <!-- ═══════════════════════════════════════════════════════════════
-       NAVBAR
-  ═══════════════════════════════════════════════════════════════ -->
+  <!-- NAVBAR -->
   <nav class="navbar" id="navbar">
     <div class="container navbar-inner">
       <a href="#" class="logo">
@@ -1268,71 +1502,89 @@
         </button>
         <a href="#hero" class="btn btn-primary nav-cta">
           Hesapla
-          <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
+          <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i>
         </a>
-        <button class="mobile-menu-btn" aria-label="Menü">
-          <i data-lucide="menu" style="width: 24px; height: 24px;"></i>
-        </button>
       </div>
     </div>
   </nav>
 
   <main>
-    <!-- ═══════════════════════════════════════════════════════════════
-         HERO SECTION
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- HERO SECTION -->
     <section class="hero" id="hero">
       <div class="hero-bg">
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
         <div class="orb orb-3"></div>
+        <div class="hero-grid"></div>
       </div>
 
-      <div class="hero-content animate-on-scroll">
+      <div class="particles" id="particles"></div>
+
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          Yapay Zeka Destekli Analiz
+        </div>
+
         <h1 class="hero-headline">
           <span class="hero-headline-top">Ya o hisseyi</span>
-          <span class="hero-headline-main">gerçekten alsaydın?</span>
+          <span class="hero-headline-main">
+            gerçekten <span class="highlight">alsaydın?</span>
+          </span>
         </h1>
+
         <p class="hero-subtitle">
-          Geçmişe dön, bir tarih seç, ne kadar kazanacağını gör.
+          Geçmişe dön, <strong>istediğin tarihi</strong> seç ve
+          <strong>ne kadar kazanacağını</strong> saniyeler içinde gör.
         </p>
       </div>
 
-      <div class="demo-widget animate-on-scroll" style="transition-delay: 0.2s;">
+      <div class="demo-widget">
         <div class="demo-card">
+          <div class="demo-header">
+            <h3>Hemen Dene</h3>
+            <p>Hisse, tarih ve tutar gir — kaçırdığın fırsatı gör</p>
+          </div>
+
           <div class="demo-inputs">
             <div class="input-group">
-              <i data-lucide="search" class="input-icon" style="width: 18px; height: 18px;"></i>
-              <input type="text" placeholder="AAPL, TSLA, THYAO..." id="stockInput">
+              <i data-lucide="search" class="input-icon" style="width: 20px; height: 20px;"></i>
+              <input type="text" placeholder="Hisse kodu (AAPL, TSLA, THYAO...)" id="stockInput">
             </div>
             <div class="input-group">
-              <i data-lucide="calendar" class="input-icon" style="width: 18px; height: 18px;"></i>
-              <input type="text" placeholder="Bir tarih seç" id="dateInput">
+              <i data-lucide="calendar" class="input-icon" style="width: 20px; height: 20px;"></i>
+              <input type="text" placeholder="Ne zaman alsaydın?" id="dateInput">
             </div>
             <div class="input-group">
-              <i data-lucide="banknote" class="input-icon" style="width: 18px; height: 18px;"></i>
+              <i data-lucide="wallet" class="input-icon" style="width: 20px; height: 20px;"></i>
               <input type="text" placeholder="₺10.000" id="amountInput">
             </div>
           </div>
-          <button class="btn btn-primary btn-lg demo-cta">
+
+          <button class="btn btn-primary demo-cta">
+            <i data-lucide="sparkles" style="width: 22px; height: 22px;"></i>
             Hesapla
-            <i data-lucide="arrow-right" style="width: 20px; height: 20px;"></i>
           </button>
 
           <div class="demo-result" id="demoResult">
-            <div class="demo-result-header">
+            <div class="result-stock">
               <div class="stock-avatar" id="stockAvatar">NV</div>
               <div class="stock-info">
                 <h4 id="stockName">NVIDIA (NVDA)</h4>
                 <p id="stockContext">01 Ocak 2023'te ₺10.000 yatırsaydın</p>
               </div>
             </div>
-            <div class="demo-result-value">
-              <span class="result-amount gain num" id="resultAmount">+₺847.320</span>
-              <span class="result-badge gain" id="resultBadge">+847%</span>
+
+            <div class="result-value" id="resultValueContainer">
+              <div class="result-amount gain num" id="resultAmount">+₺847.320</div>
+              <span class="result-badge gain" id="resultBadge">
+                <i data-lucide="trending-up" style="width: 16px; height: 16px;"></i>
+                +847%
+              </span>
             </div>
+
             <div class="sparkline-container">
-              <svg class="sparkline" id="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+              <svg class="sparkline" id="sparkline" viewBox="0 0 300 80" preserveAspectRatio="none"></svg>
             </div>
           </div>
         </div>
@@ -1344,69 +1596,63 @@
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         SOCIAL PROOF BAR
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- SOCIAL PROOF -->
     <section class="social-proof">
       <div class="container">
         <div class="social-proof-inner">
-          <div class="proof-stat">
-            <span class="proof-stat-value num" data-count="2400000000" data-prefix="₺" data-suffix="+">₺0</span>
-            <span class="proof-stat-label">Hesaplandı</span>
+          <div class="proof-stat animate-on-scroll">
+            <div class="proof-stat-value num" data-count="2400000000" data-prefix="₺" data-suffix="+">₺0</div>
+            <div class="proof-stat-label">Hesaplandı</div>
           </div>
           <div class="proof-divider"></div>
-          <div class="proof-stat">
-            <span class="proof-stat-value num" data-count="340000" data-suffix="+">0</span>
-            <span class="proof-stat-label">Kullanıcı</span>
+          <div class="proof-stat animate-on-scroll" style="transition-delay: 0.1s;">
+            <div class="proof-stat-value num" data-count="340000" data-suffix="+">0</div>
+            <div class="proof-stat-label">Kullanıcı</div>
           </div>
           <div class="proof-divider"></div>
-          <div class="proof-stat">
-            <span class="proof-stat-value num" data-count="50000" data-suffix="+">0</span>
-            <span class="proof-stat-label">Hisse</span>
+          <div class="proof-stat animate-on-scroll" style="transition-delay: 0.2s;">
+            <div class="proof-stat-value num" data-count="50000" data-suffix="+">0</div>
+            <div class="proof-stat-label">Hisse</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         HOW IT WORKS
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- HOW IT WORKS -->
     <section class="how-it-works" id="how-it-works">
       <div class="container">
         <div class="section-header animate-on-scroll">
+          <div class="section-label">
+            <i data-lucide="zap" style="width: 14px; height: 14px;"></i>
+            Süper Kolay
+          </div>
           <h2 class="section-title">Nasıl Çalışır?</h2>
           <p class="section-subtitle">Sadece üç adımda geçmişin kapılarını aralayın.</p>
         </div>
 
         <div class="steps-container">
           <div class="step-card animate-on-scroll" style="transition-delay: 0.1s;">
-            <div class="step-number">1</div>
             <div class="step-icon">
-              <i data-lucide="search" style="width: 32px; height: 32px;"></i>
+              <i data-lucide="search" style="width: 36px; height: 36px;"></i>
+              <span class="step-number">1</span>
             </div>
             <h3 class="step-title">Hisseyi Seç</h3>
             <p class="step-desc">Dünya borsalarından binlerce hisse arasından istediğini seç.</p>
-            <div class="step-arrow">
-              <i data-lucide="arrow-right" style="width: 24px; height: 24px;"></i>
-            </div>
           </div>
 
           <div class="step-card animate-on-scroll" style="transition-delay: 0.2s;">
-            <div class="step-number">2</div>
             <div class="step-icon">
-              <i data-lucide="calendar" style="width: 32px; height: 32px;"></i>
+              <i data-lucide="calendar" style="width: 36px; height: 36px;"></i>
+              <span class="step-number">2</span>
             </div>
             <h3 class="step-title">Tarihi Belirle</h3>
             <p class="step-desc">Ne zaman alsaydın? Yıllar öncesine kadar gidebilirsin.</p>
-            <div class="step-arrow">
-              <i data-lucide="arrow-right" style="width: 24px; height: 24px;"></i>
-            </div>
           </div>
 
           <div class="step-card animate-on-scroll" style="transition-delay: 0.3s;">
-            <div class="step-number">3</div>
             <div class="step-icon">
-              <i data-lucide="trending-up" style="width: 32px; height: 32px;"></i>
+              <i data-lucide="trending-up" style="width: 36px; height: 36px;"></i>
+              <span class="step-number">3</span>
             </div>
             <h3 class="step-title">Sonucu Gör</h3>
             <p class="step-desc">Kazanç, kayıp ve alternatif senaryolar anında önünde.</p>
@@ -1415,19 +1661,24 @@
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         COMPARISON SECTION
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- COMPARISON -->
     <section class="comparison-section" id="comparison">
       <div class="container">
         <div class="section-header animate-on-scroll">
-          <h2 class="section-title">Karşılaştır. Pişman Ol. Güzel.</h2>
-          <p class="section-subtitle">Birden fazla hisseyi yan yana koy.</p>
+          <div class="section-label">
+            <i data-lucide="git-compare" style="width: 14px; height: 14px;"></i>
+            Gelişmiş Özellik
+          </div>
+          <h2 class="section-title">Karşılaştır. Pişman Ol. Öğren.</h2>
+          <p class="section-subtitle">Birden fazla hisseyi yan yana koy ve fırsatları gör.</p>
         </div>
 
-        <div class="comparison-card animate-on-scroll" style="transition-delay: 0.2s;">
+        <div class="comparison-card animate-on-scroll scale" style="transition-delay: 0.2s;">
           <div class="comparison-header">
-            <span class="comparison-title">Performans Karşılaştırması</span>
+            <span class="comparison-title">
+              <i data-lucide="line-chart" style="width: 20px; height: 20px; color: var(--primary);"></i>
+              Performans Karşılaştırması
+            </span>
             <div class="time-tabs">
               <button class="time-tab">1Y</button>
               <button class="time-tab">3Y</button>
@@ -1437,39 +1688,28 @@
           </div>
 
           <div class="chart-container">
-            <svg class="chart-svg" id="comparisonChart" viewBox="0 0 900 350" preserveAspectRatio="xMidYMid meet">
-              <!-- Grid lines -->
+            <svg class="chart-svg" id="comparisonChart" viewBox="0 0 900 380" preserveAspectRatio="xMidYMid meet">
               <g class="chart-grid">
                 <line x1="60" y1="50" x2="860" y2="50" />
                 <line x1="60" y1="125" x2="860" y2="125" />
                 <line x1="60" y1="200" x2="860" y2="200" />
                 <line x1="60" y1="275" x2="860" y2="275" />
               </g>
-
-              <!-- Y-axis labels -->
               <g class="chart-labels">
-                <text x="50" y="55" text-anchor="end">+400%</text>
-                <text x="50" y="130" text-anchor="end">+300%</text>
-                <text x="50" y="205" text-anchor="end">+200%</text>
-                <text x="50" y="280" text-anchor="end">+100%</text>
-                <text x="50" y="330" text-anchor="end">0%</text>
+                <text x="50" y="55" text-anchor="end">+800%</text>
+                <text x="50" y="130" text-anchor="end">+600%</text>
+                <text x="50" y="205" text-anchor="end">+400%</text>
+                <text x="50" y="280" text-anchor="end">+200%</text>
+                <text x="50" y="340" text-anchor="end">0%</text>
+                <text x="100" y="365">2020</text>
+                <text x="300" y="365">2021</text>
+                <text x="500" y="365">2022</text>
+                <text x="700" y="365">2023</text>
+                <text x="840" y="365">2024</text>
               </g>
-
-              <!-- X-axis labels -->
-              <g class="chart-labels">
-                <text x="100" y="345">2020</text>
-                <text x="300" y="345">2021</text>
-                <text x="500" y="345">2022</text>
-                <text x="700" y="345">2023</text>
-                <text x="840" y="345">2024</text>
-              </g>
-
-              <!-- Area fills -->
               <path class="chart-area chart-area-nvda" id="areaNvda" />
               <path class="chart-area chart-area-aapl" id="areaAapl" />
               <path class="chart-area chart-area-tsla" id="areaTsla" />
-
-              <!-- Lines -->
               <path class="chart-line chart-line-nvda" id="lineNvda" />
               <path class="chart-line chart-line-aapl" id="lineAapl" />
               <path class="chart-line chart-line-tsla" id="lineTsla" />
@@ -1497,12 +1737,14 @@
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         STORIES SECTION
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- STORIES -->
     <section class="stories-section" id="stories">
       <div class="container">
         <div class="section-header animate-on-scroll">
+          <div class="section-label">
+            <i data-lucide="users" style="width: 14px; height: 14px;"></i>
+            Gerçek Hikayeler
+          </div>
           <h2 class="section-title">Her kayıpta bir hikaye var.</h2>
           <p class="section-subtitle">Ya da büyük bir kazanç.</p>
         </div>
@@ -1511,9 +1753,7 @@
           <article class="story-card gain animate-on-scroll" style="transition-delay: 0.1s;">
             <div class="story-amount gain num" data-count="1240000" data-prefix="+₺">+₺0</div>
             <p class="story-context">2019'da Tesla'ya ₺50.000 yatırsaydım</p>
-            <blockquote class="story-quote">
-              "Arkadaşım söylemişti, ben dinlemedim..."
-            </blockquote>
+            <blockquote class="story-quote">"Arkadaşım söylemişti, ben dinlemedim..."</blockquote>
             <div class="story-footer">
               <div class="story-avatar">MK</div>
               <span class="story-ticker gain">TSLA +2480%</span>
@@ -1523,9 +1763,7 @@
           <article class="story-card loss animate-on-scroll" style="transition-delay: 0.2s;">
             <div class="story-amount loss num" data-count="23400" data-prefix="-₺">-₺0</div>
             <p class="story-context">2021'de Peloton'a yatırsaydım</p>
-            <blockquote class="story-quote">
-              "Bazen kaçırmak da güzel olabilir."
-            </blockquote>
+            <blockquote class="story-quote">"Bazen kaçırmak da güzel olabilir."</blockquote>
             <div class="story-footer">
               <div class="story-avatar">AY</div>
               <span class="story-ticker loss">PTON -78%</span>
@@ -1535,9 +1773,7 @@
           <article class="story-card gain animate-on-scroll" style="transition-delay: 0.3s;">
             <div class="story-amount gain num" data-count="380000" data-prefix="+₺">+₺0</div>
             <p class="story-context">2020 başında NVIDIA'ya ₺40.000 yatırsaydım</p>
-            <blockquote class="story-quote">
-              "Hesapladım, şimdi geri gelmez ama..."
-            </blockquote>
+            <blockquote class="story-quote">"Hesapladım, şimdi geri gelmez ama..."</blockquote>
             <div class="story-footer">
               <div class="story-avatar">ZD</div>
               <span class="story-ticker gain">NVDA +950%</span>
@@ -1547,9 +1783,7 @@
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         TICKER MARQUEE
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- TICKER -->
     <section class="ticker-marquee">
       <div class="ticker-track">
         <div class="ticker-item"><span class="symbol">AAPL</span> <span class="change gain">+2.4%</span></div>
@@ -1562,7 +1796,6 @@
         <div class="ticker-item"><span class="symbol">AMZN</span> <span class="change loss">-0.4%</span></div>
         <div class="ticker-item"><span class="symbol">MSFT</span> <span class="change gain">+1.8%</span></div>
         <div class="ticker-item"><span class="symbol">META</span> <span class="change gain">+2.1%</span></div>
-        <!-- Duplicate for seamless loop -->
         <div class="ticker-item"><span class="symbol">AAPL</span> <span class="change gain">+2.4%</span></div>
         <div class="ticker-item"><span class="symbol">TSLA</span> <span class="change loss">-1.2%</span></div>
         <div class="ticker-item"><span class="symbol">NVDA</span> <span class="change gain">+5.8%</span></div>
@@ -1571,26 +1804,28 @@
         <div class="ticker-item"><span class="symbol">THYAO</span> <span class="change gain">+1.7%</span></div>
         <div class="ticker-item"><span class="symbol">GOOG</span> <span class="change gain">+0.9%</span></div>
         <div class="ticker-item"><span class="symbol">AMZN</span> <span class="change loss">-0.4%</span></div>
-        <div class="ticker-item"><span class="symbol">MSFT</span> <span class="change gain">+1.8%</span></div>
-        <div class="ticker-item"><span class="symbol">META</span> <span class="change gain">+2.1%</span></div>
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         CTA SECTION
-    ═══════════════════════════════════════════════════════════════ -->
+    <!-- CTA -->
     <section class="cta-section" id="cta">
       <div class="container">
-        <div class="cta-card animate-on-scroll">
+        <div class="cta-card animate-on-scroll scale">
           <div class="cta-content">
+            <div class="cta-icon">
+              <i data-lucide="rocket" style="width: 36px; height: 36px;"></i>
+            </div>
             <p class="cta-pretitle">Geçmişi değiştiremezsin.</p>
-            <h2 class="cta-title">Ama hesaplayabilirsin.</h2>
+            <h2 class="cta-title">Ama <span class="text-gradient">hesaplayabilirsin.</span></h2>
             <div class="cta-actions">
               <a href="#hero" class="btn btn-primary btn-xl">
+                <i data-lucide="sparkles" style="width: 22px; height: 22px;"></i>
                 Hemen Hesapla
-                <i data-lucide="sparkles" style="width: 20px; height: 20px;"></i>
               </a>
-              <a href="#how-it-works" class="cta-link">Nasıl çalışır? ↓</a>
+              <a href="#how-it-works" class="cta-link">
+                <i data-lucide="info" style="width: 18px; height: 18px;"></i>
+                Nasıl çalışır?
+              </a>
             </div>
           </div>
         </div>
@@ -1598,9 +1833,7 @@
     </section>
   </main>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       FOOTER
-  ═══════════════════════════════════════════════════════════════ -->
+  <!-- FOOTER -->
   <footer class="footer">
     <div class="container footer-inner">
       <a href="#" class="footer-logo">
@@ -1617,79 +1850,60 @@
   </footer>
 
   <script>
-    // ═══════════════════════════════════════════════════════════════
-    // Initialize Lucide Icons
-    // ═══════════════════════════════════════════════════════════════
+    // Initialize Lucide
     lucide.createIcons();
 
-    // ═══════════════════════════════════════════════════════════════
     // Theme Toggle
-    // ═══════════════════════════════════════════════════════════════
     const html = document.documentElement;
     const themeToggle = document.getElementById('themeToggle');
-
-    // Check for saved theme or system preference
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      html.setAttribute('data-theme', savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-      html.setAttribute('data-theme', 'light');
-    }
+    if (savedTheme) html.setAttribute('data-theme', savedTheme);
 
     themeToggle.addEventListener('click', () => {
-      const currentTheme = html.getAttribute('data-theme');
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       html.setAttribute('data-theme', newTheme);
       localStorage.setItem('theme', newTheme);
     });
 
-    // ═══════════════════════════════════════════════════════════════
-    // Navbar Scroll Effect
-    // ═══════════════════════════════════════════════════════════════
+    // Navbar Scroll
     const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 50);
+    }, { passive: true });
 
-    const handleScroll = () => {
-      if (window.scrollY > 50) {
-        navbar.classList.add('scrolled');
-      } else {
-        navbar.classList.remove('scrolled');
-      }
-    };
+    // Floating particles
+    const particlesContainer = document.getElementById('particles');
+    for (let i = 0; i < 20; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.top = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 15 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      particle.style.opacity = 0.3 + Math.random() * 0.5;
+      particle.style.width = (2 + Math.random() * 4) + 'px';
+      particle.style.height = particle.style.width;
+      particlesContainer.appendChild(particle);
+    }
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-
-    // ═══════════════════════════════════════════════════════════════
-    // Intersection Observer for Animations
-    // ═══════════════════════════════════════════════════════════════
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    };
-
+    // Intersection Observer
+    const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -80px 0px' };
     const animationObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add('visible');
-
-          // Trigger count-up for numeric elements
           const countElements = entry.target.querySelectorAll('[data-count]');
           countElements.forEach(el => animateCountUp(el));
         }
       });
     }, observerOptions);
 
-    document.querySelectorAll('.animate-on-scroll').forEach(el => {
-      animationObserver.observe(el);
-    });
+    document.querySelectorAll('.animate-on-scroll').forEach(el => animationObserver.observe(el));
 
-    // ═══════════════════════════════════════════════════════════════
     // Count Up Animation
-    // ═══════════════════════════════════════════════════════════════
     function animateCountUp(el) {
       if (el.dataset.animated) return;
       el.dataset.animated = 'true';
-
       const target = parseInt(el.dataset.count);
       const prefix = el.dataset.prefix || '';
       const suffix = el.dataset.suffix || '';
@@ -1697,67 +1911,30 @@
       const startTime = performance.now();
 
       const formatNumber = (num) => {
-        if (num >= 1000000000) {
-          return (num / 1000000000).toFixed(1) + ' Milyar';
-        } else if (num >= 1000000) {
-          return (num / 1000000).toFixed(0) + ' Milyon';
-        } else if (num >= 1000) {
-          return num.toLocaleString('tr-TR');
-        }
+        if (num >= 1000000000) return (num / 1000000000).toFixed(1) + ' Milyar';
+        if (num >= 1000000) return (num / 1000000).toFixed(0) + ' Milyon';
+        if (num >= 1000) return num.toLocaleString('tr-TR');
         return num.toString();
       };
 
       const animate = (currentTime) => {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
-
-        // Easing function (ease-out-expo)
         const easeOutExpo = 1 - Math.pow(2, -10 * progress);
         const current = Math.floor(easeOutExpo * target);
-
         el.textContent = prefix + formatNumber(current) + suffix;
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          el.textContent = prefix + formatNumber(target) + suffix;
-        }
+        if (progress < 1) requestAnimationFrame(animate);
+        else el.textContent = prefix + formatNumber(target) + suffix;
       };
-
       requestAnimationFrame(animate);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // Hero Demo Auto-Cycle
-    // ═══════════════════════════════════════════════════════════════
+    // Demo Stock Cycle
     const demoStocks = [
-      {
-        avatar: 'NV',
-        name: 'NVIDIA (NVDA)',
-        context: "01 Ocak 2023'te ₺10.000 yatırsaydın",
-        amount: '+₺847.320',
-        badge: '+847%',
-        isGain: true,
-        sparkline: [20, 25, 22, 35, 45, 42, 55, 52, 48, 60, 58, 65, 70, 68, 75, 80, 78, 85, 90, 95]
-      },
-      {
-        avatar: 'TS',
-        name: 'Tesla (TSLA)',
-        context: "01 Ocak 2020'de ₺10.000 yatırsaydın",
-        amount: '+₺248.000',
-        badge: '+2480%',
-        isGain: true,
-        sparkline: [10, 15, 18, 25, 30, 45, 60, 55, 70, 85, 80, 95, 90, 100, 110, 105, 115, 120, 130, 140]
-      },
-      {
-        avatar: 'PL',
-        name: 'Peloton (PTON)',
-        context: "01 Ocak 2021'de ₺10.000 yatırsaydın",
-        amount: '-₺7.800',
-        badge: '-78%',
-        isGain: false,
-        sparkline: [90, 95, 100, 85, 70, 60, 55, 45, 40, 35, 30, 28, 25, 22, 20, 18, 15, 12, 10, 8]
-      }
+      { avatar: 'NV', name: 'NVIDIA (NVDA)', context: "01 Ocak 2023'te ₺10.000 yatırsaydın", amount: '+₺847.320', badge: '+847%', isGain: true, sparkline: [20, 25, 22, 35, 45, 42, 55, 52, 48, 60, 58, 65, 70, 68, 75, 80, 78, 85, 90, 95] },
+      { avatar: 'TS', name: 'Tesla (TSLA)', context: "01 Ocak 2020'de ₺10.000 yatırsaydın", amount: '+₺248.000', badge: '+2480%', isGain: true, sparkline: [10, 15, 18, 25, 30, 45, 60, 55, 70, 85, 80, 95, 90, 100, 110, 105, 115, 120, 130, 140] },
+      { avatar: 'PL', name: 'Peloton (PTON)', context: "01 Ocak 2021'de ₺10.000 yatırsaydın", amount: '-₺7.800', badge: '-78%', isGain: false, sparkline: [90, 95, 100, 85, 70, 60, 55, 45, 40, 35, 30, 28, 25, 22, 20, 18, 15, 12, 10, 8] },
+      { avatar: 'AP', name: 'Apple (AAPL)', context: "01 Ocak 2019'da ₺10.000 yatırsaydın", amount: '+₺48.400', badge: '+384%', isGain: true, sparkline: [15, 20, 25, 30, 35, 40, 38, 45, 50, 55, 52, 58, 62, 65, 70, 68, 72, 75, 80, 85] }
     ];
 
     let currentDemoIndex = 0;
@@ -1766,13 +1943,13 @@
     const stockContext = document.getElementById('stockContext');
     const resultAmount = document.getElementById('resultAmount');
     const resultBadge = document.getElementById('resultBadge');
+    const resultValueContainer = document.getElementById('resultValueContainer');
     const demoResult = document.getElementById('demoResult');
 
     function updateDemoStock() {
       const stock = demoStocks[currentDemoIndex];
-
       demoResult.style.opacity = '0';
-      demoResult.style.transform = 'translateY(10px)';
+      demoResult.style.transform = 'translateY(15px)';
 
       setTimeout(() => {
         stockAvatar.textContent = stock.avatar;
@@ -1780,139 +1957,94 @@
         stockContext.textContent = stock.context;
         resultAmount.textContent = stock.amount;
         resultAmount.className = 'result-amount num ' + (stock.isGain ? 'gain' : 'loss');
-        resultBadge.textContent = stock.badge;
+        resultBadge.innerHTML = `<i data-lucide="${stock.isGain ? 'trending-up' : 'trending-down'}" style="width: 16px; height: 16px;"></i> ${stock.badge}`;
         resultBadge.className = 'result-badge ' + (stock.isGain ? 'gain' : 'loss');
-
+        resultValueContainer.className = 'result-value' + (stock.isGain ? '' : ' loss');
+        lucide.createIcons();
         drawSparkline(stock.sparkline, stock.isGain);
-
         demoResult.style.opacity = '1';
         demoResult.style.transform = 'translateY(0)';
-      }, 300);
+      }, 350);
 
       currentDemoIndex = (currentDemoIndex + 1) % demoStocks.length;
     }
 
-    // Add transition to demo result
-    demoResult.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    demoResult.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+    setInterval(updateDemoStock, 4500);
 
-    // Start auto-cycle
-    setInterval(updateDemoStock, 4000);
-
-    // ═══════════════════════════════════════════════════════════════
-    // Sparkline Drawing
-    // ═══════════════════════════════════════════════════════════════
+    // Sparkline
     function drawSparkline(data, isGain) {
       const svg = document.getElementById('sparkline');
-      const width = 300;
-      const height = 60;
-      const padding = 5;
-
-      const maxVal = Math.max(...data);
-      const minVal = Math.min(...data);
-      const range = maxVal - minVal || 1;
-
-      const points = data.map((val, i) => {
-        const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
-        const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
+      const w = 300, h = 80, p = 8;
+      const maxV = Math.max(...data), minV = Math.min(...data);
+      const range = maxV - minV || 1;
+      const points = data.map((v, i) => {
+        const x = p + (i / (data.length - 1)) * (w - 2 * p);
+        const y = h - p - ((v - minV) / range) * (h - 2 * p);
         return `${x},${y}`;
       });
-
       const color = isGain ? 'var(--primary)' : 'var(--danger)';
-      const fillColor = isGain ? 'rgba(0, 229, 160, 0.1)' : 'rgba(255, 69, 96, 0.1)';
-
       svg.innerHTML = `
         <defs>
-          <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>
+          <linearGradient id="spGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${color}" stop-opacity="0.4"/>
             <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <path
-          d="M ${points.join(' L ')} L ${width - padding},${height - padding} L ${padding},${height - padding} Z"
-          fill="url(#sparklineGradient)"
-        />
-        <path
-          d="M ${points.join(' L ')}"
-          fill="none"
-          stroke="${color}"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
+        <path d="M ${points.join(' L ')} L ${w - p},${h - p} L ${p},${h - p} Z" fill="url(#spGrad)"/>
+        <path d="M ${points.join(' L ')}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 6px ${color});"/>
       `;
     }
-
-    // Initial sparkline
     drawSparkline(demoStocks[0].sparkline, true);
 
-    // ═══════════════════════════════════════════════════════════════
-    // Comparison Chart Drawing
-    // ═══════════════════════════════════════════════════════════════
+    // Comparison Chart
     function drawComparisonChart() {
-      // Data points (y values from 0-300 representing chart area)
-      const nvdaData = [280, 275, 260, 240, 200, 180, 150, 120, 100, 80, 60, 50];
-      const aaplData = [280, 270, 265, 250, 230, 220, 200, 190, 170, 160, 150, 145];
-      const tslaData = [220, 180, 160, 200, 240, 280, 300, 280, 250, 290, 300, 295];
-
-      const startX = 80;
-      const endX = 850;
-      const startY = 310;
+      const nvda = [300, 290, 270, 250, 200, 170, 140, 110, 90, 70, 50, 40];
+      const aapl = [300, 285, 275, 260, 240, 225, 205, 190, 175, 160, 145, 135];
+      const tsla = [240, 200, 170, 220, 260, 290, 310, 295, 270, 300, 315, 305];
+      const sX = 80, eX = 850, sY = 330;
 
       const createPath = (data) => {
-        const stepX = (endX - startX) / (data.length - 1);
-        let path = `M ${startX} ${startY - data[0] * 0.8}`;
-
+        const stepX = (eX - sX) / (data.length - 1);
+        let path = `M ${sX} ${sY - data[0] * 0.85}`;
         for (let i = 1; i < data.length; i++) {
-          const x = startX + i * stepX;
-          const y = startY - data[i] * 0.8;
-          const prevX = startX + (i - 1) * stepX;
-          const prevY = startY - data[i - 1] * 0.8;
-
-          // Bezier curve control points
-          const cpX = (prevX + x) / 2;
-          path += ` C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y}`;
+          const x = sX + i * stepX;
+          const y = sY - data[i] * 0.85;
+          const pX = sX + (i - 1) * stepX;
+          const pY = sY - data[i - 1] * 0.85;
+          const cpX = (pX + x) / 2;
+          path += ` C ${cpX} ${pY}, ${cpX} ${y}, ${x} ${y}`;
         }
-
         return path;
       };
 
-      const createAreaPath = (data) => {
-        const linePath = createPath(data);
-        const stepX = (endX - startX) / (data.length - 1);
-        const lastX = startX + (data.length - 1) * stepX;
-        return `${linePath} L ${lastX} ${startY} L ${startX} ${startY} Z`;
+      const createArea = (data) => {
+        const line = createPath(data);
+        const stepX = (eX - sX) / (data.length - 1);
+        const lastX = sX + (data.length - 1) * stepX;
+        return `${line} L ${lastX} ${sY} L ${sX} ${sY} Z`;
       };
 
-      // Draw lines with animation
       const lineNvda = document.getElementById('lineNvda');
       const lineAapl = document.getElementById('lineAapl');
       const lineTsla = document.getElementById('lineTsla');
-      const areaNvda = document.getElementById('areaNvda');
-      const areaAapl = document.getElementById('areaAapl');
-      const areaTsla = document.getElementById('areaTsla');
 
-      const nvdaPath = createPath(nvdaData);
-      const aaplPath = createPath(aaplData);
-      const tslaPath = createPath(tslaData);
+      lineNvda.setAttribute('d', createPath(nvda));
+      lineAapl.setAttribute('d', createPath(aapl));
+      lineTsla.setAttribute('d', createPath(tsla));
 
-      lineNvda.setAttribute('d', nvdaPath);
-      lineAapl.setAttribute('d', aaplPath);
-      lineTsla.setAttribute('d', tslaPath);
+      document.getElementById('areaNvda').setAttribute('d', createArea(nvda));
+      document.getElementById('areaAapl').setAttribute('d', createArea(aapl));
+      document.getElementById('areaTsla').setAttribute('d', createArea(tsla));
 
-      areaNvda.setAttribute('d', createAreaPath(nvdaData));
-      areaAapl.setAttribute('d', createAreaPath(aaplData));
-      areaTsla.setAttribute('d', createAreaPath(tslaData));
-
-      // Animate lines
-      [lineNvda, lineAapl, lineTsla].forEach((line, index) => {
-        const length = line.getTotalLength();
-        line.style.strokeDasharray = length;
-        line.style.strokeDashoffset = length;
-        line.style.animation = `dash 1.5s ease-out ${index * 0.3}s forwards`;
+      [lineNvda, lineAapl, lineTsla].forEach((line, i) => {
+        const len = line.getTotalLength();
+        line.style.strokeDasharray = len;
+        line.style.strokeDashoffset = len;
+        line.style.animation = `dash 2s ease-out ${i * 0.4}s forwards`;
       });
     }
 
-    // Observe comparison chart section
     const chartObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -1921,12 +2053,9 @@
         }
       });
     }, { threshold: 0.3 });
-
     chartObserver.observe(document.getElementById('comparisonChart'));
 
-    // ═══════════════════════════════════════════════════════════════
-    // Time Tabs Interaction
-    // ═══════════════════════════════════════════════════════════════
+    // Time tabs
     document.querySelectorAll('.time-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
@@ -1934,50 +2063,36 @@
       });
     });
 
-    // ═══════════════════════════════════════════════════════════════
-    // Observe story cards for count-up
-    // ═══════════════════════════════════════════════════════════════
+    // Story count-up
     document.querySelectorAll('.story-card').forEach(card => {
-      const observer = new IntersectionObserver((entries) => {
+      const obs = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
-            const amountEl = entry.target.querySelector('.story-amount');
-            if (amountEl && !amountEl.dataset.animated) {
-              animateCountUp(amountEl);
-            }
+            const el = entry.target.querySelector('.story-amount');
+            if (el && !el.dataset.animated) animateCountUp(el);
           }
         });
       }, { threshold: 0.5 });
-
-      observer.observe(card);
+      obs.observe(card);
     });
 
-    // ═══════════════════════════════════════════════════════════════
-    // Social proof count-up trigger
-    // ═══════════════════════════════════════════════════════════════
-    const proofObserver = new IntersectionObserver((entries) => {
+    // Social proof count-up
+    const proofObs = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          entry.target.querySelectorAll('[data-count]').forEach(el => {
-            animateCountUp(el);
-          });
-          proofObserver.unobserve(entry.target);
+          entry.target.querySelectorAll('[data-count]').forEach(el => animateCountUp(el));
+          proofObs.unobserve(entry.target);
         }
       });
     }, { threshold: 0.5 });
+    proofObs.observe(document.querySelector('.social-proof'));
 
-    proofObserver.observe(document.querySelector('.social-proof'));
-
-    // ═══════════════════════════════════════════════════════════════
-    // Smooth scroll for anchor links
-    // ═══════════════════════════════════════════════════════════════
+    // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function(e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     });
   </script>

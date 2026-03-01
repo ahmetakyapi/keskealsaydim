@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GitCompare,
-  Calendar,
-  DollarSign,
   ArrowRight,
   TrendingUp,
   TrendingDown,

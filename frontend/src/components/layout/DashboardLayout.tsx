@@ -44,7 +44,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const handleLogout = () => {
     logout();

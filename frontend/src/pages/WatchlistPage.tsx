@@ -11,7 +11,6 @@ import {
   Eye,
   ArrowUpRight,
   ArrowDownRight,
-  Target,
   BellRing
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, GlassCard } from '@/components/ui/card';
@@ -19,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { formatCurrency, formatPercent, getChangeColor, cn } from '@/lib/utils';
+import { formatCurrency, formatPercent, cn } from '@/lib/utils';
 import { useState } from 'react';
 import CountUp from 'react-countup';
 

@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, GlassCard } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatPercent, getChangeColor, cn } from '@/lib/utils';
+import { formatCurrency, formatPercent, cn } from '@/lib/utils';
 import CountUp from 'react-countup';
 
 const fadeInUp = {

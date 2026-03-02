@@ -15,10 +15,10 @@ import (
 )
 
 type registerRequest struct {
-	Name             string `json:"name"`
-	Email            string `json:"email"`
-	Password         string `json:"password"`
-	ExperienceLevel  string `json:"experienceLevel"`
+	Name            string `json:"name"`
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	ExperienceLevel string `json:"experienceLevel"`
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -114,14 +114,14 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		"tokenType":    "Bearer",
 		"expiresIn":    int64(auth.AccessTokenTTL.Seconds()),
 		"user": map[string]any{
-			"id":              userID,
-			"email":           req.Email,
-			"name":            req.Name,
-			"experienceLevel": req.ExperienceLevel,
-			"emailVerified":   false,
+			"id":                userID,
+			"email":             req.Email,
+			"name":              req.Name,
+			"experienceLevel":   req.ExperienceLevel,
+			"emailVerified":     false,
 			"preferredCurrency": "TRY",
-			"theme":           "dark",
-			"createdAt":       createdAt,
+			"theme":             "dark",
+			"createdAt":         createdAt,
 		},
 	})
 }

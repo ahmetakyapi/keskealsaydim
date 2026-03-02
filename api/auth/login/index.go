@@ -44,17 +44,17 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	var (
-		userID          uuid.UUID
-		email, name     string
-		passwordHash    string
-		experienceLevel string
-		avatarURL       *string
-		emailVerified   bool
-		isActive        bool
+		userID            uuid.UUID
+		email, name       string
+		passwordHash      string
+		experienceLevel   string
+		avatarURL         *string
+		emailVerified     bool
+		isActive          bool
 		preferredCurrency string
-		theme           string
-		createdAt       time.Time
-		lastLoginAt     *time.Time
+		theme             string
+		createdAt         time.Time
+		lastLoginAt       *time.Time
 	)
 
 	err = pool.QueryRow(ctx,

@@ -4,9 +4,7 @@
   "installCommand": "cd frontend && npm install",
   "framework": null,
   "functions": {
-    "api/**/*.go": {
-      "runtime": "go1.22.x"
-    }
+    "api/**/*.go": {}
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },

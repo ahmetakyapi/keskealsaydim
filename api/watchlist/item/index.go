@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"keskealsaydim/internal/auth"
-	"keskealsaydim/internal/db"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/auth"
+	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/respond"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {

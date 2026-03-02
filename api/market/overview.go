@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"keskealsaydim/internal/cache"
-	"keskealsaydim/internal/finance"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/cache"
+	"keskealsaydim/pkg/finance"
+	"keskealsaydim/pkg/respond"
 )
 
 // Well-known symbols for the market overview panel.

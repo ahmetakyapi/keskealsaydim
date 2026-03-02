@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"keskealsaydim/internal/auth"
-	"keskealsaydim/internal/db"
-	"keskealsaydim/internal/finance"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/auth"
+	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/finance"
+	"keskealsaydim/pkg/respond"
 )
 
 type addWatchRequest struct {

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"keskealsaydim/internal/auth"
-	"keskealsaydim/internal/db"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/auth"
+	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/respond"
 )
 
 type refreshRequest struct {

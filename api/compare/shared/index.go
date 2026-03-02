@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"keskealsaydim/internal/db"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/respond"
 )
 
 type sharedScenario struct {

@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"keskealsaydim/internal/auth"
-	"keskealsaydim/internal/db"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/auth"
+	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/respond"
 )
 
 type loginRequest struct {

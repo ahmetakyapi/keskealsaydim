@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"keskealsaydim/internal/cache"
-	"keskealsaydim/internal/finance"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/cache"
+	"keskealsaydim/pkg/finance"
+	"keskealsaydim/pkg/respond"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {

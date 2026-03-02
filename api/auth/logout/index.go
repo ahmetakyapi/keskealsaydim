@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"keskealsaydim/internal/auth"
-	"keskealsaydim/internal/db"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/auth"
+	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/respond"
 )
 
 type logoutRequest struct {

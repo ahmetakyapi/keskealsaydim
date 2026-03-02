@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"keskealsaydim/internal/finance"
-	"keskealsaydim/internal/respond"
+	"keskealsaydim/pkg/finance"
+	"keskealsaydim/pkg/respond"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {

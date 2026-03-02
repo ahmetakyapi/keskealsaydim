@@ -15,11 +15,11 @@ import {
   LogOut,
   Moon,
   Sun,
-  TrendingUp,
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { cn } from '@/lib/utils';
@@ -59,21 +59,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Logo */}
         <div className="h-16 flex items-center px-4 border-b border-white/5">
           <Link to="/dashboard" className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-white" />
-            </div>
-            <AnimatePresence>
-              {!sidebarCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="text-lg font-bold text-white whitespace-nowrap overflow-hidden"
-                >
-                  Keşke Alsaydım
-                </motion.span>
-              )}
-            </AnimatePresence>
+            <BrandLogo showText={!sidebarCollapsed} />
           </Link>
         </div>
 

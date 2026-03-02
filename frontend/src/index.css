@@ -4,48 +4,48 @@
 
 @layer base {
   :root {
-    --background: 240 10% 4%;
-    --foreground: 240 10% 97%;
-    --card: 240 10% 7%;
-    --card-foreground: 240 10% 97%;
-    --popover: 240 10% 7%;
-    --popover-foreground: 240 10% 97%;
-    --primary: 252 100% 69%;
-    --primary-foreground: 240 10% 4%;
-    --secondary: 168 76% 42%;
-    --secondary-foreground: 240 10% 97%;
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 10% 55%;
-    --accent: 240 10% 15%;
-    --accent-foreground: 240 10% 97%;
+    --background: 204 42% 7%;
+    --foreground: 210 40% 96%;
+    --card: 204 34% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 204 34% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 205 47% 8%;
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 204 42% 7%;
+    --muted: 205 23% 16%;
+    --muted-foreground: 214 18% 67%;
+    --accent: 205 23% 16%;
+    --accent-foreground: 210 40% 96%;
     --destructive: 0 72% 51%;
-    --destructive-foreground: 240 10% 97%;
-    --border: 240 10% 15%;
-    --input: 240 10% 15%;
-    --ring: 252 100% 69%;
-    --radius: 0.75rem;
+    --destructive-foreground: 210 40% 96%;
+    --border: 205 22% 18%;
+    --input: 205 22% 18%;
+    --ring: 160 84% 39%;
+    --radius: 1rem;
   }
 
   .light {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
-    --card: 0 0% 98%;
-    --card-foreground: 240 10% 4%;
+    --background: 210 40% 98%;
+    --foreground: 205 42% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 205 42% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 252 100% 60%;
+    --popover-foreground: 205 42% 10%;
+    --primary: 160 84% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 168 76% 42%;
+    --secondary: 199 84% 43%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 10% 4%;
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 210 20% 95%;
+    --accent-foreground: 205 42% 10%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 252 100% 60%;
+    --border: 214 24% 88%;
+    --input: 214 24% 88%;
+    --ring: 160 84% 34%;
   }
 }
 
@@ -87,14 +87,14 @@
   .gradient-border {
     position: relative;
     background: linear-gradient(var(--background), var(--background)) padding-box,
-                linear-gradient(135deg, #6C63FF, #00D4AA) border-box;
+                linear-gradient(135deg, #10b981, #38bdf8) border-box;
     border: 2px solid transparent;
     border-radius: var(--radius);
   }
 
   /* Glow effect */
   .glow {
-    box-shadow: 0 0 20px rgba(108, 99, 255, 0.3);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.28);
   }
 
   /* Success/Danger number styling */
@@ -146,11 +146,11 @@
   .text-gradient-animated {
     background: linear-gradient(
       90deg,
-      #6C63FF 0%,
-      #00D4AA 25%,
-      #6C63FF 50%,
-      #00D4AA 75%,
-      #6C63FF 100%
+      #10b981 0%,
+      #38bdf8 25%,
+      #10b981 50%,
+      #38bdf8 75%,
+      #10b981 100%
     );
     background-size: 200% auto;
     -webkit-background-clip: text;
@@ -194,10 +194,10 @@
 
   @keyframes pulse-glow {
     0%, 100% {
-      box-shadow: 0 0 20px rgba(108, 99, 255, 0.3);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
     }
     50% {
-      box-shadow: 0 0 40px rgba(108, 99, 255, 0.6);
+      box-shadow: 0 0 40px rgba(56, 189, 248, 0.5);
     }
   }
 
@@ -233,7 +233,7 @@
   .gradient-border-animated {
     position: relative;
     background: linear-gradient(var(--background), var(--background)) padding-box,
-                linear-gradient(var(--gradient-angle, 135deg), #6C63FF, #00D4AA, #6C63FF) border-box;
+                linear-gradient(var(--gradient-angle, 135deg), #10b981, #38bdf8, #10b981) border-box;
     border: 2px solid transparent;
     border-radius: var(--radius);
     animation: rotate-gradient 3s linear infinite;
@@ -260,5 +260,15 @@
   /* Radial gradient background */
   .bg-gradient-radial {
     background: radial-gradient(circle, var(--tw-gradient-stops));
+  }
+
+  /* Brand animated label gradient (green → blue → green) */
+  .label-brand {
+    background: linear-gradient(90deg, #10b981, #38bdf8, #10b981);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradient-shift 4s linear infinite;
   }
 }

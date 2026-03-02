@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, TrendingUp, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GlassCard } from '@/components/ui/card';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
@@ -95,11 +96,8 @@ export default function RegisterPage() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-8">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">Keşke Alsaydım</span>
+            <Link to="/" aria-label="Keşke Alsaydım ana sayfa">
+              <BrandLogo />
             </Link>
           </div>
 
@@ -269,10 +267,7 @@ export default function RegisterPage() {
             transition={{ duration: 0.5 }}
           >
             <Link to="/" className="flex items-center space-x-3 mb-12">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <TrendingUp className="w-7 h-7 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-white">Keşke Alsaydım</span>
+              <BrandLogo size="lg" />
             </Link>
 
             <h1 className="text-4xl font-bold text-white mb-6 leading-tight">

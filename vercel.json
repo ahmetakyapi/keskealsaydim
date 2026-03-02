@@ -6,6 +6,9 @@
   "rewrites": [
     { "source": "/api/stocks/:symbol/price", "destination": "/api/stocks/price?symbol=:symbol" },
     { "source": "/api/stocks/:symbol/history", "destination": "/api/stocks/history?symbol=:symbol" },
+    { "source": "/api/compare/shared/:token", "destination": "/api/compare/shared?token=:token" },
+    { "source": "/api/portfolio/:id", "destination": "/api/portfolio/item?id=:id" },
+    { "source": "/api/watchlist/:id", "destination": "/api/watchlist/item?id=:id" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/$1" }
   ],

@@ -1,0 +1,93 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"keskealsaydim/internal/db"
+	"keskealsaydim/internal/respond"
+)
+
+type sharedScenario struct {
+	ID          uuid.UUID       `json:"id"`
+	SymbolA     string          `json:"symbolA"`
+	SymbolAName string          `json:"symbolAName"`
+	SymbolB     string          `json:"symbolB"`
+	SymbolBName string          `json:"symbolBName"`
+	StartDate   string          `json:"startDate"`
+	EndDate     *string         `json:"endDate"`
+	Amount      float64         `json:"amount"`
+	AmountType  string          `json:"amountType"`
+	Result      json.RawMessage `json:"result"`
+	Title       *string         `json:"title"`
+	ShareToken  string          `json:"shareToken"`
+	ViewCount   int             `json:"viewCount"`
+	CreatedAt   time.Time       `json:"createdAt"`
+}
+
+func Handler(w http.ResponseWriter, r *http.Request) {
+	if respond.CORS(w, r) {
+		return
+	}
+	if r.Method != http.MethodGet {
+		respond.MethodNotAllowed(w)
+		return
+	}
+
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		respond.Error(w, http.StatusBadRequest, "token gerekli")
+		return
+	}
+
+	pool, err := db.Get()
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
+		return
+	}
+	ctx := context.Background()
+
+	var s sharedScenario
+	var startDate, endDate interface{}
+	err = pool.QueryRow(ctx,
+		`SELECT id, symbol_a, symbol_a_name, symbol_b, symbol_b_name,
+		        start_date, end_date, amount, amount_type, result_json,
+		        title, share_token, view_count, created_at
+		   FROM comparison_scenarios
+		  WHERE share_token = $1`,
+		token,
+	).Scan(
+		&s.ID, &s.SymbolA, &s.SymbolAName, &s.SymbolB, &s.SymbolBName,
+		&startDate, &endDate, &s.Amount, &s.AmountType, &s.Result,
+		&s.Title, &s.ShareToken, &s.ViewCount, &s.CreatedAt,
+	)
+	if err != nil {
+		respond.Error(w, http.StatusNotFound, "Senaryo bulunamadı")
+		return
+	}
+
+	// Format dates
+	if t, ok := startDate.(time.Time); ok {
+		s.StartDate = t.Format("2006-01-02")
+	}
+	if endDate != nil {
+		if t, ok := endDate.(time.Time); ok {
+			d := t.Format("2006-01-02")
+			s.EndDate = &d
+		}
+	}
+
+	// Increment view count asynchronously
+	go func() {
+		_, _ = pool.Exec(context.Background(),
+			"UPDATE comparison_scenarios SET view_count = view_count + 1 WHERE share_token = $1",
+			token,
+		)
+	}()
+
+	respond.JSON(w, http.StatusOK, s)
+}

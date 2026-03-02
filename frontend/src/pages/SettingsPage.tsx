@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   User,
@@ -28,6 +28,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { userService } from '@/services/userService';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const fadeInUp = {
@@ -48,6 +50,16 @@ export default function SettingsPage() {
   const { user } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
 
+  const [formName, setFormName] = useState(user?.name ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Keep form in sync if the store user changes after initial mount
+  useEffect(() => {
+    if (user?.name) {
+      setFormName(user.name);
+    }
+  }, [user?.name]);
+
   const [notifications, setNotifications] = useState({
     priceAlerts: true,
     dailySummary: true,
@@ -61,6 +73,19 @@ export default function SettingsPage() {
     loginAlerts: true,
     sessionTimeout: true,
   });
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await userService.updateMe({ name: formName });
+      useAuthStore.getState().updateUser({ name: formName });
+      toast.success('Profil bilgileri güncellendi.');
+    } catch {
+      toast.error('Güncelleme sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -117,7 +142,11 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Ad Soyad</Label>
-                <Input defaultValue={user?.name} icon={<User className="w-4 h-4" />} />
+                <Input
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  icon={<User className="w-4 h-4" />}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -134,7 +163,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button variant="gradient">
+              <Button variant="gradient" onClick={handleSaveProfile} loading={isSaving}>
                 <Save className="w-4 h-4 mr-2" />
                 Değişiklikleri Kaydet
               </Button>

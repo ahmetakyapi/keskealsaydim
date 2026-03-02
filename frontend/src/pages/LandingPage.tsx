@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   motion,
@@ -270,6 +270,414 @@ const ChartTooltip = ({ active, payload, label }: any) => {
     </div>
   );
 };
+
+// ─────────────────────────────────────────
+// LIVE COMPARE SECTION
+// ─────────────────────────────────────────
+const PUB_API = import.meta.env.VITE_API_URL || '/api';
+const CMP_COLORS = { A: '#00C896', B: '#60A5FA' };
+const RANGE_MONTHS: Record<string, number> = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 };
+const TR_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+
+interface StockSel { symbol: string; name: string; }
+interface SearchResult { symbol: string; name: string; exchange: string; }
+interface CmpPoint { label: string; A: number; B: number; }
+
+function fmtMonth(d: string) {
+  const dt = new Date(d);
+  return `${TR_MONTHS[dt.getMonth()]} ${String(dt.getFullYear()).slice(2)}`;
+}
+
+function getRangeFrom(months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
+function StockInput({
+  value,
+  label,
+  color,
+  onSelect,
+}: Readonly<{
+  value: StockSel;
+  label: string;
+  color: string;
+  onSelect: (s: StockSel) => void;
+}>) {
+  const [query, setQuery] = useState(value.symbol);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setQuery(value.symbol); }, [value.symbol]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleChange = (q: string) => {
+    setQuery(q);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (q.length < 1) { setResults([]); setOpen(false); return; }
+    timerRef.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`${PUB_API}/stocks/search?q=${encodeURIComponent(q)}`);
+        if (!r.ok) return;
+        const data = await r.json();
+        setResults(data.slice(0, 6));
+        setOpen(true);
+      } catch { /* ignore */ }
+    }, 300);
+  };
+
+  return (
+    <div ref={containerRef} className="relative flex-1 min-w-0">
+      <div
+        className="flex items-center gap-2.5 px-4 py-3 rounded-xl transition-all duration-200"
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          border: `1px solid ${open ? color + '55' : 'rgba(255,255,255,0.08)'}`,
+        }}
+      >
+        <span className="text-xs font-bold shrink-0 w-4 text-center" style={{ color }}>{label}</span>
+        <div className="w-px h-4 shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder="Hisse ara…"
+          className="flex-1 bg-transparent text-white text-sm font-mono font-semibold outline-none placeholder:font-sans placeholder:font-normal placeholder:text-white/20"
+          style={{ minWidth: 0 }}
+        />
+        <Search className="w-3.5 h-3.5 shrink-0" style={{ color: '#5D606B' }} />
+      </div>
+
+      <AnimatePresence>
+        {open && results.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-50 top-full mt-1.5 left-0 right-0 rounded-xl overflow-hidden"
+            style={{
+              background: '#1E222D',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+            }}
+          >
+            {results.map((r, i) => (
+              <button
+                key={r.symbol}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelect({ symbol: r.symbol, name: r.name });
+                  setQuery(r.symbol);
+                  setOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors duration-100"
+                style={{ borderBottom: i < results.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span>
+                  <span className="font-mono font-bold text-white text-sm">{r.symbol}</span>
+                  <span className="text-white/40 text-xs ml-2">{r.name}</span>
+                </span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#9598A1' }}
+                >
+                  {r.exchange}
+                </span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function LiveCompareSection() {
+  const [stockA, setStockA] = useState<StockSel>({ symbol: 'THYAO', name: 'Türk Hava Yolları' });
+  const [stockB, setStockB] = useState<StockSel>({ symbol: 'GARAN', name: 'Garanti BBVA' });
+  const [range, setRange] = useState<'1M' | '3M' | '6M' | '1Y'>('1Y');
+  const [chartData, setChartData] = useState<CmpPoint[]>([]);
+  const [retA, setRetA] = useState<number | null>(null);
+  const [retB, setRetB] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+
+  const compare = useCallback(async (sA = stockA, sB = stockB, r = range) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fromDate = getRangeFrom(RANGE_MONTHS[r]);
+      const toDate = new Date().toISOString().slice(0, 10);
+
+      const [hA, hB] = await Promise.all([
+        fetch(`${PUB_API}/stocks/${sA.symbol}/history?from=${fromDate}&to=${toDate}&interval=1d`)
+          .then((res) => {
+            if (!res.ok) throw new Error(sA.symbol);
+            return res.json();
+          }),
+        fetch(`${PUB_API}/stocks/${sB.symbol}/history?from=${fromDate}&to=${toDate}&interval=1d`)
+          .then((res) => {
+            if (!res.ok) throw new Error(sB.symbol);
+            return res.json();
+          }),
+      ]);
+
+      const mapA = new Map<string, number>(hA.data.map((d: any) => [d.date, d.close as number]));
+      const mapB = new Map<string, number>(hB.data.map((d: any) => [d.date, d.close as number]));
+      const datesA: string[] = hA.data.map((d: any) => d.date as string);
+
+      const baseA = mapA.get(datesA[0])!;
+      const firstB = hB.data[0]?.date as string | undefined;
+      const baseB = firstB ? mapB.get(firstB)! : mapB.values().next().value!;
+
+      // Sample every ~10 data points for readability
+      const sampled = datesA.filter((_, i) => i === 0 || i === datesA.length - 1 || i % 10 === 0);
+      const allDatesB: string[] = hB.data.map((d: any) => d.date as string);
+
+      const cmp: CmpPoint[] = [];
+      for (const date of sampled) {
+        const vA = mapA.get(date);
+        let vB = mapB.get(date);
+        if (vB === undefined) {
+          const closest = allDatesB.reduce((prev, curr) =>
+            Math.abs(new Date(curr).getTime() - new Date(date).getTime()) <
+            Math.abs(new Date(prev).getTime() - new Date(date).getTime()) ? curr : prev
+          , allDatesB[0]);
+          vB = mapB.get(closest);
+        }
+        if (vA !== undefined && vB !== undefined) {
+          cmp.push({
+            label: fmtMonth(date),
+            A: Math.round((vA / baseA) * 100),
+            B: Math.round((vB / baseB) * 100),
+          });
+        }
+      }
+
+      setChartData(cmp);
+      if (cmp.length > 0) {
+        setRetA(cmp[cmp.length - 1].A - 100);
+        setRetB(cmp[cmp.length - 1].B - 100);
+      }
+    } catch {
+      setError('Veri alınamadı — sunucu çalışıyor mu?');
+    } finally {
+      setLoading(false);
+    }
+  }, [stockA, stockB, range]);
+
+  useEffect(() => { compare(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <section ref={ref} className="relative py-28 overflow-hidden" id="compare">
+      <div
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)' }}
+      />
+
+      <div className="container mx-auto px-4 max-w-6xl">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-14"
+        >
+          <span
+            style={{ color: '#00C896', letterSpacing: '0.12em' }}
+            className="text-xs font-semibold uppercase mb-4 block"
+          >
+            Kendin Dene
+          </span>
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            İstediğin iki hisseyi karşılaştır.
+          </h2>
+          <p className="text-white/50 max-w-lg mx-auto">
+            BIST, NASDAQ, NYSE — herhangi iki hisseyi seç, gerçek verilerle yan yana gör.
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="rounded-2xl overflow-visible"
+          style={{ background: '#131722', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {/* Controls */}
+          <div className="p-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <StockInput value={stockA} label="A" color={CMP_COLORS.A} onSelect={(s) => setStockA(s)} />
+
+              <span className="text-white/20 font-bold text-sm text-center shrink-0 py-1">vs</span>
+
+              <StockInput value={stockB} label="B" color={CMP_COLORS.B} onSelect={(s) => setStockB(s)} />
+
+              {/* Range + Compare */}
+              <div className="flex items-center gap-2 shrink-0">
+                <div
+                  className="flex gap-1 p-1 rounded-lg"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                >
+                  {(['1M', '3M', '6M', '1Y'] as const).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRange(r)}
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150"
+                      style={{
+                        background: range === r ? 'rgba(0,200,150,0.15)' : 'transparent',
+                        color: range === r ? '#00C896' : '#5D606B',
+                      }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => compare()}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200"
+                  style={{
+                    background: loading ? 'rgba(0,200,150,0.4)' : '#00C896',
+                    color: '#0B0E11',
+                    opacity: loading ? 0.8 : 1,
+                  }}
+                >
+                  {loading ? (
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <BarChart2 className="w-4 h-4" />
+                  )}
+                  {loading ? 'Yükleniyor…' : 'Karşılaştır'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div className="p-6">
+            {error && (
+              <div className="flex flex-col items-center justify-center h-[280px] gap-4 text-center">
+                <p className="text-white/35 text-sm">{error}</p>
+                <Link to="/register">
+                  <button
+                    className="text-sm px-5 py-2 rounded-xl font-semibold transition-all duration-200"
+                    style={{
+                      background: 'rgba(0,200,150,0.1)',
+                      color: '#00C896',
+                      border: '1px solid rgba(0,200,150,0.25)',
+                    }}
+                  >
+                    Ücretsiz Kaydol →
+                  </button>
+                </Link>
+              </div>
+            )}
+            {!error && chartData.length === 0 && (
+              <div className="flex items-center justify-center h-[280px]">
+                <p className="text-white/25 text-sm">Hisse seç ve Karşılaştır'a bas.</p>
+              </div>
+            )}
+            {!error && chartData.length > 0 && (
+              <>
+                <motion.div
+                  key={stockA.symbol + stockB.symbol + range}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: loading ? 0.3 : 1 }}
+                  transition={{ duration: 0.3 }}
+                  style={{ height: 280 }}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ReLineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                      <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: '#5D606B', fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tickFormatter={(v) => `${v}%`}
+                        tick={{ fill: '#5D606B', fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={48}
+                      />
+                      <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="A"
+                        name={stockA.symbol}
+                        stroke={CMP_COLORS.A}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4, fill: CMP_COLORS.A }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="B"
+                        name={stockB.symbol}
+                        stroke={CMP_COLORS.B}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4, fill: CMP_COLORS.B }}
+                      />
+                    </ReLineChart>
+                  </ResponsiveContainer>
+                </motion.div>
+
+                {/* Legend + returns */}
+                {retA !== null && retB !== null && (
+                  <div
+                    className="flex flex-wrap items-center gap-6 mt-4 pt-4"
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    {[
+                      { stock: stockA, ret: retA, color: CMP_COLORS.A },
+                      { stock: stockB, ret: retB, color: CMP_COLORS.B },
+                    ].map(({ stock, ret, color }) => (
+                      <div key={stock.symbol} className="flex items-center gap-3">
+                        <span className="w-6 h-0.5 rounded-full" style={{ background: color }} />
+                        <span className="text-white/60 text-sm font-mono font-semibold">{stock.symbol}</span>
+                        <span className="text-white/40 text-xs hidden sm:inline">{stock.name}</span>
+                        <span
+                          className="font-mono font-bold text-sm"
+                          style={{ color: ret >= 0 ? '#00C896' : '#F23645' }}
+                        >
+                          {ret >= 0 ? '+' : ''}{ret.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                    <span className="text-white/20 text-xs ml-auto hidden sm:block">
+                      Başlangıç = 100 bazında normalleştirilmiş
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
 // ─────────────────────────────────────────
 // DEMO CHART SECTION
@@ -1037,6 +1445,7 @@ export default function LandingPage() {
             <div className="hidden md:flex items-center gap-8">
               {[
                 ['Demo', '#demo'],
+                ['Karşılaştır', '#compare'],
                 ['Özellikler', '#features'],
                 ['Nasıl Çalışır', '#how'],
               ].map(([label, href]) => (
@@ -1367,6 +1776,8 @@ export default function LandingPage() {
       </div>
 
       <ComparisonSection />
+
+      <LiveCompareSection />
 
       {/* ── CTA ── */}
       <section className="relative py-32">

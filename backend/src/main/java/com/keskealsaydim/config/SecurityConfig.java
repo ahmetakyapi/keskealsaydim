@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/stocks/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/stocks/**").permitAll()
                         .requestMatchers("/api/market/overview").permitAll()
                         .requestMatchers("/api/compare/shared/**").permitAll()
                         // Swagger/OpenAPI

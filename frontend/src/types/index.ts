@@ -1,4 +1,5 @@
-// User types
+// ── Auth types ──────────────────────────────────────────────────────────────
+
 export interface User {
   id: string;
   email: string;
@@ -23,7 +24,6 @@ export interface AuthResponse {
 export interface LoginRequest {
   email: string;
   password: string;
-  rememberMe?: boolean;
 }
 
 export interface RegisterRequest {
@@ -33,22 +33,23 @@ export interface RegisterRequest {
   experienceLevel?: string;
 }
 
-// Stock types
+// ── Stock types ──────────────────────────────────────────────────────────────
+
 export interface StockPrice {
   symbol: string;
-  name?: string;
-  exchange?: string;
+  name: string;
+  exchange: string;
   price: number;
-  previousClose?: number;
-  change?: number;
-  changePercent?: number;
-  open?: number;
-  high?: number;
-  low?: number;
-  volume?: number;
-  marketCap?: number;
-  week52High?: number;
-  week52Low?: number;
+  previousClose: number;
+  change: number;
+  changePercent: number;
+  open: number;
+  high: number;
+  low: number;
+  volume: number;
+  marketCap: number;
+  week52High: number;
+  week52Low: number;
   lastUpdated: string;
 }
 
@@ -67,7 +68,7 @@ export interface HistoryPoint {
   low: number;
   close: number;
   volume: number;
-  adjustedClose?: number;
+  adjustedClose: number;
 }
 
 export interface StockHistory {
@@ -76,19 +77,23 @@ export interface StockHistory {
   data: HistoryPoint[];
 }
 
-// Comparison types
+// ── Compare types (matching Go backend) ─────────────────────────────────────
+
 export interface CompareRequest {
   symbolA: string;
+  symbolAName?: string;
   symbolB: string;
+  symbolBName?: string;
   startDate: string;
   endDate?: string;
   amount: number;
   amountType?: 'MONEY' | 'QUANTITY';
+  title?: string;
+  notes?: string;
+  saveScenario?: boolean;
 }
 
-export interface SymbolResult {
-  symbol: string;
-  name: string;
+export interface SymbolCompareResult {
   startPrice: number;
   endPrice: number;
   changePercent: number;
@@ -99,74 +104,93 @@ export interface SymbolResult {
   profitPercent: number;
 }
 
-export interface ComparisonSummary {
-  differenceAmount: number;
-  differencePercent: number;
+export interface CompareResultDifference {
+  absoluteTL: number;
+  percentagePoints: number;
   winnerSymbol: 'A' | 'B';
   missedOpportunity: boolean;
-  message: string;
 }
 
-export interface ChartDataPoint {
-  date: string;
-  priceA: number;
-  priceB: number;
-  normalizedA: number;
-  normalizedB: number;
-}
-
-export interface MetricsComparison {
-  volatilityA: number;
-  volatilityB: number;
-  maxDrawdownA: number;
-  maxDrawdownB: number;
-  avgVolumeA: number;
-  avgVolumeB: number;
+export interface CompareMetrics {
+  symbolAVolatility: number;
+  symbolBVolatility: number;
   correlation: number;
+}
+
+export interface CompareResultData {
+  symbolA: SymbolCompareResult;
+  symbolB: SymbolCompareResult;
+  difference: CompareResultDifference;
+  metrics: CompareMetrics;
 }
 
 export interface CompareResponse {
   scenarioId?: string;
+  shareToken?: string;
   symbolA: string;
-  symbolAName?: string;
+  symbolAName: string;
   symbolB: string;
-  symbolBName?: string;
+  symbolBName: string;
   startDate: string;
   endDate: string;
-  investmentAmount: number;
-  resultA: SymbolResult;
-  resultB: SymbolResult;
-  summary: ComparisonSummary;
-  chartData: ChartDataPoint[];
-  metrics: MetricsComparison;
+  amount: number;
+  amountType: string;
+  title?: string;
+  result: CompareResultData;
 }
 
-// Investment types
+export interface SavedScenario {
+  id: string;
+  symbolA: string;
+  symbolAName: string;
+  symbolB: string;
+  symbolBName: string;
+  startDate: string;
+  endDate?: string;
+  amount: number;
+  amountType: string;
+  result: CompareResultData;
+  title?: string;
+  isFavorite: boolean;
+  shareToken?: string;
+  viewCount: number;
+  createdAt: string;
+}
+
+export interface ScenariosPage {
+  content: SavedScenario[];
+  totalElements: number;
+  totalPages: number;
+  page: number;
+  size: number;
+}
+
+// ── Portfolio types ──────────────────────────────────────────────────────────
+
 export interface Investment {
   id: string;
   symbol: string;
-  symbolName?: string;
+  symbolName: string;
   exchange: string;
   quantity: number;
   buyPrice: number;
   buyDate: string;
-  buyCommission?: number;
-  sellPrice?: number;
-  sellDate?: string;
-  sellCommission?: number;
+  notes?: string;
   status: 'OPEN' | 'CLOSED' | 'PARTIAL';
   currency: string;
-  notes?: string;
-  tags?: string[];
-  currentPrice?: number;
-  currentValue?: number;
-  totalCost?: number;
-  profit?: number;
-  profitPercent?: number;
-  weight?: number;
+  currentPrice: number;
+  currentValue: number;
+  totalCost: number;
+  profit: number;
+  profitPercent: number;
+  changePercent: number;
+  dailyChange: number;
+  weight: number;
+  createdAt: string;
 }
 
 export interface PortfolioSummary {
+  holdings: Investment[];
   totalValue: number;
   totalCost: number;
   totalProfit: number;
@@ -176,68 +200,59 @@ export interface PortfolioSummary {
   totalInvestments: number;
   openInvestments: number;
   closedInvestments: number;
-  bestPerformer?: Investment;
-  worstPerformer?: Investment;
-  sectorDistribution?: Record<string, number>;
-  holdings: Investment[];
 }
 
-// Watchlist types
+export interface AddInvestmentRequest {
+  symbol: string;
+  symbolName?: string;
+  exchange?: string;
+  quantity: number;
+  buyPrice: number;
+  buyDate: string;
+  notes?: string;
+}
+
+// ── Watchlist types ──────────────────────────────────────────────────────────
+
 export interface WatchlistItem {
   id: string;
   symbol: string;
-  symbolName?: string;
+  symbolName: string;
   exchange: string;
   notes?: string;
   displayOrder: number;
   addedAt: string;
-  price?: number;
-  change?: number;
-  changePercent?: number;
-  week52High?: number;
-  week52Low?: number;
-  marketCap?: number;
+  price: number;
+  change: number;
+  changePercent: number;
+  week52High: number;
+  week52Low: number;
+  volume: number;
 }
 
-export interface PriceAlert {
-  id: string;
+// ── Market types ─────────────────────────────────────────────────────────────
+
+export interface MarketQuote {
   symbol: string;
-  targetPrice: number;
-  direction: 'ABOVE' | 'BELOW' | 'CROSS';
-  status: 'ACTIVE' | 'TRIGGERED' | 'CANCELLED' | 'EXPIRED';
-  message?: string;
-  notifyEmail: boolean;
-  notifyPush: boolean;
-  triggeredAt?: string;
-  triggeredPrice?: number;
-  expiresAt?: string;
-  createdAt: string;
-}
-
-// Market types
-export interface MarketOverview {
-  indices: Record<string, {
-    value: number;
-    change: number;
-    changePercent: number;
-  }>;
-  currencies: Record<string, {
-    value: number;
-    change: number;
-    changePercent: number;
-  }>;
-  commodities: Record<string, {
-    value: number;
-    change: number;
-    changePercent: number;
-  }>;
-  gainers: StockPrice[];
-  losers: StockPrice[];
-  mostActive: StockPrice[];
+  name: string;
+  exchange: string;
+  price: number;
+  previousClose: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  marketCap: number;
+  week52High: number;
+  week52Low: number;
   lastUpdated: string;
 }
 
-// Notification types
+export interface MarketOverview {
+  quotes: MarketQuote[];
+}
+
+// ── Notification types ───────────────────────────────────────────────────────
+
 export interface Notification {
   id: string;
   type: 'PRICE_ALERT' | 'PORTFOLIO_UPDATE' | 'NEWS' | 'SYSTEM' | 'COMPARISON_RESULT';

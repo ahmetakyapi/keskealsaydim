@@ -45,7 +45,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const response = await authService.login({ email, password, rememberMe });
+      const response = await authService.login({ email, password });
       setAuth(response.user, response.accessToken, response.refreshToken);
       toast.success('Giriş başarılı!');
       navigate('/dashboard');

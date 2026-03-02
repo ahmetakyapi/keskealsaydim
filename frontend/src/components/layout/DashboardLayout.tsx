@@ -7,7 +7,6 @@ import {
   Wallet,
   Star,
   BarChart3,
-  LineChart,
   Settings,
   Bell,
   Search,
@@ -31,7 +30,6 @@ const navigation = [
   { name: 'Portföyüm', href: '/portfolio', icon: Wallet },
   { name: 'Favorilerim', href: '/watchlist', icon: Star },
   { name: 'Piyasa', href: '/market', icon: BarChart3 },
-  { name: 'Analizler', href: '/analytics', icon: LineChart },
   { name: 'Ayarlar', href: '/settings', icon: Settings },
 ];
 

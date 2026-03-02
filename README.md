@@ -1,203 +1,217 @@
 # Keşke Alsaydım
 
-Kapsamlı bir borsa/yatırım karşılaştırma uygulaması. "X tarihinde şu hisseyi almak istiyordum ama almadım, bunun yerine Y hissesini aldım" diyerek iki yatırım arasındaki farkı, kaybedilen/kazanılan fırsatı net biçimde görebilirsin.
+> "X tarihinde şu hisseyi almak yerine bunu alsaydım ne olurdu?"
+
+İki hisse senedini belirli bir tarih aralığında karşılaştıran, kaçırılan fırsatları ve alternatif getiri senaryolarını görselleştiren bir yatırım analiz uygulaması.
+
+**[Demo →](https://keskealsaydim.vercel.app)**
+
+---
 
 ## Özellikler
 
-- **Karşılaştır (Keşke Alsaydım?)**: İki hisse arasında karşılaştırma yaparak kaçırdığın fırsatları keşfet
-- **Portföy Takibi**: Yatırımlarını anlık takip et
-- **Favoriler (Watchlist)**: Takip etmek istediğin hisseleri izle
-- **Piyasa Görünümü**: BIST100, döviz, altın ve emtia fiyatları
-- **Analizler**: Detaylı performans analizleri
-- **Fiyat Alarmları**: Hedef fiyata ulaşıldığında bildirim al
+| Özellik | Açıklama |
+| --- | --- |
+| **Karşılaştırma** | İki hisseyi seç, tarih ve yatırım tutarı gir — kim kazanırdı, ne kadar fark ederdi anında gör |
+| **Portföy Takibi** | Alış fiyatı ve miktarına göre anlık kar/zarar, günlük değişim |
+| **Watchlist** | Takip listene eklediğin hisselerin canlı fiyat ve 52H yüksek/düşük bandı |
+| **Piyasa** | BIST 100, USD/TRY, EUR/TRY, GBP/TRY, Altın ve önde gelen BIST hisseleri |
+| **Paylaşım** | Karşılaştırma senaryolarını link ile paylaş |
 
-## Teknoloji Stack
+---
 
-### Frontend
-- React 18 + TypeScript
-- Vite
-- Zustand (state management)
-- TanStack Query (React Query)
-- React Router v6
-- Recharts (grafikler)
-- Framer Motion (animasyonlar)
-- Tailwind CSS + shadcn/ui
-- Axios
+## Teknoloji
 
-### Backend
-- Spring Boot 3 (Java 21)
-- Spring Security + JWT
-- Spring WebSocket
-- Spring Data JPA + Hibernate
-- Spring Cache (Redis)
-- Swagger/OpenAPI
+### Frontend — `frontend/`
 
-### Data Service
-- Python 3.12 + FastAPI
-- yfinance (Yahoo Finance verisi)
-- Redis cache
+- **React 18** + TypeScript + Vite
+- **TailwindCSS** — dark glassmorphism tasarım sistemi
+- **Framer Motion** — sayfa geçişleri ve stagger animasyonları
+- **Recharts** — normalize edilmiş karşılaştırma grafikleri
+- **Zustand** — auth state (localStorage persist)
+- **Axios** — JWT interceptor + otomatik token refresh
 
-### Veritabanı & Altyapı
-- PostgreSQL 16
-- Redis 7
-- Docker + Docker Compose
-- Nginx (reverse proxy)
+### Backend — `api/` + `internal/`
+
+- **Go 1.22** serverless functions (Vercel)
+- Her `api/**/*.go` dosyası bağımsız bir HTTP handler
+- **pgx/v5** — Neon PostgreSQL bağlantısı (pgbouncer, simple protocol)
+- **golang-jwt/v5** — Access + Refresh token çifti, otomatik rotasyon
+- **Upstash Redis** — HTTP REST API üzerinden cache (fiyat: 1dk, tarih: 24s, piyasa: 2dk)
+- **Yahoo Finance v8** — Anlık fiyat ve tarihsel veri
+
+### Altyapı
+
+- **Vercel** — frontend (static) + Go serverless functions tek projede
+- **Neon** — PostgreSQL (serverless, pgbouncer pooler)
+- **Upstash** — Redis (serverless HTTP)
+
+---
 
 ## Proje Yapısı
 
-```
+```text
 keskealsaydim/
-├── docker-compose.yml
-├── nginx/
-│   └── nginx.conf
-├── frontend/          # React uygulaması
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── stores/
-│   │   ├── services/
-│   │   └── types/
-│   └── Dockerfile
-├── backend/           # Spring Boot uygulaması
-│   ├── src/main/java/com/keskealsaydim/
-│   │   ├── controller/
-│   │   ├── service/
-│   │   ├── repository/
-│   │   ├── entity/
-│   │   ├── dto/
-│   │   ├── security/
-│   │   └── config/
-│   └── Dockerfile
-└── data-service/      # Python FastAPI
-    ├── main.py
-    └── Dockerfile
+├── api/                        # Vercel Go serverless functions
+│   ├── auth/
+│   │   ├── register.go         # POST /api/auth/register
+│   │   ├── login.go            # POST /api/auth/login
+│   │   ├── refresh.go          # POST /api/auth/refresh
+│   │   └── logout.go           # POST /api/auth/logout
+│   ├── stocks/
+│   │   ├── search.go           # GET  /api/stocks/search?q=
+│   │   └── [symbol]/
+│   │       ├── price.go        # GET  /api/stocks/{symbol}/price
+│   │       └── history.go      # GET  /api/stocks/{symbol}/history
+│   ├── compare/
+│   │   ├── index.go            # POST /api/compare
+│   │   ├── history.go          # GET  /api/compare/history
+│   │   └── shared/
+│   │       └── [token].go      # GET  /api/compare/shared/{token}
+│   ├── market/
+│   │   └── overview.go         # GET  /api/market/overview
+│   ├── portfolio/
+│   │   ├── index.go            # GET + POST /api/portfolio
+│   │   └── [id].go             # DELETE    /api/portfolio/{id}
+│   ├── watchlist/
+│   │   ├── index.go            # GET + POST /api/watchlist
+│   │   └── [id].go             # DELETE    /api/watchlist/{id}
+│   └── users/
+│       └── me.go               # GET + PUT /api/users/me
+│
+├── internal/                   # Shared Go packages
+│   ├── auth/jwt.go             # JWT üret / doğrula / request'ten çıkar
+│   ├── cache/cache.go          # Upstash Redis HTTP client
+│   ├── db/db.go                # pgxpool lazy singleton (MaxConns=3)
+│   ├── finance/yahoo.go        # Yahoo Finance v8 API client
+│   └── respond/respond.go      # CORS + JSON/Error yardımcıları
+│
+├── frontend/                   # React uygulaması
+│   └── src/
+│       ├── pages/              # Dashboard, Portfolio, Watchlist, Compare, Market, Settings
+│       ├── services/           # API katmanı (portfolioService, watchlistService, ...)
+│       ├── stores/             # Zustand stores (authStore, themeStore)
+│       ├── components/         # UI bileşenleri (shadcn tabanlı)
+│       └── types/index.ts      # Go backend response'larıyla eşleşen TypeScript tipleri
+│
+├── go.mod
+├── go.sum
+└── vercel.json                 # Build + routing + Go runtime konfigürasyonu
 ```
 
-## Kurulum
+---
 
-### Gereksinimler
-- Docker & Docker Compose
-- Node.js 20+ (geliştirme için)
-- Java 21+ (geliştirme için)
-- Python 3.12+ (geliştirme için)
-
-### Docker ile Çalıştırma
-
-```bash
-# Projeyi klonla
-git clone https://github.com/yourusername/keskealsaydim.git
-cd keskealsaydim
-
-# Environment dosyasını oluştur
-cp .env.example .env
-
-# Docker Compose ile başlat
-docker-compose up -d
-
-# Uygulamaya eriş
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:8080
-# Swagger UI: http://localhost:8080/swagger-ui.html
-```
-
-### Geliştirme Ortamı
-
-#### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-# http://localhost:5173
-```
-
-#### Backend
-```bash
-cd backend
-./mvnw spring-boot:run
-# http://localhost:8080
-```
-
-#### Data Service
-```bash
-cd data-service
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
-# http://localhost:8001
-```
-
-## API Endpoints
+## API Referansı
 
 ### Auth
-- `POST /api/auth/register` - Yeni kullanıcı kaydı
-- `POST /api/auth/login` - Giriş
-- `POST /api/auth/refresh` - Token yenileme
-- `POST /api/auth/logout` - Çıkış
 
-### Karşılaştırma
-- `POST /api/compare` - İki hisseyi karşılaştır
-- `GET /api/compare/history` - Geçmiş karşılaştırmalar
-- `GET /api/compare/shared/{token}` - Paylaşılan karşılaştırma
+| Method | Endpoint | Auth | Açıklama |
+| --- | --- | --- | --- |
+| POST | `/api/auth/register` | — | Kayıt |
+| POST | `/api/auth/login` | — | Giriş, token çifti döner |
+| POST | `/api/auth/refresh` | — | Refresh token ile yeni access token |
+| POST | `/api/auth/logout` | ✓ | Refresh token'ı iptal et |
 
 ### Hisseler
-- `GET /api/stocks/search?q=` - Hisse ara
-- `GET /api/stocks/{symbol}/price` - Anlık fiyat
-- `GET /api/stocks/{symbol}/history` - Geçmiş veriler
 
-### Portföy
-- `GET /api/portfolio` - Portföy özeti
-- `POST /api/portfolio/investment` - Yeni yatırım ekle
-- `PUT /api/portfolio/investment/{id}` - Güncelle
-- `DELETE /api/portfolio/investment/{id}` - Sil
+| Method | Endpoint | Auth | Cache |
+| --- | --- | --- | --- |
+| GET | `/api/stocks/search?q=` | — | — |
+| GET | `/api/stocks/{symbol}/price` | — | 1 dakika |
+| GET | `/api/stocks/{symbol}/history?from=&to=&interval=` | — | 24 saat |
 
-### Favoriler
-- `GET /api/watchlist` - Favori listesi
-- `POST /api/watchlist/{symbol}` - Ekle
-- `DELETE /api/watchlist/{symbol}` - Çıkar
-- `POST /api/watchlist/{symbol}/alert` - Fiyat alarmı kur
+### Karşılaştırma
+
+| Method | Endpoint | Auth | Açıklama |
+| --- | --- | --- | --- |
+| POST | `/api/compare` | opsiyonel | `saveScenario: true` ile DB'ye kaydeder |
+| GET | `/api/compare/history?page=&size=` | ✓ | Geçmiş senaryolar |
+| GET | `/api/compare/shared/{token}` | — | Paylaşılan senaryo |
+
+### Portföy & Watchlist
+
+| Method | Endpoint | Auth |
+| --- | --- | --- |
+| GET/POST | `/api/portfolio` | ✓ |
+| DELETE | `/api/portfolio/{id}` | ✓ |
+| GET/POST | `/api/watchlist` | ✓ |
+| DELETE | `/api/watchlist/{id}` | ✓ |
+| GET/PUT | `/api/users/me` | ✓ |
 
 ### Piyasa
-- `GET /api/market/overview` - Piyasa özeti
 
-## Ortam Değişkenleri
+| Method | Endpoint | Cache |
+| --- | --- | --- |
+| GET | `/api/market/overview` | 2 dakika |
 
-```env
-# PostgreSQL
-POSTGRES_DB=keskealsaydim
-POSTGRES_USER=keske
-POSTGRES_PASSWORD=your_secure_password
+---
 
-# Redis
-REDIS_PASSWORD=your_redis_password
+## Yerel Geliştirme
 
-# JWT
-JWT_SECRET=your_jwt_secret_key
-JWT_EXPIRATION=86400000
+### Gereksinimler
 
-# External APIs (Opsiyonel)
-ALPHA_VANTAGE_API_KEY=your_key
+- **Node.js** 20+
+- **Go** 1.22+
+- Neon veya yerel PostgreSQL
+- Upstash Redis veya yerel Redis
+
+### Kurulum
+
+```bash
+# Repoyu klonla
+git clone https://github.com/kullanici/keskealsaydim.git
+cd keskealsaydim
+
+# Frontend bağımlılıklarını yükle
+cd frontend && npm install && cd ..
+
+# Go bağımlılıklarını indir
+go mod download
+
+# Environment değişkenlerini ayarla
+export DATABASE_URL="postgresql://..."
+export JWT_SECRET="en-az-32-karakter-rastgele-string"
+export UPSTASH_REDIS_REST_URL="https://..."
+export UPSTASH_REDIS_REST_TOKEN="..."
+export FRONTEND_URL="http://localhost:5173"
+
+# Frontend geliştirme sunucusu
+cd frontend && npm run dev
 ```
 
-## Ekran Görüntüleri
+> **Not:** Go handler'larını yerel çalıştırmak için [Vercel CLI](https://vercel.com/docs/cli) kullanabilirsin: `vercel dev`
 
-### Landing Page
-- Etkileyici glassmorphism tasarım
-- Animasyonlu istatistikler
-- Floating ticker bar
+### Veritabanı
 
-### Dashboard
-- Portföy özeti
-- Piyasa göstergeleri
-- Hızlı işlem butonları
+`backend/src/main/resources/db/migration/` dizinindeki SQL dosyalarını sırayla çalıştır:
 
-### Karşılaştırma (Ana Özellik)
-- Dramatik sonuç kartları
-- Konfeti animasyonu (kar durumunda)
-- İnteraktif grafikler
+```text
+V1__create_users_table.sql
+V2__create_investments_table.sql
+V3__create_watchlist_table.sql
+V4__create_comparison_scenarios_table.sql
+V5__create_notifications_and_settings.sql
+```
+
+---
+
+## Deploy
+
+Proje Vercel'e tek seferde deploy olur. Gerekli ortam değişkenleri:
+
+```env
+DATABASE_URL=postgresql://...@pooler.neon.tech/neondb?sslmode=require
+JWT_SECRET=<openssl rand -hex 32>
+UPSTASH_REDIS_REST_URL=https://...upstash.io
+UPSTASH_REDIS_REST_TOKEN=...
+FRONTEND_URL=https://senin-proje.vercel.app
+VITE_API_URL=
+```
+
+`vercel.json` build komutunu ve Go runtime'ı otomatik olarak yapılandırır.
+
+---
 
 ## Lisans
 
 MIT
-
-## Katkıda Bulunma
-
-Pull request'ler memnuniyetle karşılanır. Büyük değişiklikler için önce bir issue açarak neyi değiştirmek istediğinizi tartışın.

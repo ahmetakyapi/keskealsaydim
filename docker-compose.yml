@@ -1,7 +1,6 @@
 version: '3.9'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: keske-postgres
@@ -13,7 +12,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/src/main/resources/db/init:/docker-entrypoint-initdb.d
+      - ./db/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keske -d keskealsaydim"]
       interval: 10s
@@ -22,7 +21,6 @@ services:
     networks:
       - keske-network
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: keske-redis
@@ -39,7 +37,6 @@ services:
     networks:
       - keske-network
 
-  # Python Data Service (Yahoo Finance)
   data-service:
     build:
       context: ./data-service
@@ -60,72 +57,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    networks:
-      - keske-network
-
-  # Spring Boot Backend
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: keske-backend
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/keskealsaydim
-      - SPRING_DATASOURCE_USERNAME=keske
-      - SPRING_DATASOURCE_PASSWORD=keske_secret_2024
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_PASSWORD=redis_secret_2024
-      - DATA_SERVICE_URL=http://data-service:8001
-      - JWT_SECRET=keskealsaydim_jwt_secret_key_2024_very_secure_key_here
-      - JWT_EXPIRATION=86400000
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      data-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - keske-network
-
-  # React Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=http://localhost:8080/api
-        - VITE_WS_URL=ws://localhost:8080/ws
-    container_name: keske-frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    networks:
-      - keske-network
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: keske-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - frontend
-      - backend
     networks:
       - keske-network
 

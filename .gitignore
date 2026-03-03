@@ -65,7 +65,7 @@ secrets/
 # Database dumps
 *.sql
 *.dump
-!backend/src/main/resources/db/**/*.sql
+!db/**/*.sql
 
 # Temporary files
 tmp/

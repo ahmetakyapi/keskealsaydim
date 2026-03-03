@@ -183,7 +183,7 @@ cd frontend && npm run dev
 
 ### Veritabanı
 
-`backend/src/main/resources/db/migration/` dizinindeki SQL dosyalarını sırayla çalıştır:
+`db/migration/` dizinindeki SQL dosyalarını sırayla çalıştır:
 
 ```text
 V1__create_users_table.sql
@@ -192,6 +192,8 @@ V3__create_watchlist_table.sql
 V4__create_comparison_scenarios_table.sql
 V5__create_notifications_and_settings.sql
 ```
+
+İstersen yalnızca altyapı servislerini ayağa kaldırmak için `docker compose up -d postgres redis data-service` kullanabilirsin.
 
 ---
 

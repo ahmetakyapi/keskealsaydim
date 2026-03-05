@@ -226,8 +226,15 @@ func GetHistory(symbol, from, to, interval string) (*History, error) {
 	}
 	toT = toT.Add(24 * time.Hour) // include the to date
 
+	intraday := false
 	yahoInterval := "1d"
 	switch interval {
+	case "1h", "60m":
+		yahoInterval = "1h"
+		intraday = true
+	case "30m":
+		yahoInterval = "30m"
+		intraday = true
 	case "1wk":
 		yahoInterval = "1wk"
 	case "1mo":
@@ -276,8 +283,12 @@ func GetHistory(symbol, from, to, interval string) (*History, error) {
 		if i < len(adjCloses) && adjCloses[i] != 0 {
 			adj = adjCloses[i]
 		}
+		dateFmt := "2006-01-02"
+		if intraday {
+			dateFmt = "2006-01-02T15:04:05Z"
+		}
 		points = append(points, HistoryPoint{
-			Date:     dt.Format("2006-01-02"),
+			Date:     dt.Format(dateFmt),
 			Open:     round4(safeGet(q.Open, i)),
 			High:     round4(safeGet(q.High, i)),
 			Low:      round4(safeGet(q.Low, i)),

@@ -32,6 +32,7 @@ import {
   CartesianGrid,
   Line,
   LineChart as ReLineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -71,11 +72,27 @@ const FEATURES = [
   },
 ];
 
-const RANGE_MONTHS: Record<"1M" | "3M" | "6M" | "1Y", number> = {
-  "1M": 1,
-  "3M": 3,
-  "6M": 6,
-  "1Y": 12,
+type HeroRange = "1G" | "1H" | "1A" | "3A" | "1Y" | "5Y";
+
+function dateFrom(op: (d: Date) => void): string {
+  const d = new Date();
+  op(d);
+  return d.toISOString().slice(0, 10);
+}
+
+const RANGE_CONFIG: Record<HeroRange, { getFrom: () => string; interval: string; fallback: number }> = {
+  // 5 gün geriden saatlik çek, sonra sadece son işlem gününü filtrele
+  "1G": { getFrom: () => dateFrom((d) => d.setDate(d.getDate() - 5)),    interval: "1h",  fallback: 2  },
+  // Tam 7 takvim günü geri
+  "1H": { getFrom: () => dateFrom((d) => d.setDate(d.getDate() - 7)),    interval: "1d",  fallback: 2  },
+  // Tam 30 takvim günü geri
+  "1A": { getFrom: () => dateFrom((d) => d.setDate(d.getDate() - 30)),   interval: "1d",  fallback: 3  },
+  // 3 ay geri (Mar → Ara, Oca → Eki gibi)
+  "3A": { getFrom: () => dateFrom((d) => d.setMonth(d.getMonth() - 3)),  interval: "1d",  fallback: 6  },
+  // 1 yıl geri (2026 → 2025)
+  "1Y": { getFrom: () => dateFrom((d) => d.setFullYear(d.getFullYear() - 1)), interval: "1d", fallback: 15 },
+  // 5 yıl geri (2026 → 2021)
+  "5Y": { getFrom: () => dateFrom((d) => d.setFullYear(d.getFullYear() - 5)), interval: "1wk", fallback: 37 },
 };
 
 const TR_MONTHS = [
@@ -92,6 +109,7 @@ const TR_MONTHS = [
   "Kas",
   "Ara",
 ];
+const TR_DAYS = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
 const CMP_COLORS = { A: "#22c55e", B: "#38bdf8" };
 const PANEL_STYLE = {
   background: "rgba(8, 15, 21, 0.82)",
@@ -132,51 +150,50 @@ function toClosePoints(
   }));
 }
 
-function buildNormalizedChartData(
-  historyA: ClosePoint[],
-  historyB: ClosePoint[]
-): CmpPoint[] {
-  if (!historyA.length || !historyB.length) {
-    return [];
-  }
-
-  const baseA = historyA[0].close;
-  const baseB = historyB[0].close;
-  const mapB = new Map(historyB.map((point) => [point.date, point.close]));
-
-  const normalized = historyA.flatMap((pointA) => {
-    const closeB = mapB.get(pointA.date);
-    if (closeB === undefined) {
-      return [];
-    }
-
-    return [
-      {
-        label: fmtMonth(pointA.date),
-        A: Number.parseFloat(((pointA.close / baseA) * 100).toFixed(2)),
-        B: Number.parseFloat(((closeB / baseB) * 100).toFixed(2)),
-      },
-    ];
-  });
-
-  return normalized.filter(
-    (_, index) =>
-      index === 0 ||
-      index === normalized.length - 1 ||
-      index % Math.max(1, Math.floor(normalized.length / 8)) === 0
-  );
-}
-
-function fmtMonth(date: string) {
+function fmtLabel(date: string, range: HeroRange): string {
   const dt = new Date(date);
+  if (range === "1G") {
+    return `${dt.getHours().toString().padStart(2, "0")}:${dt.getMinutes().toString().padStart(2, "0")}`;
+  }
+  if (range === "1H") {
+    return `${TR_DAYS[dt.getDay()]} ${dt.getDate()}`;
+  }
+  if (range === "1A") {
+    return `${dt.getDate()} ${TR_MONTHS[dt.getMonth()]}`;
+  }
   return `${TR_MONTHS[dt.getMonth()]} ${String(dt.getFullYear()).slice(2)}`;
 }
 
-function getRangeFrom(months: number) {
-  const d = new Date();
-  d.setMonth(d.getMonth() - months);
-  return d.toISOString().slice(0, 10);
+function buildNormalizedChartData(
+  historyA: ClosePoint[],
+  historyB: ClosePoint[],
+  range: HeroRange
+): CmpPoint[] {
+  if (!historyA.length || !historyB.length) return [];
+
+  const baseA = historyA[0].close;
+  const baseB = historyB[0].close;
+  const mapB = new Map(historyB.map((p) => [p.date, p.close]));
+
+  const normalized = historyA.flatMap((pointA) => {
+    const closeB = mapB.get(pointA.date);
+    if (closeB === undefined) return [];
+    return [{
+      label: fmtLabel(pointA.date, range),
+      A: Number.parseFloat(((pointA.close / baseA) * 100).toFixed(2)),
+      B: Number.parseFloat(((closeB / baseB) * 100).toFixed(2)),
+    }];
+  });
+
+  const maxTicks = range === "1G" || range === "1H" ? normalized.length : 10;
+  return normalized.filter(
+    (_, i) =>
+      i === 0 ||
+      i === normalized.length - 1 ||
+      i % Math.max(1, Math.floor(normalized.length / maxTicks)) === 0
+  );
 }
+
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) {
@@ -197,7 +214,10 @@ function ChartTooltip({ active, payload, label }: any) {
         >
           {item.name === "v"
             ? `₺${Number(item.value).toLocaleString("tr-TR")}`
-            : `${item.name}: ${item.value}%`}
+            : (() => {
+                const delta = (Number(item.value) - 100).toFixed(1);
+                return `${item.name}: ${Number(delta) >= 0 ? "+" : ""}${delta}%`;
+              })()}
         </p>
       ))}
     </div>
@@ -362,62 +382,125 @@ function AppleMark() {
 }
 
 function HeroSection() {
-  const heroData = COMPARISON_DATA;
-  const heroChartData = heroData.map((point) => ({
-    t: point.t,
-    NVDA: point.NVDA - 100,
-    AAPL: point.AAPL - 100,
-  }));
-  const heroLeaders = [
-    { symbol: "NVDA", label: "NVIDIA", ret: 855, color: "#22c55e" },
-    { symbol: "AAPL", label: "Apple", ret: 91, color: "#38bdf8" },
-  ];
-  const heroGap = heroLeaders[0].ret - heroLeaders[1].ret;
+  const [stockA, setStockA] = useState<StockSel>({ symbol: "NVDA", name: "NVIDIA" });
+  const [stockB, setStockB] = useState<StockSel>({ symbol: "AAPL", name: "Apple" });
+  const [range, setRange] = useState<HeroRange>("5Y");
+  const [chartData, setChartData] = useState<CmpPoint[]>([]);
+  const [retA, setRetA] = useState<number | null>(null);
+  const [retB, setRetB] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const firstRenderDone = useRef(false);
+  const prevRange = useRef(range);
+
+  const runCompare = useCallback(
+    async (sA: StockSel, sB: StockSel, r: HeroRange) => {
+      setLoading(true);
+      setFetchError(false);
+      try {
+        const { getFrom, interval } = RANGE_CONFIG[r];
+        const fromDate = getFrom();
+        const toDate = new Date().toISOString().slice(0, 10);
+        const [histA, histB] = await Promise.all([
+          stockService.getHistory(sA.symbol, fromDate, toDate, interval),
+          stockService.getHistory(sB.symbol, fromDate, toDate, interval),
+        ]);
+        let ptsA = toClosePoints(histA.data);
+        let ptsB = toClosePoints(histB.data);
+        if (r === "1G" && ptsA.length > 0) {
+          const lastDay = ptsA[ptsA.length - 1].date.slice(0, 10);
+          ptsA = ptsA.filter((p) => p.date.startsWith(lastDay));
+          ptsB = ptsB.filter((p) => p.date.startsWith(lastDay));
+        }
+        const pts = buildNormalizedChartData(ptsA, ptsB, r);
+        if (!pts.length) throw new Error("empty");
+        setChartData(pts);
+        setRetA(pts[pts.length - 1].A - 100);
+        setRetB(pts[pts.length - 1].B - 100);
+      } catch {
+        setFetchError(true);
+        setChartData([]);
+        setRetA(null);
+        setRetB(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const rangeChanged = prevRange.current !== range;
+    prevRange.current = range;
+    if (!firstRenderDone.current) {
+      firstRenderDone.current = true;
+      runCompare(stockA, stockB, range);
+      return;
+    }
+    if (rangeChanged) {
+      runCompare(stockA, stockB, range);
+      return;
+    }
+    const t = setTimeout(() => runCompare(stockA, stockB, range), 500);
+    return () => clearTimeout(t);
+  }, [stockA.symbol, stockB.symbol, range]); // eslint-disable-line
+
+  const gap = retA !== null && retB !== null ? retA - retB : null;
+
+  const periodLabel = (() => {
+    const now = new Date();
+    if (range === "1G") {
+      return `Bugün · ${now.getDate()} ${TR_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    }
+    if (chartData.length > 1) {
+      return `${chartData[0].label} → ${chartData[chartData.length - 1].label}`;
+    }
+    return loading ? "Yükleniyor…" : "—";
+  })();
 
   return (
-    <section className="relative">
-      <div className="mx-auto max-w-[1340px] px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pb-14 lg:pt-12">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.14fr)] lg:items-center lg:gap-12 xl:gap-14">
+    <section className="relative flex min-h-[calc(100svh-7rem)] items-center md:min-h-[calc(100svh-4.5rem)]">
+      <div className="mx-auto w-full max-w-[1400px] px-4 pb-10 pt-8 sm:px-6 sm:pb-16 sm:pt-12 lg:px-8 lg:pb-20 lg:pt-16">
+        <div className="grid gap-10 lg:grid-cols-[1fr_minmax(0,1.15fr)] lg:items-center lg:gap-14 xl:gap-20">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55 }}
-            className="mx-auto max-w-[22rem] text-center sm:max-w-[34rem] sm:text-left lg:mx-0"
+            className="mx-auto max-w-[28rem] text-center sm:max-w-none sm:text-left lg:mx-0"
           >
-            <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1.5 text-[11px] font-semibold text-primary shadow-[0_0_24px_rgba(34,197,94,0.08)] sm:mx-0 sm:mb-5 sm:px-4 sm:text-xs">
-              <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_14px_rgba(34,197,94,0.7)]" />
-              "Keşke Alsaydım?" Sorusuna Net Cevap
+            <div className="mx-auto mb-3 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary shadow-[0_0_24px_rgba(34,197,94,0.08)] sm:mx-0 sm:mb-5 sm:gap-2 sm:px-4 sm:py-1.5 sm:text-xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(34,197,94,0.7)] sm:h-2 sm:w-2"></span>
+              {"\"Keşke Alsaydım?\" Sorusuna Net Cevap"}
             </div>
 
-            <h1 className="mx-auto max-w-[10.5ch] pb-3 text-[2.45rem] font-semibold leading-[0.98] tracking-tight text-white sm:text-[3.45rem] sm:leading-[0.99] lg:mx-0 lg:text-[4.35rem]">
+            <h1 className="mx-auto max-w-[10.5ch] pb-2 text-[2rem] font-semibold leading-[1.01] tracking-tight text-white sm:pb-3 sm:text-[3.2rem] sm:leading-[0.99] lg:mx-0 lg:text-[3.8rem] xl:text-[4.5rem]">
               Ya O Hisseyi
-              <span className="block pb-[0.08em] text-gradient">
+              <span className="block pb-[0.06em] text-gradient">
                 Gerçekten Alsaydın?
               </span>
             </h1>
 
-            <p className="mx-auto mt-4 max-w-[21rem] text-[0.98rem] leading-7 text-slate-400 sm:mt-5 sm:max-w-xl sm:text-[1.04rem] sm:leading-8 lg:mx-0">
-              Bir tarih seç ve o gün yatırım yapsaydın bugün nereye geleceğini
-              tek ekranda gör.
-              <span className="mt-2 block text-slate-300">
-                İki hisseyi yan yana aç, farkı net biçimde karşılaştır.
-              </span>
+            <p className="mx-auto mt-3 max-w-[26rem] text-[0.9rem] leading-6 text-slate-400 sm:mt-5 sm:max-w-lg sm:text-[1.04rem] sm:leading-8 lg:mx-0">
+              Bir tarih seç, o gün yatırım yapsaydın bugün nerede olduğunu gör.
+            </p>
+            <p className="mx-auto mt-1 max-w-[26rem] text-[0.9rem] leading-6 text-slate-300 sm:mt-2 sm:max-w-lg sm:text-[1.04rem] sm:leading-8 lg:mx-0">
+              İki hisseyi yan yana karşılaştır.
             </p>
 
-            <div className="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:justify-center lg:justify-start">
+            <div className="mt-5 flex flex-row justify-center gap-2.5 sm:mt-7 sm:justify-start">
               <Link
                 to="/register"
-                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-[22px] bg-primary px-6 py-3.5 text-[0.98rem] font-semibold text-slate-950 transition hover:bg-primary/90 sm:min-h-0"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 sm:gap-2 sm:px-6 sm:py-3 sm:text-[0.98rem]"
               >
                 Ücretsiz Dene
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Link>
               <a
                 href="#demo"
-                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.04] px-6 py-3.5 text-[0.98rem] font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.07] sm:min-h-0"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.05] px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/[0.08] sm:gap-2 sm:px-6 sm:py-3 sm:text-[0.98rem]"
               >
                 Demoyu Gör
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </a>
             </div>
           </motion.div>
@@ -428,180 +511,150 @@ function HeroSection() {
             transition={{ duration: 0.65, delay: 0.1 }}
             className="relative mt-1 lg:mt-0 lg:w-full lg:justify-self-end"
           >
+            {/* Ambient glow orbs */}
             <motion.div
               className="pointer-events-none absolute -right-8 -top-6 h-28 w-28 rounded-full blur-3xl"
-              animate={{
-                opacity: [0.12, 0.24, 0.12],
-                scale: [0.92, 1.05, 0.95],
-              }}
-              transition={{
-                duration: 5.2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(56, 189, 248, 0.16) 0%, transparent 72%)",
-              }}
+              animate={{ opacity: [0.12, 0.24, 0.12], scale: [0.92, 1.05, 0.95] }}
+              transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+              style={{ background: "radial-gradient(circle, rgba(56, 189, 248, 0.16) 0%, transparent 72%)" }}
             />
             <motion.div
               className="pointer-events-none absolute -left-8 bottom-10 h-24 w-24 rounded-full blur-3xl"
-              animate={{
-                opacity: [0.08, 0.18, 0.08],
-                scale: [0.96, 1.08, 0.97],
-              }}
-              transition={{
-                duration: 4.8,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 0.4,
-              }}
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(34, 197, 94, 0.13) 0%, transparent 72%)",
-              }}
+              animate={{ opacity: [0.08, 0.18, 0.08], scale: [0.96, 1.08, 0.97] }}
+              transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+              style={{ background: "radial-gradient(circle, rgba(34, 197, 94, 0.13) 0%, transparent 72%)" }}
             />
+
             <div
-              className="relative overflow-hidden rounded-[26px] p-3.5 sm:rounded-[28px] sm:p-5"
+              className="relative overflow-hidden rounded-[26px] p-3.5 sm:rounded-[28px] sm:p-5 xl:p-6"
               style={{
                 ...PANEL_STYLE,
-                background:
-                  "linear-gradient(180deg, rgba(10, 18, 25, 0.96) 0%, rgba(8, 15, 21, 0.82) 100%)",
+                background: "linear-gradient(180deg, rgba(10, 18, 25, 0.96) 0%, rgba(8, 15, 21, 0.82) 100%)",
               }}
             >
+              {/* Header: label + inputs + range */}
               <div className="border-b border-white/8 pb-3.5 sm:pb-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    Karşılaştırma Önizleme
+                <div className="mb-2.5 flex items-center justify-between">
+                  <p className="label-brand text-[11px] font-semibold uppercase tracking-[0.24em]">
+                    Canlı Karşılaştırma
                   </p>
-                  <p className="mt-2.5 text-[1.75rem] font-semibold tracking-tight text-white sm:mt-3 sm:text-[2.35rem]">
-                    NVDA ve AAPL
-                  </p>
-                  <p className="mt-2 text-[0.92rem] leading-6 text-slate-400 sm:text-base">
-                    Ocak 2023 sonrası normalize karşılaştırma
-                  </p>
+                  {loading && (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <StockInput value={stockA} label="A" color={CMP_COLORS.A} onSelect={setStockA} />
+                    <StockInput value={stockB} label="B" color={CMP_COLORS.B} onSelect={setStockB} />
+                  </div>
+                  <div className="flex items-center gap-1 self-end rounded-[18px] border border-white/10 bg-white/[0.03] p-1">
+                    {(["1G", "1H", "1A", "3A", "1Y", "5Y"] as const).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setRange(r)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                          range === r ? "bg-primary text-slate-950" : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="relative mt-3.5 overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,24,34,0.9),rgba(9,15,21,0.76))] p-3.5 sm:mt-4 sm:rounded-[26px] sm:p-5">
+              {/* Chart inner panel */}
+              <div className="relative mt-3.5 overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,24,34,0.9),rgba(9,15,21,0.76))] p-3.5 sm:mt-4 sm:rounded-[26px] sm:p-5 xl:p-6">
                 <motion.div
                   className="pointer-events-none absolute left-10 right-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
                   animate={{ opacity: [0.14, 0.4, 0.14] }}
-                  transition={{
-                    duration: 2.8,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
                 />
 
-                <div className="mb-3.5 flex flex-col gap-3 border-b border-white/8 pb-3.5 md:mb-4 md:flex-row md:items-start md:justify-between md:gap-4 md:pb-4">
-                  <div className="space-y-2">
-                    {heroLeaders.map((item) => (
-                      <div
-                        key={item.symbol}
-                        className="flex items-center gap-2.5 text-[0.98rem] text-slate-200 sm:text-base"
-                      >
-                        {item.symbol === "NVDA" ? (
-                          <NvidiaMark />
-                        ) : (
-                          <AppleMark />
-                        )}
-                        <span
-                          className="font-mono font-semibold"
-                          style={{ color: item.color }}
-                        >
-                          {item.symbol}
-                        </span>
+                {/* Legend */}
+                <div className="mb-3.5 flex flex-col gap-2.5 border-b border-white/8 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      { stock: stockA, color: CMP_COLORS.A },
+                      { stock: stockB, color: CMP_COLORS.B },
+                    ].map(({ stock, color }) => (
+                      <div key={stock.symbol} className="flex items-center gap-2 text-sm">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                        <span className="font-mono font-semibold" style={{ color }}>{stock.symbol}</span>
                         <span className="text-slate-600">/</span>
-                        <span className="text-slate-200">{item.label}</span>
+                        <span className="text-slate-300">{stock.name}</span>
                       </div>
                     ))}
                   </div>
-
-                  <div className="w-full rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-sm text-slate-200 sm:w-fit sm:whitespace-nowrap sm:text-base">
-                    Ocak 2023 → Aralık 2025
+                  <div className="w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300 sm:whitespace-nowrap">
+                    {periodLabel}
                   </div>
                 </div>
 
-                <div className="h-[13.5rem] sm:h-[18rem] lg:h-[19rem]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ReLineChart
-                      data={heroChartData}
-                      margin={{ top: 6, right: 8, bottom: 0, left: -6 }}
+                {/* Chart */}
+                <div className="h-[14rem] sm:h-[18rem] lg:h-[20rem] xl:h-[23rem]">
+                  {fetchError ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                      <p className="text-sm text-slate-400">Veri yüklenemedi</p>
+                      <button
+                        onClick={() => runCompare(stockA, stockB, range)}
+                        className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/[0.1]"
+                      >
+                        Tekrar Dene
+                      </button>
+                    </div>
+                  ) : (
+                    <motion.div
+                      key={`hero-${stockA.symbol}-${stockB.symbol}-${range}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: loading ? 0.35 : 1 }}
+                      transition={{ duration: 0.25 }}
+                      className="h-full"
                     >
-                      <CartesianGrid
-                        vertical={false}
-                        stroke="rgba(148, 163, 184, 0.08)"
-                      />
-                      <XAxis
-                        dataKey="t"
-                        axisLine={false}
-                        tickLine={false}
-                        minTickGap={20}
-                        tick={{ fill: "#64748b", fontSize: 10 }}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        width={28}
-                        domain={[0, "dataMax + 30"]}
-                        tick={{ fill: "#64748b", fontSize: 10 }}
-                        tickFormatter={(value) => `${value}%`}
-                      />
-                      <Tooltip
-                        content={<ChartTooltip />}
-                        cursor={{ stroke: "rgba(148, 163, 184, 0.18)" }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="NVDA"
-                        name="NVDA"
-                        stroke="#22c55e"
-                        strokeWidth={2.8}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="AAPL"
-                        name="AAPL"
-                        stroke="#38bdf8"
-                        strokeWidth={2.8}
-                        dot={false}
-                      />
-                    </ReLineChart>
-                  </ResponsiveContainer>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ReLineChart data={chartData} margin={{ top: 6, right: 12, bottom: 0, left: 4 }}>
+                          <CartesianGrid vertical={false} stroke="rgba(148, 163, 184, 0.07)" />
+                          <XAxis
+                            dataKey="label"
+                            axisLine={false}
+                            tickLine={false}
+                            minTickGap={24}
+                            tick={{ fill: "#94a3b8", fontSize: 11 }}
+                          />
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            width={44}
+                            tick={{ fill: "#94a3b8", fontSize: 11 }}
+                            domain={[
+                              (min: number) => Math.min(Math.floor(min) - 2, 98),
+                              (max: number) => Math.ceil(max) + 2,
+                            ]}
+                            tickFormatter={(v: number) => {
+                              const d = Math.round(v - 100);
+                              return `${d >= 0 ? "+" : ""}${d}%`;
+                            }}
+                          />
+                          <ReferenceLine y={100} stroke="rgba(148,163,184,0.18)" strokeDasharray="4 3" />
+                          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(148, 163, 184, 0.18)" }} />
+                          <Line type="monotone" dataKey="A" name={stockA.symbol} stroke={CMP_COLORS.A} strokeWidth={2.8} dot={false} />
+                          <Line type="monotone" dataKey="B" name={stockB.symbol} stroke={CMP_COLORS.B} strokeWidth={2.8} dot={false} />
+                        </ReLineChart>
+                      </ResponsiveContainer>
+                    </motion.div>
+                  )}
                 </div>
 
-                <div className="mt-3.5 grid grid-cols-3 gap-2 sm:mt-4 sm:gap-2.5">
+                {/* Stats row */}
+                <div className="mt-3.5 grid grid-cols-3 gap-2 sm:mt-4 sm:gap-3 xl:gap-4">
                   {[
-                    {
-                      label: "NVDA",
-                      value: `+${heroLeaders[0].ret}%`,
-                      color: "#22c55e",
-                    },
-                    {
-                      label: "APPLE",
-                      value: `+${heroLeaders[1].ret}%`,
-                      color: "#38bdf8",
-                    },
-                    { label: "Fark", value: `+${heroGap}%`, color: "#f59e0b" },
+                    { label: stockA.symbol, value: retA !== null ? `${retA >= 0 ? "+" : ""}${retA.toFixed(1)}%` : "--", color: CMP_COLORS.A },
+                    { label: stockB.symbol, value: retB !== null ? `${retB >= 0 ? "+" : ""}${retB.toFixed(1)}%` : "--", color: CMP_COLORS.B },
+                    { label: "Fark", value: gap !== null ? `${gap >= 0 ? "+" : ""}${gap.toFixed(1)}%` : "--", color: "#f59e0b" },
                   ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-[17px] border border-white/10 bg-black/10 px-2.5 py-3 sm:px-3.5 sm:py-3.5"
-                    >
-                      <p
-                        className="text-[10px] uppercase tracking-[0.22em] sm:text-[11px]"
-                        style={{ color: item.color }}
-                      >
-                        {item.label}
-                      </p>
-                      <p
-                        className="mt-1.5 font-mono text-[0.95rem] font-semibold sm:mt-2 sm:text-[0.95rem]"
-                        style={{ color: item.color }}
-                      >
-                        {item.value}
-                      </p>
+                    <div key={item.label} className="rounded-[17px] border border-white/10 bg-black/10 px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4 xl:py-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] sm:text-[11px]" style={{ color: item.color }}>{item.label}</p>
+                      <p className="mt-1.5 font-mono text-[0.95rem] font-semibold sm:mt-2 xl:text-base" style={{ color: item.color }}>{item.value}</p>
                     </div>
                   ))}
                 </div>
@@ -769,7 +822,7 @@ function DemoSection() {
                             dataKey="t"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: "#64748b", fontSize: 9 }}
+                            tick={{ fill: "#94a3b8", fontSize: 11 }}
                             tickMargin={10}
                             minTickGap={26}
                             interval="preserveStartEnd"
@@ -777,8 +830,8 @@ function DemoSection() {
                           <YAxis
                             axisLine={false}
                             tickLine={false}
-                            width={34}
-                            tick={{ fill: "#64748b", fontSize: 9 }}
+                            width={40}
+                            tick={{ fill: "#94a3b8", fontSize: 11 }}
                             tickCount={4}
                             tickFormatter={(value) =>
                               `₺${Math.round(value / 1000)}K`
@@ -1246,73 +1299,29 @@ function StockInput({
 }
 
 function LiveCompareSection() {
-  const [stockA, setStockA] = useState<StockSel>({
-    symbol: "THYAO",
-    name: "Türk Hava Yolları",
-  });
-  const [stockB, setStockB] = useState<StockSel>({
-    symbol: "GARAN",
-    name: "Garanti BBVA",
-  });
-  const [range, setRange] = useState<"1M" | "3M" | "6M" | "1Y">("1Y");
-  const [chartData, setChartData] = useState<CmpPoint[]>([]);
-  const [retA, setRetA] = useState<number | null>(null);
-  const [retB, setRetB] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [range, setRange] = useState<"6A" | "1Y" | "MAX">("MAX");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
-  const compare = useCallback(
-    async (nextStockA = stockA, nextStockB = stockB, nextRange = range) => {
-      setLoading(true);
-      setError(null);
+  const sliceMap = { "6A": 6, "1Y": 12, "MAX": COMPARISON_DATA.length };
+  const rangeLabel = range === "6A" ? "6 Ay" : range === "1Y" ? "1 Yıl" : "Tüm Süre";
+  const sliced = COMPARISON_DATA.slice(COMPARISON_DATA.length - sliceMap[range]);
+  const baseA = sliced[0]?.NVDA ?? 100;
+  const baseB = sliced[0]?.AAPL ?? 100;
+  const chartData: CmpPoint[] = sliced.map((p) => ({
+    label: p.t,
+    A: Number.parseFloat(((p.NVDA / baseA) * 100).toFixed(1)),
+    B: Number.parseFloat(((p.AAPL / baseB) * 100).toFixed(1)),
+  }));
 
-      try {
-        const fromDate = getRangeFrom(RANGE_MONTHS[nextRange]);
-        const toDate = new Date().toISOString().slice(0, 10);
-        const [historyA, historyB] = await Promise.all([
-          stockService.getHistory(nextStockA.symbol, fromDate, toDate, "1d"),
-          stockService.getHistory(nextStockB.symbol, fromDate, toDate, "1d"),
-        ]);
-
-        const points = buildNormalizedChartData(
-          toClosePoints(historyA.data),
-          toClosePoints(historyB.data)
-        );
-
-        if (!points.length) {
-          throw new Error("empty");
-        }
-
-        setChartData(points);
-        if (points.length > 0) {
-          setRetA(points[points.length - 1].A - 100);
-          setRetB(points[points.length - 1].B - 100);
-        }
-      } catch {
-        setError(
-          "Veriler şu anda alınamadı. Sembol veya tarih aralığını değiştirip tekrar dene."
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [range, stockA, stockB]
-  );
-
-  useEffect(() => {
-    compare();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const summaryCards = [
-    { stock: stockA, ret: retA, color: CMP_COLORS.A },
-    { stock: stockB, ret: retB, color: CMP_COLORS.B },
-  ];
+  const last = chartData[chartData.length - 1];
+  const retNVDA = last ? last.A - 100 : 0;
+  const retAAPL = last ? last.B - 100 : 0;
+  const gap = retNVDA - retAAPL;
   const selectedPeriod =
     chartData.length > 1
       ? `${chartData[0].label} → ${chartData[chartData.length - 1].label}`
-      : "Seçili Aralık";
+      : "";
 
   return (
     <section
@@ -1323,21 +1332,21 @@ function LiveCompareSection() {
       <SectionAtmosphere stars />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Canlı Karşılaştırma"
+          eyebrow="Karşılaştırma Önizlemesi"
           title={
             <>
-              Karşılaştır
-              <span className="block text-gradient">Kararını Netleştir</span>
+              İki Hisseyi
+              <span className="block text-gradient">Yan Yana Gör</span>
             </>
           }
-          description="Sembol gir, aralığı seç ve sonucu aynı kart içinde anında gör."
+          description="NVDA ve AAPL'ın tarihsel performansını normalize edilmiş grafikte karşılaştır. Hesabını aç ve istediğin hisselerle dene."
         />
 
         <motion.div
           initial={{ opacity: 0, y: 22 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.55, delay: 0.08 }}
-          className="relative overflow-visible rounded-[28px] sm:rounded-[32px]"
+          className="relative overflow-hidden rounded-[28px] sm:rounded-[32px]"
           style={{
             ...PANEL_STYLE,
             background:
@@ -1349,222 +1358,169 @@ function LiveCompareSection() {
             animate={{ opacity: [0.1, 0.34, 0.1] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           />
-          <div className="grid gap-3 border-b border-white/10 p-3.5 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] xl:items-center">
-            <StockInput
-              value={stockA}
-              label="A"
-              color={CMP_COLORS.A}
-              onSelect={(stock) => setStockA(stock)}
-            />
-            <StockInput
-              value={stockB}
-              label="B"
-              color={CMP_COLORS.B}
-              onSelect={(stock) => setStockB(stock)}
-            />
-            <div className="flex items-center justify-between gap-1 rounded-[20px] border border-white/10 bg-white/[0.03] p-1 sm:gap-2 sm:rounded-[22px]">
-              {(["1M", "3M", "6M", "1Y"] as const).map((item) => (
+
+          {/* Header: stock labels + range selector */}
+          <div className="flex flex-col gap-3 border-b border-white/10 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <NvidiaMark />
+                <span className="font-mono text-sm font-semibold" style={{ color: CMP_COLORS.A }}>
+                  NVDA
+                </span>
+                <span className="text-sm text-slate-400">NVIDIA</span>
+              </div>
+              <span className="text-sm font-medium text-slate-600">vs</span>
+              <div className="flex items-center gap-2">
+                <AppleMark />
+                <span className="font-mono text-sm font-semibold" style={{ color: CMP_COLORS.B }}>
+                  AAPL
+                </span>
+                <span className="text-sm text-slate-400">Apple</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 self-start rounded-[20px] border border-white/10 bg-white/[0.03] p-1 sm:self-auto">
+              {(["6A", "1Y", "MAX"] as const).map((r) => (
                 <button
-                  key={item}
-                  onClick={() => setRange(item)}
-                  className={`rounded-full px-3 py-2 text-xs font-semibold transition sm:text-sm ${
-                    range === item
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={`rounded-full px-3.5 py-2 text-xs font-semibold transition ${
+                    range === r
                       ? "bg-primary text-slate-950"
                       : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  {item}
+                  {r}
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => compare()}
-              disabled={loading}
-              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-[22px] bg-primary px-5 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 disabled:opacity-70 sm:min-h-0"
-            >
-              {loading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                <BarChart2 className="h-4 w-4" />
-              )}
-              {loading ? "Hesaplanıyor" : "Karşılaştır"}
-            </button>
           </div>
 
-          <div className="grid gap-0 xl:grid-cols-[minmax(0,1.22fr)_320px]">
+          {/* Main grid */}
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1.22fr)_300px]">
+            {/* Chart panel */}
             <div className="p-3.5 sm:p-6">
               <div className="rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(12,20,28,0.96),rgba(9,15,21,0.82))] p-3.5 sm:rounded-[28px] sm:p-5">
-                <div className="mb-3.5 flex flex-col gap-3 border-b border-white/8 pb-3.5 sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:pb-4">
+                {/* Legend + period */}
+                <div className="mb-3.5 flex flex-col gap-3 border-b border-white/8 pb-3.5 sm:flex-row sm:items-center sm:justify-between sm:pb-4">
                   <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: CMP_COLORS.A }}
-                      />
-                      <span className="font-mono text-sm font-semibold text-white">
-                        {stockA.symbol}
-                      </span>
-                      <span className="text-sm text-slate-400">
-                        {stockA.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: CMP_COLORS.B }}
-                      />
-                      <span className="font-mono text-sm font-semibold text-white">
-                        {stockB.symbol}
-                      </span>
-                      <span className="text-sm text-slate-400">
-                        {stockB.name}
-                      </span>
-                    </div>
+                    {[
+                      { symbol: "NVDA", name: "NVIDIA", color: CMP_COLORS.A },
+                      { symbol: "AAPL", name: "Apple", color: CMP_COLORS.B },
+                    ].map(({ symbol, name, color }) => (
+                      <div key={symbol} className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full" style={{ background: color }} />
+                        <span className="font-mono text-sm font-semibold text-white">{symbol}</span>
+                        <span className="text-sm text-slate-400">{name}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="w-full rounded-full border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-center text-sm text-slate-300 sm:w-fit">
+                  <div className="w-fit rounded-full border border-white/[0.08] bg-white/[0.035] px-4 py-2 text-sm text-slate-300">
                     {selectedPeriod}
                   </div>
                 </div>
 
-                {error && (
-                  <div className="flex h-[14rem] flex-col items-center justify-center gap-4 rounded-[20px] border border-white/[0.08] bg-white/[0.02] px-4 text-center sm:h-[22rem] sm:rounded-[24px]">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                      <BarChart2 className="h-5 w-5" />
-                    </div>
-                    <p className="max-w-sm text-sm leading-7 text-slate-400">
-                      {error}
-                    </p>
-                    <Link
-                      to="/register"
-                      className="inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition hover:bg-primary/15"
-                    >
-                      Ücretsiz Kayıt Ol
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                )}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={range}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="h-[14rem] sm:h-[21rem] lg:h-[24rem]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ReLineChart data={chartData} margin={{ top: 8, right: 6, bottom: 0, left: 0 }}>
+                        <CartesianGrid vertical={false} stroke="rgba(148, 163, 184, 0.07)" />
+                        <XAxis
+                          dataKey="label"
+                          axisLine={false}
+                          tickLine={false}
+                          interval="preserveStartEnd"
+                          tick={{ fill: "#94a3b8", fontSize: 11 }}
+                          tickMargin={10}
+                          minTickGap={28}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          width={40}
+                          tickCount={4}
+                          tickFormatter={(v) => `${Math.round(v)}%`}
+                          tick={{ fill: "#94a3b8", fontSize: 11 }}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(148, 163, 184, 0.18)" }} />
+                        <Line type="monotone" dataKey="A" name="NVDA" stroke={CMP_COLORS.A} strokeWidth={2.5} dot={false} />
+                        <Line type="monotone" dataKey="B" name="AAPL" stroke={CMP_COLORS.B} strokeWidth={2.5} dot={false} />
+                      </ReLineChart>
+                    </ResponsiveContainer>
+                  </motion.div>
+                </AnimatePresence>
 
-                {!error && chartData.length === 0 && (
-                  <div className="flex h-[14rem] items-center justify-center rounded-[20px] border border-white/[0.08] bg-white/[0.02] px-4 text-center text-sm text-slate-500 sm:h-[22rem] sm:rounded-[24px]">
-                    Hisse seç ve karşılaştır butonuna bas.
-                  </div>
-                )}
-
-                {!error && chartData.length > 0 && (
-                  <>
-                    <motion.div
-                      key={`${stockA.symbol}-${stockB.symbol}-${range}`}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: loading ? 0.3 : 1 }}
-                      transition={{ duration: 0.25 }}
-                      className="h-[14rem] sm:h-[21rem] lg:h-[24rem]"
-                    >
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ReLineChart
-                          data={chartData}
-                          margin={{ top: 8, right: 6, bottom: 0, left: 0 }}
-                        >
-                          <CartesianGrid
-                            vertical={false}
-                            stroke="rgba(148, 163, 184, 0.07)"
-                          />
-                          <XAxis
-                            dataKey="label"
-                            axisLine={false}
-                            tickLine={false}
-                            interval="preserveStartEnd"
-                            tick={{ fill: "#64748b", fontSize: 9 }}
-                            tickMargin={10}
-                            minTickGap={28}
-                          />
-                          <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            width={30}
-                            tickCount={4}
-                            tickFormatter={(value) => `${Math.round(value)}%`}
-                            tick={{ fill: "#64748b", fontSize: 9 }}
-                          />
-                          <Tooltip
-                            content={<ChartTooltip />}
-                            cursor={{ stroke: "rgba(148, 163, 184, 0.18)" }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="A"
-                            name={stockA.symbol}
-                            stroke={CMP_COLORS.A}
-                            strokeWidth={2.5}
-                            dot={false}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="B"
-                            name={stockB.symbol}
-                            stroke={CMP_COLORS.B}
-                            strokeWidth={2.5}
-                            dot={false}
-                          />
-                        </ReLineChart>
-                      </ResponsiveContainer>
-                    </motion.div>
-
-                    <div className="mt-3.5 rounded-[18px] border border-white/[0.08] bg-black/10 px-3.5 py-3 text-sm leading-7 text-slate-400 sm:mt-4 sm:rounded-[20px] sm:px-4 sm:py-3.5">
-                      Başlangıç 100 bazında normalize edilir. Seçili aralık
-                      boyunca farkı tek grafikte net biçimde görürsün.
-                    </div>
-                  </>
-                )}
+                <div className="mt-3.5 rounded-[18px] border border-white/[0.08] bg-black/10 px-3.5 py-3 text-sm leading-7 text-slate-400 sm:mt-4">
+                  Başlangıç 100 bazında normalize edilir. Seçili aralık boyunca
+                  farkı tek grafikte net biçimde görürsün.
+                </div>
               </div>
             </div>
 
+            {/* Side panel */}
             <div className="border-t border-white/10 bg-black/10 p-3.5 sm:p-6 xl:border-l xl:border-t-0">
               <div className="grid gap-3 sm:gap-4 min-[560px]:grid-cols-2 xl:grid-cols-1">
-                {summaryCards.map(({ stock, ret, color }) => (
+                {[
+                  { symbol: "NVDA", name: "NVIDIA", ret: retNVDA, color: CMP_COLORS.A },
+                  { symbol: "AAPL", name: "Apple", ret: retAAPL, color: CMP_COLORS.B },
+                ].map(({ symbol, name, ret, color }) => (
                   <div
-                    key={stock.symbol}
+                    key={symbol}
                     className="rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-4 sm:rounded-[24px] sm:p-5"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p
-                          className="font-mono text-sm font-semibold"
-                          style={{ color }}
-                        >
-                          {stock.symbol}
+                        <p className="font-mono text-sm font-semibold" style={{ color }}>
+                          {symbol}
                         </p>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {stock.name}
-                        </p>
+                        <p className="mt-1 text-sm text-slate-400">{name}</p>
                       </div>
                       <span
                         className="rounded-full px-3 py-1 text-xs font-medium"
                         style={{ background: `${color}18`, color }}
                       >
-                        Seçili Aralık
+                        {rangeLabel}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm text-slate-500">
-                      {selectedPeriod}
-                    </p>
-                    <p className="mt-4 font-mono text-[1.7rem] font-semibold text-white sm:mt-5 sm:text-3xl">
-                      {ret === null
-                        ? "--"
-                        : `${ret >= 0 ? "+" : ""}${ret.toFixed(1)}%`}
+                    <p className="mt-3 text-sm text-slate-500">{selectedPeriod}</p>
+                    <p
+                      className="mt-4 font-mono text-[1.7rem] font-semibold"
+                      style={{ color: ret >= 0 ? "#22c55e" : "#f87171" }}
+                    >
+                      {`${ret >= 0 ? "+" : ""}${ret.toFixed(1)}%`}
                     </p>
                   </div>
                 ))}
 
-                <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-4 text-[0.96rem] leading-7 text-slate-400 min-[560px]:col-span-2 sm:rounded-[24px] sm:p-5 sm:text-base sm:leading-8 xl:col-span-1">
-                  Bu alan doğrudan kayıt akışına bağlanır. Kullanıcı senaryodan
-                  kopmaz.
+                <div
+                  className="rounded-[22px] p-4 sm:rounded-[24px] sm:p-5 min-[560px]:col-span-2 xl:col-span-1"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.06)",
+                    border: "1px solid rgba(245, 158, 11, 0.18)",
+                  }}
+                >
+                  <p className="text-xs uppercase tracking-[0.22em] text-amber-400/70">
+                    Fark (NVDA − AAPL)
+                  </p>
+                  <p
+                    className="mt-3 font-mono text-2xl font-semibold"
+                    style={{ color: gap >= 0 ? "#f59e0b" : "#f87171" }}
+                  >
+                    {`${gap >= 0 ? "+" : ""}${gap.toFixed(1)}%`}
+                  </p>
                 </div>
 
                 <Link
                   to="/register"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[22px] bg-primary px-5 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 min-[560px]:col-span-2 xl:col-span-1"
                 >
-                  Hesap Aç Ve Devam Et
+                  Hesap Aç Ve Karşılaştır
                   <Sparkles className="h-4 w-4" />
                 </Link>
               </div>

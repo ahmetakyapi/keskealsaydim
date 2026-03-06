@@ -1,3 +1,9 @@
+// NOTE:
+// Bu dosyadaki demo verileri landing fallback/senaryo gösterimi içindir.
+// Kaynak: NVDA ve AAPL aylık kapanış serileri (Ocak 2019 - Aralık 2025),
+// proje içinde doğrulanmış değerlerden türetilmiştir.
+// Canlı veri senaryoları LandingPage içindeki API akışı ile ayrıca çekilir.
+
 export interface DemoScenario {
   symbol: string;
   name: string;

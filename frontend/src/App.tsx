@@ -1,24 +1,29 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { useEffect } from 'react';
-
-// Pages
-import LandingPage from '@/pages/LandingPage';
-import LoginPage from '@/pages/LoginPage';
-import RegisterPage from '@/pages/RegisterPage';
-import DashboardPage from '@/pages/DashboardPage';
-import ComparePage from '@/pages/ComparePage';
-import PortfolioPage from '@/pages/PortfolioPage';
-import WatchlistPage from '@/pages/WatchlistPage';
-import MarketPage from '@/pages/MarketPage';
-import SettingsPage from '@/pages/SettingsPage';
-
-// Layout
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { lazy, Suspense, useEffect } from 'react';
 
 // Components
 import { Toaster } from '@/components/ui/toaster';
+
+const LandingPage = lazy(() => import('@/pages/LandingPage'));
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const RegisterPage = lazy(() => import('@/pages/RegisterPage'));
+const DashboardLayout = lazy(() => import('@/components/layout/DashboardLayout'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const ComparePage = lazy(() => import('@/pages/ComparePage'));
+const PortfolioPage = lazy(() => import('@/pages/PortfolioPage'));
+const WatchlistPage = lazy(() => import('@/pages/WatchlistPage'));
+const MarketPage = lazy(() => import('@/pages/MarketPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+
+function RouteLoader() {
+  return (
+    <div className="min-h-[45vh] w-full bg-background flex items-center justify-center">
+      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -65,18 +70,27 @@ function App() {
     setTheme(theme);
     // Set loading to false after initial load
     setLoading(false);
-  }, []);
+  }, [setLoading, setTheme, theme]);
 
   return (
     <>
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
+        <Route
+          path="/"
+          element={
+            <Suspense fallback={<RouteLoader />}>
+              <LandingPage />
+            </Suspense>
+          }
+        />
         <Route
           path="/login"
           element={
             <PublicRoute>
-              <LoginPage />
+              <Suspense fallback={<RouteLoader />}>
+                <LoginPage />
+              </Suspense>
             </PublicRoute>
           }
         />
@@ -84,7 +98,9 @@ function App() {
           path="/register"
           element={
             <PublicRoute>
-              <RegisterPage />
+              <Suspense fallback={<RouteLoader />}>
+                <RegisterPage />
+              </Suspense>
             </PublicRoute>
           }
         />
@@ -94,9 +110,11 @@ function App() {
           path="/dashboard"
           element={
             <PrivateRoute>
-              <DashboardLayout>
-                <DashboardPage />
-              </DashboardLayout>
+              <Suspense fallback={<RouteLoader />}>
+                <DashboardLayout>
+                  <DashboardPage />
+                </DashboardLayout>
+              </Suspense>
             </PrivateRoute>
           }
         />
@@ -104,9 +122,11 @@ function App() {
           path="/compare"
           element={
             <PrivateRoute>
-              <DashboardLayout>
-                <ComparePage />
-              </DashboardLayout>
+              <Suspense fallback={<RouteLoader />}>
+                <DashboardLayout>
+                  <ComparePage />
+                </DashboardLayout>
+              </Suspense>
             </PrivateRoute>
           }
         />
@@ -114,9 +134,11 @@ function App() {
           path="/portfolio"
           element={
             <PrivateRoute>
-              <DashboardLayout>
-                <PortfolioPage />
-              </DashboardLayout>
+              <Suspense fallback={<RouteLoader />}>
+                <DashboardLayout>
+                  <PortfolioPage />
+                </DashboardLayout>
+              </Suspense>
             </PrivateRoute>
           }
         />
@@ -124,9 +146,11 @@ function App() {
           path="/watchlist"
           element={
             <PrivateRoute>
-              <DashboardLayout>
-                <WatchlistPage />
-              </DashboardLayout>
+              <Suspense fallback={<RouteLoader />}>
+                <DashboardLayout>
+                  <WatchlistPage />
+                </DashboardLayout>
+              </Suspense>
             </PrivateRoute>
           }
         />
@@ -134,9 +158,11 @@ function App() {
           path="/market"
           element={
             <PrivateRoute>
-              <DashboardLayout>
-                <MarketPage />
-              </DashboardLayout>
+              <Suspense fallback={<RouteLoader />}>
+                <DashboardLayout>
+                  <MarketPage />
+                </DashboardLayout>
+              </Suspense>
             </PrivateRoute>
           }
         />
@@ -144,9 +170,11 @@ function App() {
           path="/settings"
           element={
             <PrivateRoute>
-              <DashboardLayout>
-                <SettingsPage />
-              </DashboardLayout>
+              <Suspense fallback={<RouteLoader />}>
+                <DashboardLayout>
+                  <SettingsPage />
+                </DashboardLayout>
+              </Suspense>
             </PrivateRoute>
           }
         />

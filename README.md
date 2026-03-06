@@ -54,32 +54,29 @@
 keskealsaydim/
 ├── api/                        # Vercel Go serverless functions
 │   ├── auth/
-│   │   ├── register.go         # POST /api/auth/register
-│   │   ├── login.go            # POST /api/auth/login
-│   │   ├── refresh.go          # POST /api/auth/refresh
-│   │   └── logout.go           # POST /api/auth/logout
+│   │   └── index.go            # POST /api/auth?action=login|register|refresh|logout
 │   ├── stocks/
-│   │   ├── search.go           # GET  /api/stocks/search?q=
-│   │   └── [symbol]/
-│   │       ├── price.go        # GET  /api/stocks/{symbol}/price
-│   │       └── history.go      # GET  /api/stocks/{symbol}/history
+│   │   └── index.go            # GET /api/stocks?action=search|price|history
 │   ├── compare/
 │   │   ├── index.go            # POST /api/compare
-│   │   ├── history.go          # GET  /api/compare/history
+│   │   ├── history/
+│   │   │   └── index.go        # GET  /api/compare/history
 │   │   └── shared/
-│   │       └── [token].go      # GET  /api/compare/shared/{token}
+│   │       └── index.go        # GET  /api/compare/shared?token=
 │   ├── market/
 │   │   └── overview.go         # GET  /api/market/overview
 │   ├── portfolio/
 │   │   ├── index.go            # GET + POST /api/portfolio
-│   │   └── [id].go             # DELETE    /api/portfolio/{id}
+│   │   └── item/
+│   │       └── index.go        # DELETE /api/portfolio/item?id=
 │   ├── watchlist/
 │   │   ├── index.go            # GET + POST /api/watchlist
-│   │   └── [id].go             # DELETE    /api/watchlist/{id}
+│   │   └── item/
+│   │       └── index.go        # DELETE /api/watchlist/item?id=
 │   └── users/
 │       └── me.go               # GET + PUT /api/users/me
 │
-├── internal/                   # Shared Go packages
+├── pkg/                        # Shared Go packages
 │   ├── auth/jwt.go             # JWT üret / doğrula / request'ten çıkar
 │   ├── cache/cache.go          # Upstash Redis HTTP client
 │   ├── db/db.go                # pgxpool lazy singleton (MaxConns=3)

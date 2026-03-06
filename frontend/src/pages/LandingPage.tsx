@@ -353,14 +353,11 @@ function SectionDivider() {
 
 function NvidiaMark() {
   return (
-    <span className="inline-flex h-8 min-w-9 items-center justify-center rounded-xl bg-white px-2 ring-1 ring-white/10">
+    <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-xl bg-white px-2 ring-1 ring-white/10">
       <img
-        src="https://www.citypng.com/public/uploads/preview/hd-nvidia-eye-logo-icon-png-701751694965655t2lbe7yugk.png?v=2025091511"
+        src="/brands/nvidia-logo.svg"
         alt="NVIDIA logo"
         className="h-6 w-auto object-contain"
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
       />
     </span>
   );
@@ -370,12 +367,9 @@ function AppleMark() {
   return (
     <span className="inline-flex h-8 w-9 items-center justify-center rounded-xl bg-white px-2 ring-1 ring-white/10">
       <img
-        src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+        src="/brands/apple-logo-black.svg"
         alt="Apple"
         className="h-6 w-auto object-contain"
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
       />
     </span>
   );
@@ -481,7 +475,7 @@ function HeroSection() {
             </h1>
 
             <p className="mx-auto mt-3 max-w-[26rem] text-[0.9rem] leading-6 text-slate-400 sm:mt-5 sm:max-w-lg sm:text-[1.04rem] sm:leading-8 lg:mx-0">
-              Bir tarih seç, o gün yatırım yapsaydın bugün nerede olduğunu gör.
+              Bir tarih veya zaman aralığı seç, o gün yatırım yapsaydın bugün neler olacağını gör.
             </p>
             <p className="mx-auto mt-1 max-w-[26rem] text-[0.9rem] leading-6 text-slate-300 sm:mt-2 sm:max-w-lg sm:text-[1.04rem] sm:leading-8 lg:mx-0">
               İki hisseyi yan yana karşılaştır.

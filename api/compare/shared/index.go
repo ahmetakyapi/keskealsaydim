@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"keskealsaydim/pkg/db"
+	"keskealsaydim/pkg/finance"
 	"keskealsaydim/pkg/respond"
 )
 
@@ -80,6 +81,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			s.EndDate = &d
 		}
 	}
+	s.SymbolA = finance.NormalizeStoredSymbol(s.SymbolA)
+	s.SymbolB = finance.NormalizeStoredSymbol(s.SymbolB)
 
 	// Increment view count asynchronously
 	go func() {

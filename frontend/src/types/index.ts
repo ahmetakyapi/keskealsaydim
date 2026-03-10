@@ -1,5 +1,15 @@
 // ── Auth types ──────────────────────────────────────────────────────────────
 
+export interface UserSettings {
+  notifyPriceAlerts: boolean;
+  notifyDailySummary: boolean;
+  notifyWeeklyReport: boolean;
+  notifyNews: boolean;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  compactMode: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -11,6 +21,8 @@ export interface User {
   theme: string;
   createdAt: string;
   lastLoginAt?: string;
+  settings?: UserSettings;
+  unreadNotifications?: number;
 }
 
 export interface AuthResponse {
@@ -19,6 +31,14 @@ export interface AuthResponse {
   tokenType: string;
   expiresIn: number;
   user: User;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user?: User;
 }
 
 export interface LoginRequest {

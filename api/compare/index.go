@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,6 +76,8 @@ type compareResponse struct {
 	Result      resultJSON `json:"result"`
 }
 
+var getHistory = finance.GetHistory
+
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if respond.CORS(w, r) {
 		return
@@ -92,8 +93,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.SymbolA = strings.ToUpper(strings.TrimSpace(req.SymbolA))
-	req.SymbolB = strings.ToUpper(strings.TrimSpace(req.SymbolB))
+	req.SymbolA = finance.NormalizeStoredSymbol(req.SymbolA)
+	req.SymbolB = finance.NormalizeStoredSymbol(req.SymbolB)
 	if req.SymbolA == "" || req.SymbolB == "" {
 		respond.Error(w, http.StatusBadRequest, "symbolA ve symbolB gerekli")
 		return
@@ -119,8 +120,14 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 	chA := make(chan histRes, 1)
 	chB := make(chan histRes, 1)
-	go func() { h, err := finance.GetHistory(req.SymbolA, req.StartDate, req.EndDate, "1d"); chA <- histRes{h, err} }()
-	go func() { h, err := finance.GetHistory(req.SymbolB, req.StartDate, req.EndDate, "1d"); chB <- histRes{h, err} }()
+	go func() {
+		h, err := getHistory(req.SymbolA, req.StartDate, req.EndDate, "1d")
+		chA <- histRes{h, err}
+	}()
+	go func() {
+		h, err := getHistory(req.SymbolB, req.StartDate, req.EndDate, "1d")
+		chB <- histRes{h, err}
+	}()
 	rA, rB := <-chA, <-chB
 
 	if rA.err != nil {

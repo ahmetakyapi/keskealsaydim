@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -47,25 +46,25 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 type holding struct {
-	ID             uuid.UUID `json:"id"`
-	Symbol         string    `json:"symbol"`
-	SymbolName     string    `json:"symbolName"`
-	Exchange       string    `json:"exchange"`
-	Quantity       float64   `json:"quantity"`
-	BuyPrice       float64   `json:"buyPrice"`
-	BuyDate        string    `json:"buyDate"`
-	Notes          *string   `json:"notes"`
-	Status         string    `json:"status"`
-	Currency       string    `json:"currency"`
-	CurrentPrice   float64   `json:"currentPrice"`
-	CurrentValue   float64   `json:"currentValue"`
-	TotalCost      float64   `json:"totalCost"`
-	Profit         float64   `json:"profit"`
-	ProfitPercent  float64   `json:"profitPercent"`
-	ChangePercent  float64   `json:"changePercent"`
-	DailyChange    float64   `json:"dailyChange"`
-	Weight         float64   `json:"weight"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID            uuid.UUID `json:"id"`
+	Symbol        string    `json:"symbol"`
+	SymbolName    string    `json:"symbolName"`
+	Exchange      string    `json:"exchange"`
+	Quantity      float64   `json:"quantity"`
+	BuyPrice      float64   `json:"buyPrice"`
+	BuyDate       string    `json:"buyDate"`
+	Notes         *string   `json:"notes"`
+	Status        string    `json:"status"`
+	Currency      string    `json:"currency"`
+	CurrentPrice  float64   `json:"currentPrice"`
+	CurrentValue  float64   `json:"currentValue"`
+	TotalCost     float64   `json:"totalCost"`
+	Profit        float64   `json:"profit"`
+	ProfitPercent float64   `json:"profitPercent"`
+	ChangePercent float64   `json:"changePercent"`
+	DailyChange   float64   `json:"dailyChange"`
+	Weight        float64   `json:"weight"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
@@ -102,6 +101,7 @@ func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 		); err != nil {
 			continue
 		}
+		h.Symbol = finance.NormalizeStoredSymbol(h.Symbol)
 		if t, ok := buyDate.(time.Time); ok {
 			h.BuyDate = t.Format("2006-01-02")
 		}
@@ -184,8 +184,8 @@ func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 			}
 			return 0
 		}(),
-		"totalInvestments": len(holdings),
-		"openInvestments":  len(holdings),
+		"totalInvestments":  len(holdings),
+		"openInvestments":   len(holdings),
 		"closedInvestments": 0,
 	})
 }
@@ -196,7 +196,7 @@ func addInvestment(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 		respond.Error(w, http.StatusBadRequest, "Geçersiz istek gövdesi")
 		return
 	}
-	req.Symbol = strings.ToUpper(strings.TrimSpace(req.Symbol))
+	req.Symbol = finance.NormalizeStoredSymbol(req.Symbol)
 	if req.Symbol == "" {
 		respond.Error(w, http.StatusBadRequest, "symbol gerekli")
 		return

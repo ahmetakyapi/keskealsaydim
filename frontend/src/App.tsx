@@ -63,14 +63,27 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { setLoading } = useAuthStore();
-  const { theme, setTheme } = useThemeStore();
+  const { theme, syncTheme } = useThemeStore();
 
   useEffect(() => {
-    // Initialize theme
-    setTheme(theme);
-    // Set loading to false after initial load
+    syncTheme();
     setLoading(false);
-  }, [setLoading, setTheme, theme]);
+  }, [setLoading, syncTheme]);
+
+  useEffect(() => {
+    if (theme !== 'system' || typeof window === 'undefined') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      syncTheme();
+    };
+
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme, syncTheme]);
 
   return (
     <>

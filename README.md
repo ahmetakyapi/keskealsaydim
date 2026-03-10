@@ -172,11 +172,13 @@ export UPSTASH_REDIS_REST_URL="https://..."
 export UPSTASH_REDIS_REST_TOKEN="..."
 export FRONTEND_URL="http://localhost:5173"
 
-# Frontend geliştirme sunucusu
-cd frontend && npm run dev
+# Tek komutla frontend + backend
+npm start
 ```
 
-> **Not:** Go handler'larını yerel çalıştırmak için [Vercel CLI](https://vercel.com/docs/cli) kullanabilirsin: `vercel dev`
+`npm start` komutu frontend'i `http://localhost:5173`, backend'i `http://localhost:3000` üzerinde başlatır.
+
+> **Not:** İstersen backend'i ayrı da çalıştırabilirsin: `vercel dev`
 
 ### Veritabanı
 
@@ -188,6 +190,7 @@ V2__create_investments_table.sql
 V3__create_watchlist_table.sql
 V4__create_comparison_scenarios_table.sql
 V5__create_notifications_and_settings.sql
+V6__normalize_bist_symbols.sql
 ```
 
 İstersen yalnızca altyapı servislerini ayağa kaldırmak için `docker compose up -d postgres redis data-service` kullanabilirsin.

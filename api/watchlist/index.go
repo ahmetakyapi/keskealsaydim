@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -43,19 +42,19 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 type watchItem struct {
-	ID           uuid.UUID `json:"id"`
-	Symbol       string    `json:"symbol"`
-	SymbolName   string    `json:"symbolName"`
-	Exchange     string    `json:"exchange"`
-	Notes        *string   `json:"notes"`
-	DisplayOrder int       `json:"displayOrder"`
-	AddedAt      time.Time `json:"addedAt"`
-	Price        float64   `json:"price"`
-	Change       float64   `json:"change"`
-	ChangePercent float64  `json:"changePercent"`
-	Week52High   float64   `json:"week52High"`
-	Week52Low    float64   `json:"week52Low"`
-	Volume       int64     `json:"volume"`
+	ID            uuid.UUID `json:"id"`
+	Symbol        string    `json:"symbol"`
+	SymbolName    string    `json:"symbolName"`
+	Exchange      string    `json:"exchange"`
+	Notes         *string   `json:"notes"`
+	DisplayOrder  int       `json:"displayOrder"`
+	AddedAt       time.Time `json:"addedAt"`
+	Price         float64   `json:"price"`
+	Change        float64   `json:"change"`
+	ChangePercent float64   `json:"changePercent"`
+	Week52High    float64   `json:"week52High"`
+	Week52Low     float64   `json:"week52Low"`
+	Volume        int64     `json:"volume"`
 }
 
 func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
@@ -87,11 +86,15 @@ func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
 		); err != nil {
 			continue
 		}
+		it.Symbol = finance.NormalizeStoredSymbol(it.Symbol)
 		items = append(items, it)
 	}
 
 	// Fetch quotes concurrently
-	type quoteRes struct{ i int; q *finance.Quote }
+	type quoteRes struct {
+		i int
+		q *finance.Quote
+	}
 	ch := make(chan quoteRes, len(items))
 	var wg sync.WaitGroup
 	for i, it := range items {
@@ -129,7 +132,7 @@ func addWatchlist(w http.ResponseWriter, r *http.Request, claims *auth.Claims) {
 		respond.Error(w, http.StatusBadRequest, "Geçersiz istek gövdesi")
 		return
 	}
-	req.Symbol = strings.ToUpper(strings.TrimSpace(req.Symbol))
+	req.Symbol = finance.NormalizeStoredSymbol(req.Symbol)
 	if req.Symbol == "" {
 		respond.Error(w, http.StatusBadRequest, "symbol gerekli")
 		return
@@ -143,9 +146,41 @@ func addWatchlist(w http.ResponseWriter, r *http.Request, claims *auth.Claims) {
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
+	ctx := context.Background()
+
+	var exists bool
+	variants := finance.SymbolVariants(req.Symbol)
+	switch len(variants) {
+	case 2:
+		err = pool.QueryRow(ctx,
+			`SELECT EXISTS(
+				SELECT 1
+				FROM watchlist
+				WHERE user_id = $1 AND (symbol = $2 OR symbol = $3)
+			)`,
+			claims.UserID, variants[0], variants[1],
+		).Scan(&exists)
+	default:
+		err = pool.QueryRow(ctx,
+			`SELECT EXISTS(
+				SELECT 1
+				FROM watchlist
+				WHERE user_id = $1 AND symbol = $2
+			)`,
+			claims.UserID, req.Symbol,
+		).Scan(&exists)
+	}
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Favori listesi kontrol edilemedi")
+		return
+	}
+	if exists {
+		respond.Error(w, http.StatusConflict, "Bu hisse zaten izleme listenizde")
+		return
+	}
 
 	id := uuid.New()
-	_, err = pool.Exec(context.Background(),
+	tag, err := pool.Exec(ctx,
 		`INSERT INTO watchlist (id, user_id, symbol, symbol_name, exchange, notes)
 		 VALUES ($1,$2,$3,$4,$5,$6)
 		 ON CONFLICT (user_id, symbol) DO NOTHING`,
@@ -154,6 +189,10 @@ func addWatchlist(w http.ResponseWriter, r *http.Request, claims *auth.Claims) {
 	)
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "Favoriye eklenemedi")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		respond.Error(w, http.StatusConflict, "Bu hisse zaten izleme listenizde")
 		return
 	}
 

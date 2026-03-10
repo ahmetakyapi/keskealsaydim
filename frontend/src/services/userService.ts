@@ -1,11 +1,12 @@
 import api from './api';
-import type { User } from '@/types';
+import type { User, UserSettings } from '@/types';
 
 export interface UpdateProfileRequest {
   name?: string;
   experienceLevel?: string;
   preferredCurrency?: string;
   theme?: string;
+  settings?: Partial<UserSettings>;
 }
 
 export const userService = {

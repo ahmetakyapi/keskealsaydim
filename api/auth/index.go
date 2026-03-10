@@ -61,29 +61,71 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	var (
-		userID            uuid.UUID
-		email, name       string
-		passwordHash      string
-		experienceLevel   string
-		avatarURL         *string
-		emailVerified     bool
-		isActive          bool
-		preferredCurrency string
-		theme             string
-		createdAt         time.Time
-		lastLoginAt       *time.Time
+		userID              uuid.UUID
+		email, name         string
+		passwordHash        string
+		experienceLevel     string
+		avatarURL           *string
+		emailVerified       bool
+		isActive            bool
+		preferredCurrency   string
+		theme               string
+		createdAt           time.Time
+		lastLoginAt         *time.Time
+		notifyPriceAlerts   bool
+		notifyDailySummary  bool
+		notifyWeeklyReport  bool
+		notifyNews          bool
+		emailNotifications  bool
+		pushNotifications   bool
+		compactMode         bool
+		unreadNotifications int
 	)
 
 	err = pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, name, experience_level,
-		        avatar_url, email_verified, is_active,
-		        preferred_currency, theme, created_at, last_login_at
-		 FROM users WHERE email = $1`,
+		`SELECT
+			u.id,
+			u.email,
+			u.password_hash,
+			u.name,
+			u.experience_level,
+			u.avatar_url,
+			u.email_verified,
+			u.is_active,
+			u.preferred_currency,
+			u.theme,
+			u.created_at,
+			u.last_login_at,
+			COALESCE(s.notify_price_alerts, TRUE),
+			COALESCE(s.notify_daily_summary, TRUE),
+			COALESCE(s.notify_weekly_report, FALSE),
+			COALESCE(s.notify_news, TRUE),
+			COALESCE(s.email_notifications, TRUE),
+			COALESCE(s.push_notifications, TRUE),
+			COALESCE(s.compact_mode, FALSE),
+			COALESCE(n.unread_count, 0)
+		FROM users u
+		LEFT JOIN user_settings s ON s.user_id = u.id
+		LEFT JOIN (
+			SELECT user_id, COUNT(*)::int AS unread_count
+			FROM notifications
+			WHERE is_read = FALSE
+			GROUP BY user_id
+		) n ON n.user_id = u.id
+		WHERE u.email = $1`,
 		req.Email,
 	).Scan(
 		&userID, &email, &passwordHash, &name, &experienceLevel,
 		&avatarURL, &emailVerified, &isActive,
 		&preferredCurrency, &theme, &createdAt, &lastLoginAt,
+		&notifyPriceAlerts,
+		&notifyDailySummary,
+		&notifyWeeklyReport,
+		&notifyNews,
+		&emailNotifications,
+		&pushNotifications,
+		&compactMode,
+		&unreadNotifications,
 	)
 	if err != nil {
 		respond.Error(w, http.StatusUnauthorized, "E-posta veya şifre hatalı")
@@ -102,13 +144,24 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	_, _ = pool.Exec(ctx, "UPDATE users SET last_login_at = NOW() WHERE id = $1", userID)
 
-	accessToken, _ := auth.GenerateAccessToken(userID, email)
-	refreshToken, _ := auth.GenerateRefreshToken(userID)
+	accessToken, err := auth.GenerateAccessToken(userID, email)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "JWT yapılandırması eksik")
+		return
+	}
+	refreshToken, err := auth.GenerateRefreshToken(userID)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "JWT yapılandırması eksik")
+		return
+	}
 
-	_, _ = pool.Exec(ctx,
+	if _, err = pool.Exec(ctx,
 		`INSERT INTO user_sessions (id, user_id, refresh_token, expires_at) VALUES ($1, $2, $3, $4)`,
 		uuid.New(), userID, refreshToken, time.Now().Add(auth.RefreshTokenTTL),
-	)
+	); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Oturum başlatılamadı")
+		return
+	}
 
 	respond.JSON(w, http.StatusOK, map[string]any{
 		"accessToken":  accessToken,
@@ -126,6 +179,16 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			"theme":             theme,
 			"createdAt":         createdAt,
 			"lastLoginAt":       lastLoginAt,
+			"settings": map[string]any{
+				"notifyPriceAlerts":  notifyPriceAlerts,
+				"notifyDailySummary": notifyDailySummary,
+				"notifyWeeklyReport": notifyWeeklyReport,
+				"notifyNews":         notifyNews,
+				"emailNotifications": emailNotifications,
+				"pushNotifications":  pushNotifications,
+				"compactMode":        compactMode,
+			},
+			"unreadNotifications": unreadNotifications,
 		},
 	})
 }
@@ -210,10 +273,13 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, _ = pool.Exec(ctx,
+	if _, err = pool.Exec(ctx,
 		`INSERT INTO user_sessions (id, user_id, refresh_token, expires_at) VALUES ($1, $2, $3, $4)`,
 		uuid.New(), userID, refreshToken, time.Now().Add(auth.RefreshTokenTTL),
-	)
+	); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Oturum başlatılamadı")
+		return
+	}
 
 	respond.JSON(w, http.StatusCreated, map[string]any{
 		"accessToken":  accessToken,
@@ -229,6 +295,16 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 			"preferredCurrency": "TRY",
 			"theme":             "dark",
 			"createdAt":         createdAt,
+			"settings": map[string]any{
+				"notifyPriceAlerts":  true,
+				"notifyDailySummary": true,
+				"notifyWeeklyReport": false,
+				"notifyNews":         true,
+				"emailNotifications": true,
+				"pushNotifications":  true,
+				"compactMode":        false,
+			},
+			"unreadNotifications": 0,
 		},
 	})
 }
@@ -248,6 +324,10 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := auth.ValidateRefreshToken(req.RefreshToken)
 	if err != nil {
+		if auth.IsConfigError(err) {
+			respond.Error(w, http.StatusInternalServerError, "JWT yapılandırması eksik")
+			return
+		}
 		respond.Error(w, http.StatusUnauthorized, "Geçersiz veya süresi dolmuş token")
 		return
 	}
@@ -259,16 +339,24 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := context.Background()
 
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Oturum yenileme işlemi başlatılamadı")
+		return
+	}
+	defer tx.Rollback(ctx)
+
 	var sessionID uuid.UUID
 	var email string
-	err = pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT s.id, u.email
 		   FROM user_sessions s
 		   JOIN users u ON u.id = s.user_id
 		  WHERE s.refresh_token = $1
 		    AND s.revoked_at IS NULL
 		    AND s.expires_at > NOW()
-		    AND u.is_active = true`,
+		    AND u.is_active = true
+		  FOR UPDATE`,
 		req.RefreshToken,
 	).Scan(&sessionID, &email)
 	if err != nil {
@@ -276,18 +364,37 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, _ = pool.Exec(ctx,
+	newAccess, err := auth.GenerateAccessToken(userID, email)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "JWT yapılandırması eksik")
+		return
+	}
+	newRefresh, err := auth.GenerateRefreshToken(userID)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "JWT yapılandırması eksik")
+		return
+	}
+
+	if _, err = tx.Exec(ctx,
 		"UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1",
 		sessionID,
-	)
+	); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Eski oturum sonlandırılamadı")
+		return
+	}
 
-	newAccess, _ := auth.GenerateAccessToken(userID, email)
-	newRefresh, _ := auth.GenerateRefreshToken(userID)
-
-	_, _ = pool.Exec(ctx,
+	if _, err = tx.Exec(ctx,
 		`INSERT INTO user_sessions (id, user_id, refresh_token, expires_at) VALUES ($1, $2, $3, $4)`,
 		uuid.New(), userID, newRefresh, time.Now().Add(auth.RefreshTokenTTL),
-	)
+	); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Oturum yenilenemedi")
+		return
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "Oturum yenilenemedi")
+		return
+	}
 
 	respond.JSON(w, http.StatusOK, map[string]any{
 		"accessToken":  newAccess,

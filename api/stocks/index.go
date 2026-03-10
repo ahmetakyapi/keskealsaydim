@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"keskealsaydim/pkg/cache"
@@ -52,7 +51,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 // --- PRICE ---
 
 func handlePrice(w http.ResponseWriter, r *http.Request) {
-	symbol := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("symbol")))
+	symbol := finance.NormalizeStoredSymbol(r.URL.Query().Get("symbol"))
 	if symbol == "" {
 		respond.Error(w, http.StatusBadRequest, "symbol gerekli")
 		return
@@ -78,7 +77,7 @@ func handlePrice(w http.ResponseWriter, r *http.Request) {
 // --- HISTORY ---
 
 func handleHistory(w http.ResponseWriter, r *http.Request) {
-	symbol := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("symbol")))
+	symbol := finance.NormalizeStoredSymbol(r.URL.Query().Get("symbol"))
 	if symbol == "" {
 		respond.Error(w, http.StatusBadRequest, "symbol gerekli")
 		return

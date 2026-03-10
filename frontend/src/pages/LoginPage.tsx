@@ -10,6 +10,7 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,7 +19,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -51,8 +51,7 @@ export default function LoginPage() {
       toast.success('Giriş başarılı!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+      toast.error(getApiErrorMessage(error, 'Giriş başarısız. Lütfen bilgilerini kontrol et.'));
     } finally {
       setIsLoading(false);
     }
@@ -164,18 +163,14 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm text-white/60">Beni hatırla</span>
-                </label>
-                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                <p className="text-sm text-white/45">Oturum bu tarayicida korunur.</p>
+                <button
+                  type="button"
+                  onClick={() => toast.error('Sifre sifirlama akisi henuz hazir degil.')}
+                  className="text-sm text-primary hover:underline"
+                >
                   Şifremi unuttum
-                </Link>
+                </button>
               </div>
 
               <Button type="submit" variant="gradient" className="w-full" size="lg" loading={isLoading}>
@@ -191,7 +186,13 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <Button type="button" variant="outline" className="w-full border-white/20 text-white" size="lg">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-white/20 text-white"
+                size="lg"
+                onClick={() => toast.error('Google ile giris henuz hazir degil.')}
+              >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path
                     fill="currentColor"

@@ -1,0 +1,7 @@
+{
+  "name": "keskealsaydim-workspace",
+  "private": true,
+  "scripts": {
+    "start": "sh ./scripts/start-dev.sh"
+  }
+}

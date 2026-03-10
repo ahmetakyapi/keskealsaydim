@@ -10,6 +10,7 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 const experienceLevels = [
   { value: 'BEGINNER', label: 'Yeni Başlayan', description: 'Yatırıma yeni başlıyorum' },
@@ -63,8 +64,7 @@ export default function RegisterPage() {
       toast.success('Hesabınız oluşturuldu!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Kayıt başarısız. Lütfen tekrar deneyin.');
+      toast.error(getApiErrorMessage(error, 'Kayıt başarısız. Lütfen tekrar deneyin.'));
     } finally {
       setIsLoading(false);
     }
@@ -212,7 +212,13 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <Button type="button" variant="outline" className="w-full border-white/20 text-white" size="lg">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-white/20 text-white"
+                size="lg"
+                onClick={() => toast.error('Google ile kayit henuz hazir degil.')}
+              >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path
                     fill="currentColor"
@@ -243,9 +249,21 @@ export default function RegisterPage() {
 
               <p className="text-center text-white/40 text-xs mt-4">
                 Hesap oluşturarak{' '}
-                <a href="#" className="text-primary hover:underline">Kullanım Şartları</a>
+                <button
+                  type="button"
+                  onClick={() => toast.error('Kullanim sartlari sayfasi henuz hazir degil.')}
+                  className="text-primary hover:underline"
+                >
+                  Kullanım Şartları
+                </button>
                 {' '}ve{' '}
-                <a href="#" className="text-primary hover:underline">Gizlilik Politikası</a>
+                <button
+                  type="button"
+                  onClick={() => toast.error('Gizlilik politikasi sayfasi henuz hazir degil.')}
+                  className="text-primary hover:underline"
+                >
+                  Gizlilik Politikası
+                </button>
                 'nı kabul etmiş olursunuz.
               </p>
             </form>

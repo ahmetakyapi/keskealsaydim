@@ -36,7 +36,18 @@ export const useAuthStore = create<AuthState>()(
 
       updateUser: (userData) => {
         set((state) => ({
-          user: state.user ? { ...state.user, ...userData } : null,
+          user: state.user
+            ? {
+                ...state.user,
+                ...userData,
+                settings: userData.settings
+                  ? {
+                      ...(state.user.settings ?? {}),
+                      ...userData.settings,
+                    }
+                  : state.user.settings,
+              }
+            : null,
         }));
       },
 

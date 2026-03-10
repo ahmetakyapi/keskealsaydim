@@ -71,8 +71,8 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
+        sans: ["Space Grotesk", "Manrope", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "JetBrains Mono", "monospace"],
       },
       keyframes: {
         "accordion-down": {
@@ -97,8 +97,8 @@ export default {
           "50%": { transform: "translateY(-10px)" },
         },
         glow: {
-          "0%, 100%": { boxShadow: "0 0 5px rgba(108, 99, 255, 0.5)" },
-          "50%": { boxShadow: "0 0 20px rgba(108, 99, 255, 0.8)" },
+          "0%, 100%": { boxShadow: "0 0 8px rgba(16, 185, 129, 0.45)" },
+          "50%": { boxShadow: "0 0 22px rgba(14, 165, 233, 0.65)" },
         },
       },
       animation: {

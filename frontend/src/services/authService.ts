@@ -1,5 +1,5 @@
 import api from './api';
-import type { AuthResponse, LoginRequest, RegisterRequest } from '@/types';
+import type { AuthResponse, LoginRequest, RefreshResponse, RegisterRequest } from '@/types';
 
 export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
@@ -12,16 +12,12 @@ export const authService = {
     return response.data;
   },
 
-  async refresh(refreshToken: string): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/refresh', { refreshToken });
+  async refresh(refreshToken: string): Promise<RefreshResponse> {
+    const response = await api.post<RefreshResponse>('/auth/refresh', { refreshToken });
     return response.data;
   },
 
   async logout(refreshToken?: string): Promise<void> {
     await api.post('/auth/logout', { refreshToken });
-  },
-
-  async logoutAll(): Promise<void> {
-    await api.post('/auth/logout-all');
   },
 };

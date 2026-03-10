@@ -1,430 +1,570 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   User,
   Bell,
   Palette,
-  Shield,
-  Trash2,
-  Camera,
-  Mail,
-  Phone,
-  MapPin,
   Save,
+  RefreshCw,
+  Globe,
+  Mail,
+  Smartphone,
+  Sparkles,
+  SlidersHorizontal,
   Moon,
   Sun,
-  Smartphone,
-  Globe,
-  Lock,
-  Key,
-  CheckCircle2
+  MonitorSmartphone,
+  CheckCircle2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, GlassCard } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Toggle } from '@/components/ui/toggle';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { userService } from '@/services/userService';
+import type { UserSettings } from '@/types';
+import { cn, formatRelativeTime } from '@/lib/utils';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 }
+  transition: { duration: 0.4 },
 };
 
 const staggerContainer = {
   animate: {
     transition: {
-      staggerChildren: 0.1
-    }
-  }
+      staggerChildren: 0.08,
+    },
+  },
 };
+
+const DEFAULT_SETTINGS: UserSettings = {
+  notifyPriceAlerts: true,
+  notifyDailySummary: true,
+  notifyWeeklyReport: false,
+  notifyNews: true,
+  emailNotifications: true,
+  pushNotifications: true,
+  compactMode: false,
+};
+
+const EXPERIENCE_OPTIONS = [
+  { value: 'BEGINNER', label: 'Yeni Başlayan' },
+  { value: 'INTERMEDIATE', label: 'Orta Seviye' },
+  { value: 'ADVANCED', label: 'İleri Seviye' },
+  { value: 'EXPERT', label: 'Uzman' },
+] as const;
+
+const CURRENCY_OPTIONS = [
+  { value: 'TRY', label: 'Türk Lirası (TRY)' },
+  { value: 'USD', label: 'ABD Doları (USD)' },
+  { value: 'EUR', label: 'Euro (EUR)' },
+] as const;
+
+type ThemeMode = 'dark' | 'light' | 'system';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
 
-  const [formName, setFormName] = useState(user?.name ?? '');
-  const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [isSavingAppearance, setIsSavingAppearance] = useState(false);
 
-  // Keep form in sync if the store user changes after initial mount
-  useEffect(() => {
-    if (user?.name) {
-      setFormName(user.name);
+  const [name, setName] = useState(user?.name ?? '');
+  const [experienceLevel, setExperienceLevel] = useState(user?.experienceLevel ?? 'BEGINNER');
+  const [preferredCurrency, setPreferredCurrency] = useState(user?.preferredCurrency ?? 'TRY');
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+
+  const syncFromUser = useCallback((nextUser: typeof user) => {
+    if (!nextUser) return;
+
+    setName(nextUser.name ?? '');
+    setExperienceLevel(nextUser.experienceLevel ?? 'BEGINNER');
+    setPreferredCurrency(nextUser.preferredCurrency ?? 'TRY');
+    setSettings({ ...DEFAULT_SETTINGS, ...(nextUser.settings ?? {}) });
+
+    if (
+      nextUser.theme === 'dark' ||
+      nextUser.theme === 'light' ||
+      nextUser.theme === 'system'
+    ) {
+      setTheme(nextUser.theme);
     }
-  }, [user?.name]);
+  }, [setTheme]);
 
-  const [notifications, setNotifications] = useState({
-    priceAlerts: true,
-    dailySummary: true,
-    marketNews: false,
-    portfolioUpdates: true,
-    weeklyReport: false,
-  });
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    try {
+      const profile = await userService.getMe();
+      useAuthStore.getState().updateUser(profile);
+      syncFromUser(profile);
+    } catch {
+      toast.error('Ayarlar yüklenemedi.');
+      if (user) {
+        syncFromUser(user);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [syncFromUser, user]);
 
-  const [security, setSecurity] = useState({
-    twoFactor: false,
-    loginAlerts: true,
-    sessionTimeout: true,
-  });
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const handleSaveProfile = async () => {
-    setIsSaving(true);
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      toast.error('Ad en az 2 karakter olmalı.');
+      return;
+    }
+
+    setIsSavingProfile(true);
     try {
-      await userService.updateMe({ name: formName });
-      useAuthStore.getState().updateUser({ name: formName });
-      toast.success('Profil bilgileri güncellendi.');
+      const updated = await userService.updateMe({
+        name: trimmedName,
+        experienceLevel,
+        preferredCurrency,
+      });
+      useAuthStore.getState().updateUser(updated);
+      syncFromUser(updated);
+      toast.success('Profil bilgileri kaydedildi.');
     } catch {
-      toast.error('Güncelleme sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+      toast.error('Profil güncellenemedi.');
     } finally {
-      setIsSaving(false);
+      setIsSavingProfile(false);
     }
   };
 
-  const getInitials = (name?: string) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const handleSavePreferences = async () => {
+    setIsSavingPreferences(true);
+    try {
+      const updated = await userService.updateMe({ settings });
+      useAuthStore.getState().updateUser(updated);
+      syncFromUser(updated);
+      toast.success('Bildirim tercihleri kaydedildi.');
+    } catch {
+      toast.error('Bildirim tercihleri güncellenemedi.');
+    } finally {
+      setIsSavingPreferences(false);
+    }
   };
+
+  const handleSaveAppearance = async () => {
+    setIsSavingAppearance(true);
+    try {
+      const updated = await userService.updateMe({
+        theme,
+        settings: { compactMode: settings.compactMode },
+      });
+      useAuthStore.getState().updateUser(updated);
+      syncFromUser(updated);
+      toast.success('Görünüm tercihleri kaydedildi.');
+    } catch {
+      toast.error('Görünüm tercihleri güncellenemedi.');
+    } finally {
+      setIsSavingAppearance(false);
+    }
+  };
+
+  const unreadNotifications = user?.unreadNotifications ?? 0;
+
+  const notificationItems = useMemo(
+    () => [
+      {
+        key: 'notifyPriceAlerts' as const,
+        icon: Bell,
+        title: 'Fiyat alarmları',
+        description: 'Hedef fiyata ulaşıldığında haber ver',
+      },
+      {
+        key: 'notifyDailySummary' as const,
+        icon: Sparkles,
+        title: 'Günlük özet',
+        description: 'Portföy değişimini günlük olarak gönder',
+      },
+      {
+        key: 'notifyWeeklyReport' as const,
+        icon: SlidersHorizontal,
+        title: 'Haftalık rapor',
+        description: 'Haftalık performans özeti oluştur',
+      },
+      {
+        key: 'notifyNews' as const,
+        icon: Globe,
+        title: 'Piyasa haberleri',
+        description: 'Önemli gelişmelerde anlık bilgilendir',
+      },
+      {
+        key: 'emailNotifications' as const,
+        icon: Mail,
+        title: 'E-posta bildirimi',
+        description: 'Bildirimleri e-posta ile de ilet',
+      },
+      {
+        key: 'pushNotifications' as const,
+        icon: Smartphone,
+        title: 'Push bildirimi',
+        description: 'Mobil/masaüstü push bildirimi gönder',
+      },
+    ],
+    []
+  );
+
+  const getInitials = (fullName?: string) => {
+    if (!fullName) return 'U';
+    return fullName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  if (loading) {
+    return (
+      <motion.div
+        className="space-y-6 max-w-6xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="skeleton-shimmer rounded-2xl p-6 md:p-8 space-y-4">
+          <div className="space-y-3">
+            <div className="w-48 h-7 rounded-lg skeleton-shimmer" />
+            <div className="w-72 h-4 rounded-lg skeleton-shimmer" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="skeleton-shimmer rounded-2xl p-6 space-y-4">
+            <div className="w-28 h-5 rounded-lg skeleton-shimmer" />
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full skeleton-shimmer" />
+              <div className="space-y-2">
+                <div className="w-32 h-4 rounded-lg skeleton-shimmer" />
+                <div className="w-40 h-3 rounded-lg skeleton-shimmer" />
+              </div>
+            </div>
+          </div>
+          <div className="xl:col-span-2 skeleton-shimmer rounded-2xl p-6 space-y-4">
+            <div className="w-32 h-5 rounded-lg skeleton-shimmer" />
+            <div className="grid grid-cols-2 gap-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={`settings-sk-${i}`} className="space-y-2">
+                  <div className="w-20 h-3 rounded-lg skeleton-shimmer" />
+                  <div className="w-full h-10 rounded-lg skeleton-shimmer" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="skeleton-shimmer rounded-2xl p-6 space-y-3">
+          <div className="w-40 h-5 rounded-lg skeleton-shimmer" />
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={`notif-sk-${i}`} className="skeleton-shimmer rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl skeleton-shimmer" />
+                <div className="space-y-2">
+                  <div className="w-24 h-3 rounded-lg skeleton-shimmer" />
+                  <div className="w-40 h-3 rounded-lg skeleton-shimmer" />
+                </div>
+              </div>
+              <div className="w-10 h-6 rounded-full skeleton-shimmer" />
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
-      className="space-y-6 max-w-4xl"
+      className="space-y-6 max-w-6xl"
       variants={staggerContainer}
       initial="initial"
       animate="animate"
     >
-      {/* Header */}
       <motion.div variants={fadeInUp}>
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Ayarlar</h1>
-        <p className="text-white/60">Hesap ve uygulama ayarlarını yönet</p>
+        <GlassCard className="relative overflow-hidden p-6 md:p-8 border-primary/20 border-breathing">
+          <div className="absolute -top-16 -left-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute -bottom-24 right-0 h-56 w-56 rounded-full bg-secondary/20 blur-3xl" />
+
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-white">Hesap Ayarları</h1>
+              <p className="text-white/65 text-sm md:text-base">
+                Tüm tercihleriniz gerçek kullanıcı verisi olarak kaydedilir.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {user?.email ?? 'Kullanıcı'}
+              </Badge>
+              <Badge variant={unreadNotifications > 0 ? 'warning' : 'outline'} className="text-xs">
+                {unreadNotifications > 0
+                  ? `${unreadNotifications} okunmamış bildirim`
+                  : 'Okunmamış bildirim yok'}
+              </Badge>
+              <Button variant="outline" className="border-white/20 text-white" onClick={loadProfile} disabled={loading}>
+                <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />
+                Yenile
+              </Button>
+            </div>
+          </div>
+        </GlassCard>
       </motion.div>
 
-      {/* Profile Settings */}
-      <motion.div variants={fadeInUp}>
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+      <motion.div variants={fadeInUp} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Card className="xl:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
               <User className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>Profil Bilgileri</CardTitle>
-              <p className="text-white/40 text-sm mt-1">Kişisel bilgilerini güncelle</p>
-            </div>
+              Hesap Özeti
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Avatar Section */}
-            <div className="flex items-center gap-6">
-              <div className="relative group">
-                <Avatar size="xl">
-                  <AvatarImage src={undefined} />
-                  <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
-                </Avatar>
-                <button className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-6 h-6 text-white" />
-                </button>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">{user?.name}</h3>
-                <p className="text-white/60 text-sm">{user?.email}</p>
-                <Badge variant="default" className="mt-2">
-                  Pro Üye
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <Avatar size="xl">
+                <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-1">
+                <p className="text-white font-semibold leading-none">{user?.name ?? '-'}</p>
+                <p className="text-white/60 text-sm">{user?.email ?? '-'}</p>
+                <Badge variant="outline" className="text-[11px] mt-1">
+                  Son giriş: {user?.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'Bilinmiyor'}
                 </Badge>
               </div>
             </div>
 
-            {/* Form Fields */}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <GlassCard className="p-3">
+                <p className="text-white/50 text-xs">Deneyim</p>
+                <p className="text-white font-semibold text-sm mt-1">
+                  {EXPERIENCE_OPTIONS.find((x) => x.value === experienceLevel)?.label ?? experienceLevel}
+                </p>
+              </GlassCard>
+              <GlassCard className="p-3">
+                <p className="text-white/50 text-xs">Para Birimi</p>
+                <p className="text-white font-semibold text-sm mt-1">{preferredCurrency}</p>
+              </GlassCard>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <User className="w-5 h-5 text-primary" />
+              Profil Bilgileri
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Ad Soyad</Label>
                 <Input
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
                   icon={<User className="w-4 h-4" />}
+                  className="bg-white/5 border-white/10"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input defaultValue={user?.email} disabled icon={<Mail className="w-4 h-4" />} />
+                <Label>E-posta</Label>
+                <Input value={user?.email ?? ''} disabled icon={<Mail className="w-4 h-4" />} className="bg-white/5 border-white/10" />
               </div>
               <div className="space-y-2">
-                <Label>Telefon</Label>
-                <Input placeholder="+90 5XX XXX XX XX" icon={<Phone className="w-4 h-4" />} />
+                <Label>Deneyim Seviyesi</Label>
+                <select
+                  value={experienceLevel}
+                  onChange={(event) =>
+                    setExperienceLevel(
+                      event.target.value as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT'
+                    )
+                  }
+                  className="flex h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {EXPERIENCE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-surface text-white">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
-                <Label>Konum</Label>
-                <Input placeholder="İstanbul, Türkiye" icon={<MapPin className="w-4 h-4" />} />
+                <Label>Varsayılan Para Birimi</Label>
+                <select
+                  value={preferredCurrency}
+                  onChange={(event) => setPreferredCurrency(event.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {CURRENCY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-surface text-white">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div className="flex justify-end">
-              <Button variant="gradient" onClick={handleSaveProfile} loading={isSaving}>
+              <Button variant="gradient" onClick={handleSaveProfile} loading={isSavingProfile}>
                 <Save className="w-4 h-4 mr-2" />
-                Değişiklikleri Kaydet
+                Profili Kaydet
               </Button>
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Notification Settings */}
       <motion.div variants={fadeInUp}>
         <Card>
-          <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Bell className="w-5 h-5 text-secondary" />
-            </div>
-            <div>
-              <CardTitle>Bildirim Tercihleri</CardTitle>
-              <p className="text-white/40 text-sm mt-1">Hangi bildirimleri almak istediğini seç</p>
-            </div>
+              Bildirim Tercihleri
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            {[
-              {
-                key: 'priceAlerts',
-                icon: Bell,
-                label: 'Fiyat Alarmları',
-                description: 'Hedef fiyata ulaşıldığında bildirim al',
-              },
-              {
-                key: 'dailySummary',
-                icon: Mail,
-                label: 'Günlük Özet',
-                description: 'Her gün portföy özetini email olarak al',
-              },
-              {
-                key: 'marketNews',
-                icon: Globe,
-                label: 'Piyasa Haberleri',
-                description: 'Önemli piyasa haberlerinden haberdar ol',
-              },
-              {
-                key: 'portfolioUpdates',
-                icon: Smartphone,
-                label: 'Portföy Güncellemeleri',
-                description: 'Varlıklarındaki önemli değişiklikler',
-              },
-              {
-                key: 'weeklyReport',
-                icon: CheckCircle2,
-                label: 'Haftalık Rapor',
-                description: 'Her hafta performans raporu al',
-              },
-            ].map((item) => {
+            {notificationItems.map((item) => {
               const Icon = item.icon;
-              const isEnabled = notifications[item.key as keyof typeof notifications];
-
+              const enabled = settings[item.key];
               return (
                 <motion.div
                   key={item.key}
-                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                  className="flex items-center justify-between py-4 px-4 -mx-4 rounded-xl transition-colors"
+                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+                  className="flex items-center justify-between gap-4 rounded-xl px-4 py-3"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                      isEnabled ? "bg-primary/20" : "bg-white/5"
+                      'h-10 w-10 rounded-xl flex items-center justify-center border shrink-0',
+                      enabled ? 'bg-primary/15 border-primary/30 text-primary' : 'bg-white/5 border-white/10 text-white/40'
                     )}>
-                      <Icon className={cn(
-                        "w-5 h-5 transition-colors",
-                        isEnabled ? "text-primary" : "text-white/40"
-                      )} />
+                      <Icon className="w-4 h-4" />
                     </div>
-                    <div>
-                      <p className="text-white font-medium">{item.label}</p>
-                      <p className="text-white/40 text-sm">{item.description}</p>
+                    <div className="min-w-0">
+                      <p className="text-white font-medium text-sm">{item.title}</p>
+                      <p className="text-white/45 text-xs">{item.description}</p>
                     </div>
                   </div>
                   <Toggle
-                    checked={isEnabled}
+                    checked={enabled}
                     onChange={(checked) =>
-                      setNotifications((prev) => ({ ...prev, [item.key]: checked }))
+                      setSettings((prev) => ({
+                        ...prev,
+                        [item.key]: checked,
+                      }))
                     }
                   />
                 </motion.div>
               );
             })}
+
+            <div className="pt-4 flex justify-end">
+              <Button variant="gradient" onClick={handleSavePreferences} loading={isSavingPreferences}>
+                <Save className="w-4 h-4 mr-2" />
+                Bildirimleri Kaydet
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Appearance */}
       <motion.div variants={fadeInUp}>
         <Card>
-          <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-              <Palette className="w-5 h-5 text-purple-500" />
-            </div>
-            <div>
-              <CardTitle>Görünüm</CardTitle>
-              <p className="text-white/40 text-sm mt-1">Uygulama temasını özelleştir</p>
-            </div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Palette className="w-5 h-5 text-primary" />
+              Görünüm
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
-                { value: 'dark', label: 'Koyu Tema', icon: Moon, bg: 'bg-surface' },
-                { value: 'light', label: 'Açık Tema', icon: Sun, bg: 'bg-gray-100' },
-              ].map((t) => {
-                const Icon = t.icon;
-                const isSelected = theme === t.value;
+                {
+                  value: 'dark' as ThemeMode,
+                  title: 'Koyu',
+                  subtitle: 'Odaklı kullanım',
+                  icon: Moon,
+                  preview: 'bg-slate-900',
+                },
+                {
+                  value: 'light' as ThemeMode,
+                  title: 'Açık',
+                  subtitle: 'Yüksek kontrast',
+                  icon: Sun,
+                  preview: 'bg-slate-100',
+                },
+                {
+                  value: 'system' as ThemeMode,
+                  title: 'Sistem',
+                  subtitle: 'Cihaz tercihi',
+                  icon: MonitorSmartphone,
+                  preview: 'bg-gradient-to-r from-slate-900 to-slate-100',
+                },
+              ].map((item) => {
+                const Icon = item.icon;
+                const selected = theme === item.value;
 
                 return (
                   <button
-                    key={t.value}
-                    onClick={() => setTheme(t.value as 'dark' | 'light')}
+                    key={item.value}
+                    onClick={() => setTheme(item.value)}
                     className={cn(
-                      "relative p-4 rounded-xl border-2 transition-all overflow-hidden group",
-                      isSelected
-                        ? "border-primary bg-primary/10"
-                        : "border-white/10 hover:border-white/20"
+                      'rounded-xl border p-3 text-left transition-all',
+                      selected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
-                    {/* Preview */}
-                    <div className={cn(
-                      "w-full h-24 rounded-lg mb-4 flex items-center justify-center",
-                      t.bg
-                    )}>
-                      <Icon className={cn(
-                        "w-8 h-8",
-                        t.value === 'dark' ? "text-white" : "text-gray-800"
-                      )} />
-                    </div>
-
-                    {/* Label */}
+                    <div className={cn('h-20 rounded-lg mb-3 border border-white/10', item.preview)} />
                     <div className="flex items-center justify-between">
-                      <span className="text-white font-medium">{t.label}</span>
-                      {isSelected && (
-                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <CheckCircle2 className="w-3 h-3 text-white" />
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-white font-medium text-sm flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          {item.title}
+                        </p>
+                        <p className="text-white/45 text-xs mt-1">{item.subtitle}</p>
+                      </div>
+                      {selected && <CheckCircle2 className="w-4 h-4 text-primary" />}
                     </div>
-
-                    {/* Selected indicator */}
-                    {isSelected && (
-                      <motion.div
-                        layoutId="theme-indicator"
-                        className="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none"
-                      />
-                    )}
                   </button>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
 
-      {/* Security Settings */}
-      <motion.div variants={fadeInUp}>
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-success/20 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <CardTitle>Güvenlik</CardTitle>
-              <p className="text-white/40 text-sm mt-1">Hesap güvenliğini yönet</p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {[
-              {
-                key: 'twoFactor',
-                icon: Key,
-                label: 'İki Faktörlü Kimlik Doğrulama',
-                description: 'Ekstra güvenlik katmanı ekle',
-              },
-              {
-                key: 'loginAlerts',
-                icon: Bell,
-                label: 'Giriş Bildirimleri',
-                description: 'Yeni cihazdan giriş yapıldığında bildir',
-              },
-              {
-                key: 'sessionTimeout',
-                icon: Lock,
-                label: 'Otomatik Oturum Kapatma',
-                description: '30 dakika işlem yapılmazsa çıkış yap',
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              const isEnabled = security[item.key as keyof typeof security];
+            <GlassCard className="p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-white font-medium text-sm">Kompakt Mod</p>
+                <p className="text-white/45 text-xs">Daha sıkı satır yüksekliği ve yoğun yerleşim</p>
+              </div>
+              <Toggle
+                checked={settings.compactMode}
+                onChange={(checked) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    compactMode: checked,
+                  }))
+                }
+              />
+            </GlassCard>
 
-              return (
-                <motion.div
-                  key={item.key}
-                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                  className="flex items-center justify-between py-4 px-4 -mx-4 rounded-xl transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                      isEnabled ? "bg-success/20" : "bg-white/5"
-                    )}>
-                      <Icon className={cn(
-                        "w-5 h-5 transition-colors",
-                        isEnabled ? "text-success" : "text-white/40"
-                      )} />
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{item.label}</p>
-                      <p className="text-white/40 text-sm">{item.description}</p>
-                    </div>
-                  </div>
-                  <Toggle
-                    checked={isEnabled}
-                    onChange={(checked) =>
-                      setSecurity((prev) => ({ ...prev, [item.key]: checked }))
-                    }
-                  />
-                </motion.div>
-              );
-            })}
-
-            <div className="pt-4 mt-4 border-t border-white/5">
-              <Button variant="outline" className="border-white/20 text-white">
-                <Key className="w-4 h-4 mr-2" />
-                Şifremi Değiştir
+            <div className="flex justify-end">
+              <Button variant="gradient" onClick={handleSaveAppearance} loading={isSavingAppearance}>
+                <Save className="w-4 h-4 mr-2" />
+                Görünümü Kaydet
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Danger Zone */}
-      <motion.div variants={fadeInUp}>
-        <Card className="border-danger/20">
-          <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-danger/20 flex items-center justify-center">
-              <Trash2 className="w-5 h-5 text-danger" />
-            </div>
-            <div>
-              <CardTitle className="text-danger">Tehlikeli Bölge</CardTitle>
-              <p className="text-white/40 text-sm mt-1">Bu işlemler geri alınamaz</p>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <GlassCard className="p-4 bg-danger/5 border-danger/20">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="text-white font-medium mb-1">Hesabı Sil</h4>
-                  <p className="text-white/60 text-sm">
-                    Hesabını silersen tüm veriler kalıcı olarak silinir ve geri alınamaz.
-                  </p>
-                </div>
-                <Button variant="destructive" size="sm">
-                  Hesabımı Sil
-                </Button>
-              </div>
-            </GlassCard>
           </CardContent>
         </Card>
       </motion.div>

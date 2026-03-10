@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ShimmerCard, ShimmerRow, ShimmerProgress } from '@/components/ui/skeleton';
 import { formatCurrency, formatPercent, getChangeColor, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import { portfolioService } from '@/services/portfolioService';
@@ -31,11 +31,11 @@ import CountUp from 'react-countup';
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
+  transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
 };
 
 const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.1 } },
+  animate: { transition: { staggerChildren: 0.08 } },
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -50,10 +50,6 @@ const ALLOCATION_COLORS = [
   'from-teal-500 to-teal-500',
 ];
 
-const SUMMARY_SKELETON_IDS = ['s1', 's2', 's3', 's4'];
-const TABLE_SKELETON_IDS = ['t1', 't2', 't3', 't4', 't5'];
-const ALLOC_SKELETON_IDS = ['a1', 'a2', 'a3', 'a4'];
-
 const emptyForm: AddInvestmentRequest = {
   symbol: '',
   symbolName: '',
@@ -64,63 +60,51 @@ const emptyForm: AddInvestmentRequest = {
   notes: '',
 };
 
-// ── Skeleton loader ───────────────────────────────────────────────────────────
+// ── Premium Loading ──────────────────────────────────────────────────────────
 
-function PortfolioSkeletons() {
+function PortfolioLoadingSkeleton() {
   return (
-    <>
+    <div className="space-y-6">
+      {/* Pulse bar shimmer */}
+      <div className="skeleton-shimmer rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="w-24 h-3 rounded-lg skeleton-shimmer" />
+            <div className="w-40 h-5 rounded-lg skeleton-shimmer" />
+          </div>
+          <div className="flex gap-2">
+            <div className="w-20 h-6 rounded-full skeleton-shimmer" />
+            <div className="w-16 h-6 rounded-full skeleton-shimmer" />
+          </div>
+        </div>
+        <div className="w-full h-3 rounded-full skeleton-shimmer" />
+      </div>
+
+      {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {SUMMARY_SKELETON_IDS.map(id => (
-          <GlassCard key={id} className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <Skeleton className="w-12 h-12 rounded-xl" />
-              <Skeleton className="w-16 h-6 rounded-full" />
-            </div>
-            <Skeleton className="w-24 h-4 mb-2" />
-            <Skeleton className="w-36 h-8" />
-          </GlassCard>
+        {Array.from({ length: 4 }, (_, i) => (
+          <ShimmerCard key={`pf-card-${i}`} />
         ))}
       </div>
 
+      {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <Skeleton className="w-32 h-6" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {TABLE_SKELETON_IDS.map(id => (
-              <div key={id} className="flex items-center gap-4">
-                <Skeleton className="w-10 h-10 rounded-xl" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="w-24 h-4" />
-                  <Skeleton className="w-32 h-3" />
-                </div>
-                <Skeleton className="w-20 h-4" />
-                <Skeleton className="w-20 h-4" />
-                <Skeleton className="w-24 h-6" />
-              </div>
+        <div className="lg:col-span-2">
+          <div className="skeleton-shimmer rounded-2xl p-6 space-y-4">
+            <div className="w-24 h-5 rounded-lg skeleton-shimmer" />
+            {Array.from({ length: 5 }, (_, i) => (
+              <ShimmerRow key={`pf-row-${i}`} />
             ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <Skeleton className="w-36 h-6" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {ALLOC_SKELETON_IDS.map(id => (
-              <div key={id} className="space-y-2">
-                <div className="flex justify-between">
-                  <Skeleton className="w-16 h-4" />
-                  <Skeleton className="w-12 h-4" />
-                </div>
-                <Skeleton className="w-full h-2 rounded-full" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+        <div className="skeleton-shimmer rounded-2xl p-6 space-y-4">
+          <div className="w-32 h-5 rounded-lg skeleton-shimmer" />
+          {Array.from({ length: 4 }, (_, i) => (
+            <ShimmerProgress key={`pf-prog-${i}`} />
+          ))}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -136,14 +120,15 @@ interface HoldingsTableProps {
 function HoldingsTable({ holdings, deletingId, onDelete, onAddClick }: HoldingsTableProps) {
   if (holdings.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
-          <Wallet className="w-8 h-8 text-white/20" />
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-20 h-20 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-5 border border-white/[0.06]">
+          <Wallet className="w-10 h-10 text-white/15" />
         </div>
-        <p className="text-white/60 mb-2">Portföyünüzde henüz yatırım yok</p>
+        <p className="text-white/50 mb-1 font-medium">Portfolyunuzde henuz yatirim yok</p>
+        <p className="text-white/30 text-sm mb-5">Ilk yatiriminizi ekleyerek baslayin</p>
         <Button variant="gradient" size="sm" onClick={onAddClick}>
           <Plus className="w-4 h-4 mr-2" />
-          İlk Yatırımı Ekle
+          Ilk Yatirimi Ekle
         </Button>
       </div>
     );
@@ -153,16 +138,16 @@ function HoldingsTable({ holdings, deletingId, onDelete, onAddClick }: HoldingsT
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="text-left text-white/40 text-sm border-b border-white/10">
+          <tr className="text-left text-white/35 text-xs uppercase tracking-wider border-b border-white/[0.06]">
             <th className="pb-4 font-medium">Hisse</th>
             <th className="pb-4 font-medium hidden md:table-cell">Miktar</th>
-            <th className="pb-4 font-medium hidden md:table-cell">Alış</th>
-            <th className="pb-4 font-medium">Güncel</th>
+            <th className="pb-4 font-medium hidden md:table-cell">Alis</th>
+            <th className="pb-4 font-medium">Guncel</th>
             <th className="pb-4 font-medium text-right">Kar/Zarar</th>
             <th className="pb-4 font-medium w-10" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">
+        <tbody className="divide-y divide-white/[0.04]">
           {holdings.map((holding, index) => (
             <HoldingRow
               key={holding.id}
@@ -195,14 +180,14 @@ function HoldingRow({ holding, index, isDeleting, onDelete }: HoldingRowProps) {
     <motion.tr
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="hover:bg-white/5 transition-colors group"
+      transition={{ delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+      className="hover:bg-white/[0.03] transition-colors group"
     >
       <td className="py-4">
         <div className="flex items-center gap-3">
           <div className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110',
-            isPositive ? 'bg-success/20' : 'bg-danger/20',
+            'w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ring-1',
+            isPositive ? 'bg-success/15 ring-success/20' : 'bg-danger/15 ring-danger/20',
           )}>
             {isPositive
               ? <TrendingUp className="w-5 h-5 text-success" />
@@ -211,20 +196,20 @@ function HoldingRow({ holding, index, isDeleting, onDelete }: HoldingRowProps) {
           </div>
           <div>
             <p className="font-semibold text-white">{holding.symbol}</p>
-            <p className="text-xs text-white/40">{holding.symbolName}</p>
+            <p className="text-xs text-white/35">{holding.symbolName}</p>
           </div>
         </div>
       </td>
-      <td className="py-4 text-white hidden md:table-cell">
+      <td className="py-4 text-white/80 hidden md:table-cell font-mono text-sm">
         {holding.quantity.toLocaleString('tr-TR')}
       </td>
-      <td className="py-4 text-white/60 hidden md:table-cell">
+      <td className="py-4 text-white/50 hidden md:table-cell text-sm">
         {formatCurrency(holding.buyPrice)}
       </td>
       <td className="py-4">
         <div>
-          <span className="text-white font-medium">{formatCurrency(holding.currentPrice)}</span>
-          <div className={cn('text-xs flex items-center gap-1', getChangeColor(holding.changePercent))}>
+          <span className="text-white font-medium text-sm number-ticker">{formatCurrency(holding.currentPrice)}</span>
+          <div className={cn('text-xs flex items-center gap-1 mt-0.5', getChangeColor(holding.changePercent))}>
             {isPositive
               ? <ArrowUpRight className="w-3 h-3" />
               : <ArrowDownRight className="w-3 h-3" />
@@ -234,7 +219,7 @@ function HoldingRow({ holding, index, isDeleting, onDelete }: HoldingRowProps) {
         </div>
       </td>
       <td className="py-4 text-right">
-        <p className={cn('font-semibold', getChangeColor(holding.profit))}>
+        <p className={cn('font-semibold text-sm number-ticker', getChangeColor(holding.profit))}>
           {isProfitable ? '+' : ''}{formatCurrency(holding.profit)}
         </p>
         <Badge variant={isProfitable ? 'success' : 'danger'} size="sm" className="mt-1">
@@ -245,7 +230,7 @@ function HoldingRow({ holding, index, isDeleting, onDelete }: HoldingRowProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white/20 hover:text-danger opacity-0 group-hover:opacity-100 transition-all w-8 h-8"
+          className="w-8 h-8 text-white/45 hover:text-danger md:opacity-0 md:group-hover:opacity-100 transition-all"
           onClick={() => onDelete(holding.id, holding.symbol)}
           disabled={isDeleting}
           title="Sil"
@@ -268,7 +253,7 @@ function AllocationPanel({ holdings, totalValue }: AllocationPanelProps) {
   const sorted = [...holdings].sort((a, b) => b.weight - a.weight);
 
   if (sorted.length === 0) {
-    return <p className="text-white/40 text-sm text-center py-8">Henüz varlık yok</p>;
+    return <p className="text-white/35 text-sm text-center py-8">Henuz varlik yok</p>;
   }
 
   return (
@@ -287,18 +272,18 @@ function AllocationPanel({ holdings, totalValue }: AllocationPanelProps) {
               <span className="text-white font-medium">{item.symbol}</span>
             </div>
             <div className="text-right">
-              <span className="text-white/60">{item.weight.toFixed(1)}%</span>
-              <span className="text-white/40 text-xs ml-2">({formatCurrency(item.currentValue)})</span>
+              <span className="text-white/50 font-mono text-xs">{item.weight.toFixed(1)}%</span>
+              <span className="text-white/30 text-xs ml-2">({formatCurrency(item.currentValue)})</span>
             </div>
           </div>
           <Progress value={item.weight} variant="gradient" size="sm" />
         </motion.div>
       ))}
 
-      <div className="pt-4 mt-4 border-t border-white/10">
+      <div className="pt-4 mt-4 border-t border-white/[0.06]">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-white/60">Toplam</span>
-          <span className="text-white font-bold">{formatCurrency(totalValue)}</span>
+          <span className="text-white/50">Toplam</span>
+          <span className="text-white font-bold number-ticker">{formatCurrency(totalValue)}</span>
         </div>
       </div>
     </>
@@ -320,7 +305,7 @@ export default function PortfolioPage() {
       const data = await portfolioService.getPortfolio();
       setPortfolio(data);
     } catch {
-      toast.error('Portföy verileri yüklenemedi.');
+      toast.error('Portfoy verileri yuklenemedi.');
     } finally {
       setLoading(false);
     }
@@ -343,13 +328,13 @@ export default function PortfolioPage() {
         quantity: Number(formData.quantity),
         buyPrice: Number(formData.buyPrice),
       });
-      toast.success(`${symbol} portföye eklendi.`);
+      toast.success(`${symbol} portfolye eklendi.`);
       setShowForm(false);
       setFormData(emptyForm);
       setLoading(true);
       await loadPortfolio();
     } catch {
-      toast.error('Yatırım eklenirken hata oluştu.');
+      toast.error('Yatirim eklenirken hata olustu.');
     } finally {
       setSubmitting(false);
     }
@@ -359,11 +344,11 @@ export default function PortfolioPage() {
     setDeletingId(id);
     try {
       await portfolioService.deleteInvestment(id);
-      toast.success(`${symbol} portföyden silindi.`);
+      toast.success(`${symbol} portfolyden silindi.`);
       setLoading(true);
       await loadPortfolio();
     } catch {
-      toast.error('Yatırım silinirken hata oluştu.');
+      toast.error('Yatirim silinirken hata olustu.');
     } finally {
       setDeletingId(null);
     }
@@ -372,22 +357,75 @@ export default function PortfolioPage() {
   const holdings = portfolio?.holdings ?? [];
   const gainers = holdings.filter(h => h.changePercent > 0).length;
   const losers  = holdings.filter(h => h.changePercent < 0).length;
+  const neutral = holdings.filter(h => h.changePercent === 0).length;
+  const totalPositions = holdings.length || 1;
+  const positiveRatio = (gainers / totalPositions) * 100;
+  const negativeRatio = (losers / totalPositions) * 100;
 
   return (
-    <motion.div className="space-y-6" variants={staggerContainer} initial="initial" animate="animate">
+    <motion.div
+      className="space-y-6 rounded-3xl border border-white/[0.06] bg-[linear-gradient(145deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] p-3 md:p-4 shadow-[0_28px_90px_-62px_rgba(16,185,129,0.82)]"
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
       {/* Header */}
       <motion.div variants={fadeInUp} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Portföyüm</h1>
-          <p className="text-white/60">Yatırımlarını takip et ve yönet</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Portfolyum</h1>
+          <p className="text-white/50 text-sm">Yatirimlarini takip et ve yonet</p>
         </div>
         <Button variant="gradient" onClick={() => setShowForm(prev => !prev)}>
           {showForm
-            ? <><X className="w-4 h-4 mr-2" />Vazgeç</>
-            : <><Plus className="w-4 h-4 mr-2" />Yeni Yatırım</>
+            ? <><X className="w-4 h-4 mr-2" />Vazgec</>
+            : <><Plus className="w-4 h-4 mr-2" />Yeni Yatirim</>
           }
         </Button>
       </motion.div>
+
+      {/* Portfolio Pulse Bar */}
+      {!loading && holdings.length > 0 && (
+        <motion.div variants={fadeInUp}>
+          <GlassCard className="p-5 md:p-6 relative overflow-hidden border-breathing">
+            <div className="absolute -top-20 -right-14 h-40 w-40 rounded-full bg-primary/15 blur-3xl" />
+            <div className="absolute -bottom-16 left-10 h-40 w-40 rounded-full bg-secondary/15 blur-3xl" />
+            <div className="relative">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <p className="text-white/40 text-[10px] uppercase tracking-[0.14em]">Portfoy Pulse</p>
+                  <p className="text-white font-semibold text-lg mt-1">Acik pozisyon dagilimi</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="success">{gainers} yukselen</Badge>
+                  <Badge variant="danger">{losers} dusen</Badge>
+                  <Badge variant="outline">{neutral} yatay</Badge>
+                </div>
+              </div>
+
+              <div className="mt-4 h-3 rounded-full overflow-hidden bg-white/[0.06] flex">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${positiveRatio}%` }}
+                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                  className="h-full bg-gradient-to-r from-success to-success/80"
+                />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${((neutral) / totalPositions) * 100}%` }}
+                  transition={{ duration: 0.8, delay: 0.06 }}
+                  className="h-full bg-white/20"
+                />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${negativeRatio}%` }}
+                  transition={{ duration: 0.8, delay: 0.12 }}
+                  className="h-full bg-gradient-to-r from-danger/80 to-danger"
+                />
+              </div>
+            </div>
+          </GlassCard>
+        </motion.div>
+      )}
 
       {/* Inline Add Form */}
       <AnimatePresence>
@@ -402,7 +440,7 @@ export default function PortfolioPage() {
             <GlassCard className="p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-primary" />
-                Yeni Yatırım Ekle
+                Yeni Yatirim Ekle
               </h2>
               <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -412,7 +450,7 @@ export default function PortfolioPage() {
                     </Label>
                     <Input
                       id="symbol"
-                      placeholder="örn. THYAO"
+                      placeholder="orn. THYAO"
                       value={formData.symbol}
                       onChange={e => handleFormChange('symbol', e.target.value.toUpperCase())}
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30 uppercase"
@@ -421,10 +459,10 @@ export default function PortfolioPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="symbolName" className="text-white/70">Şirket Adı</Label>
+                    <Label htmlFor="symbolName" className="text-white/70">Sirket Adi</Label>
                     <Input
                       id="symbolName"
-                      placeholder="örn. Türk Hava Yolları"
+                      placeholder="orn. Turk Hava Yollari"
                       value={formData.symbolName}
                       onChange={e => handleFormChange('symbolName', e.target.value)}
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
@@ -440,7 +478,7 @@ export default function PortfolioPage() {
                       type="number"
                       min="0"
                       step="1"
-                      placeholder="örn. 100"
+                      placeholder="orn. 100"
                       value={formData.quantity || ''}
                       onChange={e => handleFormChange('quantity', e.target.value)}
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
@@ -450,14 +488,14 @@ export default function PortfolioPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="buyPrice" className="text-white/70">
-                      Alış Fiyatı (₺) <span className="text-danger">*</span>
+                      Alis Fiyati (₺) <span className="text-danger">*</span>
                     </Label>
                     <Input
                       id="buyPrice"
                       type="number"
                       min="0"
                       step="0.01"
-                      placeholder="örn. 280.50"
+                      placeholder="orn. 280.50"
                       value={formData.buyPrice || ''}
                       onChange={e => handleFormChange('buyPrice', e.target.value)}
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
@@ -467,7 +505,7 @@ export default function PortfolioPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="buyDate" className="text-white/70">
-                      Alış Tarihi <span className="text-danger">*</span>
+                      Alis Tarihi <span className="text-danger">*</span>
                     </Label>
                     <Input
                       id="buyDate"
@@ -483,7 +521,7 @@ export default function PortfolioPage() {
                     <Label htmlFor="notes" className="text-white/70">Not</Label>
                     <Input
                       id="notes"
-                      placeholder="İsteğe bağlı not..."
+                      placeholder="Istege bagli not..."
                       value={formData.notes}
                       onChange={e => handleFormChange('notes', e.target.value)}
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
@@ -498,10 +536,10 @@ export default function PortfolioPage() {
                     className="text-white/60 hover:text-white"
                     onClick={() => { setShowForm(false); setFormData(emptyForm); }}
                   >
-                    İptal
+                    Iptal
                   </Button>
                   <Button type="submit" variant="gradient" disabled={submitting}>
-                    {submitting ? 'Ekleniyor...' : 'Yatırımı Ekle'}
+                    {submitting ? 'Ekleniyor...' : 'Yatirimi Ekle'}
                   </Button>
                 </div>
               </form>
@@ -511,17 +549,18 @@ export default function PortfolioPage() {
       </AnimatePresence>
 
       {loading ? (
-        <PortfolioSkeletons />
+        <PortfolioLoadingSkeleton />
       ) : (
         <>
           {/* Summary Cards */}
           <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Value */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-green">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute -top-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center ring-1 ring-primary/20">
                     <Wallet className="w-6 h-6 text-primary" />
                   </div>
                   {portfolio && (
@@ -530,40 +569,43 @@ export default function PortfolioPage() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-white/60 text-sm mb-1">Toplam Değer</p>
-                <p className="text-2xl md:text-3xl font-bold text-white">
-                  ₺<CountUp end={portfolio?.totalValue ?? 0} separator="." decimals={2} decimal="," duration={1} />
+                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Toplam Deger</p>
+                <p className="text-2xl md:text-3xl font-bold text-white number-ticker">
+                  <CountUp end={portfolio?.totalValue ?? 0} prefix="₺" separator="." decimals={2} decimal="," duration={1.2} />
                 </p>
               </div>
             </GlassCard>
 
             {/* Total Cost */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-              <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-blue">
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative">
                 <div className="mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center ring-1 ring-secondary/20">
                     <PiggyBank className="w-6 h-6 text-secondary" />
                   </div>
                 </div>
-                <p className="text-white/60 text-sm mb-1">Toplam Maliyet</p>
-                <p className="text-2xl md:text-3xl font-bold text-white">
-                  ₺<CountUp end={portfolio?.totalCost ?? 0} separator="." decimals={2} decimal="," duration={1} />
+                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Toplam Maliyet</p>
+                <p className="text-2xl md:text-3xl font-bold text-white number-ticker">
+                  <CountUp end={portfolio?.totalCost ?? 0} prefix="₺" separator="." decimals={2} decimal="," duration={1.2} />
                 </p>
               </div>
             </GlassCard>
 
             {/* Total Profit */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+            <GlassCard className={cn(
+              'p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300',
+              (portfolio?.totalProfit ?? 0) >= 0 ? 'card-glow-green' : 'card-glow-red',
+            )}>
               <div className={cn(
-                'absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity',
+                'absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500',
                 (portfolio?.totalProfit ?? 0) >= 0 ? 'from-success/10' : 'from-danger/10',
               )} />
               <div className="relative">
                 <div className="mb-4">
                   <div className={cn(
-                    'w-12 h-12 rounded-xl flex items-center justify-center',
-                    (portfolio?.totalProfit ?? 0) >= 0 ? 'bg-success/20' : 'bg-danger/20',
+                    'w-12 h-12 rounded-xl flex items-center justify-center ring-1',
+                    (portfolio?.totalProfit ?? 0) >= 0 ? 'bg-success/20 ring-success/20' : 'bg-danger/20 ring-danger/20',
                   )}>
                     {(portfolio?.totalProfit ?? 0) >= 0
                       ? <TrendingUp className="w-6 h-6 text-success" />
@@ -571,24 +613,24 @@ export default function PortfolioPage() {
                     }
                   </div>
                 </div>
-                <p className="text-white/60 text-sm mb-1">Toplam Kar/Zarar</p>
-                <p className={cn('text-2xl md:text-3xl font-bold', getChangeColor(portfolio?.totalProfit ?? 0))}>
+                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Toplam Kar/Zarar</p>
+                <p className={cn('text-2xl md:text-3xl font-bold number-ticker', getChangeColor(portfolio?.totalProfit ?? 0))}>
                   {(portfolio?.totalProfit ?? 0) >= 0 ? '+' : '-'}₺
-                  <CountUp end={Math.abs(portfolio?.totalProfit ?? 0)} separator="." decimals={2} decimal="," duration={1} />
+                  <CountUp end={Math.abs(portfolio?.totalProfit ?? 0)} separator="." decimals={2} decimal="," duration={1.2} />
                 </p>
               </div>
             </GlassCard>
 
             {/* Performance */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-gold">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative">
                 <div className="mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center ring-1 ring-purple-500/20">
                     <Target className="w-6 h-6 text-purple-500" />
                   </div>
                 </div>
-                <p className="text-white/60 text-sm mb-1">Performans</p>
+                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Performans</p>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1">
                     <ArrowUpRight className="w-4 h-4 text-success" />
@@ -599,7 +641,7 @@ export default function PortfolioPage() {
                     <span className="text-danger font-bold">{losers}</span>
                   </div>
                 </div>
-                <p className="text-white/40 text-xs mt-2">{portfolio?.openInvestments ?? 0} açık yatırım</p>
+                <p className="text-white/30 text-xs mt-2">{portfolio?.openInvestments ?? 0} acik yatirim</p>
               </div>
             </GlassCard>
           </motion.div>
@@ -612,9 +654,9 @@ export default function PortfolioPage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5 text-primary" />
-                    Varlıklar
+                    Varliklar
                   </CardTitle>
-                  <span className="text-white/40 text-sm">{holdings.length} hisse</span>
+                  <span className="text-white/35 text-xs font-mono">{holdings.length} hisse</span>
                 </CardHeader>
                 <CardContent>
                   <HoldingsTable
@@ -633,7 +675,7 @@ export default function PortfolioPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-primary" />
-                    Portföy Dağılımı
+                    Portfoy Dagilimi
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">

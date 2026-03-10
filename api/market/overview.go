@@ -10,19 +10,26 @@ import (
 	"keskealsaydim/pkg/respond"
 )
 
-// Well-known symbols for the market overview panel.
-// BIST100 index, major currencies vs TRY, and gold.
+// overviewSymbols covers all dashboard sections in one concurrent Go fetch.
+// Split into 4 groups matching the dashboard list cards.
 var overviewSymbols = []string{
-	"XU100.IS", // BIST 100
-	"USDTRY=X", // USD/TRY
-	"EURTRY=X", // EUR/TRY
-	"GBPTRY=X", // GBP/TRY
-	"GC=F",     // Gold futures
-	"THYAO.IS", // Top BIST stocks for market mood
-	"GARAN.IS",
-	"AKBNK.IS",
-	"EREGL.IS",
-	"KCHOL.IS",
+	// Key market indices & currencies (Market Section + Pulse Strip)
+	"XU100.IS", "USDTRY=X", "EURTRY=X", "GBPTRY=X", "GC=F",
+
+	// BIST30 picks (≤14 unique)
+	"AKBNK.IS", "ASELS.IS", "BIMAS.IS", "EREGL.IS", "FROTO.IS",
+	"GARAN.IS", "KCHOL.IS", "THYAO.IS", "TUPRS.IS", "YKBNK.IS",
+
+	// BIST100 extras (non-overlapping with BIST30 above)
+	"CCOLA.IS", "ENKAI.IS", "ISCTR.IS", "MAVI.IS",
+	"PETKM.IS", "SAHOL.IS", "SISE.IS", "TCELL.IS",
+
+	// Nasdaq / US large cap
+	"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL",
+	"META", "TSLA", "NFLX", "AMD", "AVGO",
+
+	// Market cap leaders (extras beyond Nasdaq overlap)
+	"BRK-B", "TSM", "JPM", "LLY", "V",
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -81,5 +88,23 @@ func fetchAll(symbols []string) []finance.Quote {
 			quotes = append(quotes, *q)
 		}
 	}
+
+	if len(quotes) == 0 {
+		return quotes
+	}
+
+	symbolsForCaps := make([]string, 0, len(quotes))
+	for _, q := range quotes {
+		symbolsForCaps = append(symbolsForCaps, q.Symbol)
+	}
+
+	if marketCaps, err := finance.GetMarketCaps(symbolsForCaps); err == nil {
+		for i := range quotes {
+			if marketCap, ok := marketCaps[quotes[i].Symbol]; ok {
+				quotes[i].MarketCap = marketCap
+			}
+		}
+	}
+
 	return quotes
 }

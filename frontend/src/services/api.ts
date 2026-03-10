@@ -11,6 +11,8 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _networkRetryCount?: number;
 };
 
+let refreshRequest: Promise<RefreshResponse> | null = null;
+
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -34,6 +36,37 @@ function shouldRetryRequest(error: AxiosError, request: RetriableRequestConfig) 
   }
 
   return RETRYABLE_STATUSES.has(error.response.status);
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<RefreshResponse> {
+  if (!refreshRequest) {
+    refreshRequest = axios
+      .post<RefreshResponse>(`${API_URL}/auth/refresh`, {
+        refreshToken,
+      })
+      .then((response) => {
+        const payload = response.data;
+        const currentUser = payload.user ?? useAuthStore.getState().user;
+
+        if (currentUser) {
+          useAuthStore.getState().setAuth(currentUser, payload.accessToken, payload.refreshToken);
+        } else {
+          useAuthStore.setState({
+            accessToken: payload.accessToken,
+            refreshToken: payload.refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        }
+
+        return payload;
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+
+  return refreshRequest;
 }
 
 export const api = axios.create({
@@ -78,23 +111,8 @@ api.interceptors.response.use(
       const refreshToken = useAuthStore.getState().refreshToken;
       if (refreshToken) {
         try {
-          const response = await axios.post<RefreshResponse>(`${API_URL}/auth/refresh`, {
-            refreshToken,
-          });
-
-          const { accessToken, refreshToken: newRefreshToken, user } = response.data;
-          const currentUser = user ?? useAuthStore.getState().user;
-
-          if (currentUser) {
-            useAuthStore.getState().setAuth(currentUser, accessToken, newRefreshToken);
-          } else {
-            useAuthStore.setState({
-              accessToken,
-              refreshToken: newRefreshToken,
-              isAuthenticated: true,
-              isLoading: false,
-            });
-          }
+          const refreshed = await refreshAccessToken(refreshToken);
+          const { accessToken } = refreshed;
 
           originalRequest.headers = originalRequest.headers ?? {};
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;

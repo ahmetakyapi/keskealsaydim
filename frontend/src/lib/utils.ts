@@ -5,36 +5,66 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function normalizeFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 // Format currency in Turkish Lira
 export function formatCurrency(value: number, currency = 'TRY'): string {
+  const safeValue = normalizeFiniteNumber(value);
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value);
+  }).format(safeValue);
 }
 
 // Format number with Turkish locale
 export function formatNumber(value: number, decimals = 2): string {
+  const safeValue = normalizeFiniteNumber(value);
   return new Intl.NumberFormat('tr-TR', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value);
+  }).format(safeValue);
 }
 
 // Format percentage
 export function formatPercent(value: number): string {
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${formatNumber(value)}%`;
+  const safeValue = normalizeFiniteNumber(value);
+  const sign = safeValue >= 0 ? '+' : '';
+  return `${sign}${formatNumber(safeValue)}%`;
 }
 
 // Format large numbers (K, M, B)
 export function formatCompact(value: number): string {
-  return new Intl.NumberFormat('tr-TR', {
-    notation: 'compact',
-    compactDisplay: 'short',
-  }).format(value);
+  const safeValue = normalizeFiniteNumber(value);
+
+  try {
+    return new Intl.NumberFormat('tr-TR', {
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1,
+    }).format(safeValue);
+  } catch {
+    const absoluteValue = Math.abs(safeValue);
+    const units = [
+      { threshold: 1e12, suffix: 'Tn' },
+      { threshold: 1e9, suffix: 'Mr' },
+      { threshold: 1e6, suffix: 'Mn' },
+      { threshold: 1e3, suffix: 'Bin' },
+    ];
+
+    for (const unit of units) {
+      if (absoluteValue >= unit.threshold) {
+        const compactValue = safeValue / unit.threshold;
+        return `${formatNumber(compactValue, 1)} ${unit.suffix}`;
+      }
+    }
+
+    return formatNumber(safeValue, 0);
+  }
 }
 
 // Format date in Turkish locale

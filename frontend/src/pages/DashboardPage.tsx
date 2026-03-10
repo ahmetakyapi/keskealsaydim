@@ -59,8 +59,12 @@ const MARKET_LABELS: Record<string, string> = {
   'XU100.IS': 'BIST 100',
   'USDTRY=X': 'USD/TRY',
   'EURTRY=X': 'EUR/TRY',
+  'GBPTRY=X': 'GBP/TRY',
   'GC=F': 'Altin',
 };
+
+const KEY_QUOTE_SYMBOLS = ['XU100.IS', 'USDTRY=X', 'EURTRY=X', 'GC=F'];
+const STARTER_IDEA_SYMBOLS = ['THYAO.IS', 'ASELS.IS', 'TUPRS.IS', 'AAPL', 'NVDA', 'MSFT'];
 
 // These must match the symbols fetched by api/market/overview.go
 const BIST30_SYMBOLS = [
@@ -89,6 +93,10 @@ const BIST30_SET = new Set(BIST30_SYMBOLS);
 const BIST100_SET = new Set(BIST100_SYMBOLS);
 const NASDAQ_SET = new Set(NASDAQ_SYMBOLS);
 const MARKET_CAP_SET = new Set(MARKET_CAP_LEADER_SYMBOLS);
+const KEY_QUOTE_SET = new Set(KEY_QUOTE_SYMBOLS);
+const STARTER_IDEA_SET = new Set(STARTER_IDEA_SYMBOLS);
+const MARKET_CAP_ORDER = new Map(MARKET_CAP_LEADER_SYMBOLS.map((symbol, index) => [symbol, index]));
+const STARTER_IDEA_ORDER = new Map(STARTER_IDEA_SYMBOLS.map((symbol, index) => [symbol, index]));
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -107,31 +115,78 @@ function formatLastUpdated(lastUpdated: Date | null): string {
 }
 
 function sortByProfitDesc(holdings: Investment[]): Investment[] {
-  return [...holdings].sort((a, b) => b.profitPercent - a.profitPercent);
+  return [...holdings].sort((a, b) => toFiniteNumber(b.profitPercent) - toFiniteNumber(a.profitPercent));
 }
 
 function sortByWeightDesc(holdings: Investment[]): Investment[] {
-  return [...holdings].sort((a, b) => b.weight - a.weight);
+  return [...holdings].sort((a, b) => toFiniteNumber(b.weight) - toFiniteNumber(a.weight));
 }
 
 function clamp(value: number, min = 0, max = 100): number {
+  if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, value));
 }
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 function computePortfolioHealth(portfolio: PortfolioSummary | null): number {
-  if (!portfolio || portfolio.holdings.length === 0) return 0;
-  const diversification = clamp(portfolio.holdings.length * 7, 0, 25);
-  const totalReturn = clamp(portfolio.totalProfitPercent * 0.65, -20, 35);
-  const dailyTrend = clamp(portfolio.dailyChangePercent * 0.5, -10, 15);
+  const holdings = Array.isArray(portfolio?.holdings) ? portfolio.holdings : [];
+  if (!portfolio || holdings.length === 0) return 0;
+  const diversification = clamp(holdings.length * 7, 0, 25);
+  const totalReturn = clamp(toFiniteNumber(portfolio.totalProfitPercent) * 0.65, -20, 35);
+  const dailyTrend = clamp(toFiniteNumber(portfolio.dailyChangePercent) * 0.5, -10, 15);
   return clamp(45 + diversification + totalReturn + dailyTrend);
 }
 
 function filterQuotes(quotes: MarketQuote[], symbolSet: Set<string>): MarketQuote[] {
-  return quotes.filter((q) => symbolSet.has(q.symbol));
+  return quotes.filter((q) => q?.symbol && symbolSet.has(q.symbol));
 }
 
 function displaySymbol(symbol: string): string {
   return symbol.replace('.IS', '');
+}
+
+function getQuoteLabel(symbol: string): string {
+  if (MARKET_LABELS[symbol]) {
+    return MARKET_LABELS[symbol];
+  }
+
+  if (symbol.endsWith('.IS')) {
+    return displaySymbol(symbol);
+  }
+
+  if (symbol.endsWith('=X')) {
+    return symbol.replace('=X', '');
+  }
+
+  return symbol;
+}
+
+function formatQuotePrice(value: unknown): string {
+  return toFiniteNumber(value).toLocaleString('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function sortQuotesBySymbolPriority(quotes: MarketQuote[], order: Map<string, number>): MarketQuote[] {
+  return [...quotes].sort((a, b) => {
+    const aOrder = order.get(a.symbol) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = order.get(b.symbol) ?? Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder;
+  });
+}
+
+function getFirstName(name: unknown): string {
+  if (typeof name !== 'string') {
+    return 'Yatirimci';
+  }
+
+  const firstName = name.trim().split(/\s+/)[0];
+  return firstName || 'Yatirimci';
 }
 
 // ── Live Indicator ────────────────────────────────────────────────────────────
@@ -271,8 +326,8 @@ function TotalValueCard({ portfolio }: Readonly<TotalValueCardProps>) {
     );
   }
 
-  const dailyPct = portfolio?.dailyChangePercent ?? 0;
-  const totalVal = portfolio?.totalValue ?? 0;
+  const dailyPct = toFiniteNumber(portfolio?.dailyChangePercent);
+  const totalVal = toFiniteNumber(portfolio?.totalValue);
   return (
     <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-green">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -309,8 +364,8 @@ function TotalProfitCard({ portfolio }: Readonly<TotalProfitCardProps>) {
     );
   }
 
-  const profit = portfolio?.totalProfit ?? 0;
-  const profitPct = portfolio?.totalProfitPercent ?? 0;
+  const profit = toFiniteNumber(portfolio?.totalProfit);
+  const profitPct = toFiniteNumber(portfolio?.totalProfitPercent);
   const isPositive = profit >= 0;
   return (
     <GlassCard className={`p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 ${isPositive ? 'card-glow-green' : 'card-glow-red'}`}>
@@ -350,8 +405,8 @@ function DailyChangeCard({ portfolio }: Readonly<DailyChangeCardProps>) {
     );
   }
 
-  const daily = portfolio?.dailyChange ?? 0;
-  const dailyPct = portfolio?.dailyChangePercent ?? 0;
+  const daily = toFiniteNumber(portfolio?.dailyChange);
+  const dailyPct = toFiniteNumber(portfolio?.dailyChangePercent);
   const isPositive = daily > 0;
   return (
     <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-blue">
@@ -377,7 +432,9 @@ function DailyChangeCard({ portfolio }: Readonly<DailyChangeCardProps>) {
 
 interface MarketQuoteItemProps { quote: MarketQuote; index: number }
 function MarketQuoteItem({ quote, index }: Readonly<MarketQuoteItemProps>) {
-  const isUp = quote.changePercent >= 0;
+  const price = toFiniteNumber(quote.price);
+  const changePercent = toFiniteNumber(quote.changePercent);
+  const isUp = changePercent >= 0;
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -386,15 +443,15 @@ function MarketQuoteItem({ quote, index }: Readonly<MarketQuoteItemProps>) {
       className={`p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300 border border-transparent hover:border-white/10 ${isUp ? 'card-glow-green' : 'card-glow-red'}`}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-white/50 text-xs font-medium">{MARKET_LABELS[quote.symbol]}</p>
+        <p className="text-white/50 text-xs font-medium">{getQuoteLabel(quote.symbol)}</p>
         <div className={`w-1.5 h-1.5 rounded-full ${isUp ? 'bg-success' : 'bg-danger'}`} />
       </div>
       <p className="font-bold text-white text-lg number-ticker">
-        {quote.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+        {formatQuotePrice(price)}
       </p>
-      <div className={`flex items-center gap-1 text-sm mt-1 ${getChangeColor(quote.changePercent)}`}>
+      <div className={`flex items-center gap-1 text-sm mt-1 ${getChangeColor(changePercent)}`}>
         {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-        <span className="font-semibold">{formatPercent(quote.changePercent)}</span>
+        <span className="font-semibold">{formatPercent(changePercent)}</span>
       </div>
     </motion.div>
   );
@@ -402,7 +459,9 @@ function MarketQuoteItem({ quote, index }: Readonly<MarketQuoteItemProps>) {
 
 interface PerformerRowProps { holding: Investment; index: number }
 function PerformerRow({ holding, index }: Readonly<PerformerRowProps>) {
-  const isPositive = holding.profitPercent >= 0;
+  const currentValue = toFiniteNumber(holding.currentValue);
+  const profitPercent = toFiniteNumber(holding.profitPercent);
+  const isPositive = profitPercent >= 0;
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -423,9 +482,9 @@ function PerformerRow({ holding, index }: Readonly<PerformerRowProps>) {
         </div>
       </div>
       <div className="text-right">
-        <p className="font-medium text-white number-ticker">{formatCurrency(holding.currentValue)}</p>
-        <p className={`text-sm font-semibold ${getChangeColor(holding.profitPercent)}`}>
-          {isPositive ? '+' : ''}{formatPercent(holding.profitPercent)}
+        <p className="font-medium text-white number-ticker">{formatCurrency(currentValue)}</p>
+        <p className={`text-sm font-semibold ${getChangeColor(profitPercent)}`}>
+          {formatPercent(profitPercent)}
         </p>
       </div>
     </motion.div>
@@ -434,6 +493,7 @@ function PerformerRow({ holding, index }: Readonly<PerformerRowProps>) {
 
 interface AllocationRowProps { holding: Investment; index: number }
 function AllocationRow({ holding, index }: Readonly<AllocationRowProps>) {
+  const weight = toFiniteNumber(holding.weight);
   return (
     <motion.div
       initial={{ opacity: 0, width: 0 }}
@@ -443,16 +503,18 @@ function AllocationRow({ holding, index }: Readonly<AllocationRowProps>) {
     >
       <div className="flex items-center justify-between text-sm">
         <span className="text-white font-medium">{holding.symbol}</span>
-        <span className="text-white/50 font-mono text-xs">{holding.weight.toFixed(1)}%</span>
+        <span className="text-white/50 font-mono text-xs">{weight.toFixed(1)}%</span>
       </div>
-      <Progress value={holding.weight} variant="gradient" size="sm" />
+      <Progress value={weight} variant="gradient" size="sm" />
     </motion.div>
   );
 }
 
 interface RecentRowProps { holding: Investment; index: number }
 function RecentRow({ holding, index }: Readonly<RecentRowProps>) {
-  const isPositive = holding.profitPercent >= 0;
+  const currentValue = toFiniteNumber(holding.currentValue);
+  const profitPercent = toFiniteNumber(holding.profitPercent);
+  const isPositive = profitPercent >= 0;
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -475,9 +537,9 @@ function RecentRow({ holding, index }: Readonly<RecentRowProps>) {
         </div>
       </div>
       <div className="text-right">
-        <p className="font-medium text-white text-sm number-ticker">{formatCurrency(holding.currentValue)}</p>
-        <p className={`text-xs font-medium ${getChangeColor(holding.profitPercent)}`}>
-          {isPositive ? '+' : ''}{formatPercent(holding.profitPercent)}
+        <p className="font-medium text-white text-sm number-ticker">{formatCurrency(currentValue)}</p>
+        <p className={`text-xs font-medium ${getChangeColor(profitPercent)}`}>
+          {formatPercent(profitPercent)}
         </p>
       </div>
     </motion.div>
@@ -501,16 +563,18 @@ function MarketPulseStrip({ loading, quotes }: Readonly<MarketPulseStripProps>) 
         <div className="overflow-x-auto no-scrollbar">
           <div className="flex min-w-max gap-2 px-2 pb-1">
             {quotes.map((quote) => {
-              const isUp = quote.changePercent >= 0;
+              const price = toFiniteNumber(quote.price);
+              const changePercent = toFiniteNumber(quote.changePercent);
+              const isUp = changePercent >= 0;
               return (
                 <div key={quote.symbol} className="min-w-[150px] rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 hover:bg-white/[0.06] transition-colors">
-                  <p className="text-[10px] text-white/40 uppercase tracking-wider">{MARKET_LABELS[quote.symbol] ?? quote.symbol}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider">{getQuoteLabel(quote.symbol)}</p>
                   <p className="text-white font-semibold text-sm mt-0.5 number-ticker">
-                    {quote.price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatQuotePrice(price)}
                   </p>
-                  <div className={`flex items-center gap-1 text-xs mt-1 ${getChangeColor(quote.changePercent)}`}>
+                  <div className={`flex items-center gap-1 text-xs mt-1 ${getChangeColor(changePercent)}`}>
                     {isUp ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
-                    <span className="font-medium">{formatPercent(quote.changePercent)}</span>
+                    <span className="font-medium">{formatPercent(changePercent)}</span>
                   </div>
                 </div>
               );
@@ -545,14 +609,14 @@ function PortfolioHealthCard({ portfolio }: Readonly<PortfolioHealthCardProps>) 
     );
   }
 
-  const score = computePortfolioHealth(portfolio);
+  const score = toFiniteNumber(computePortfolioHealth(portfolio));
   const scoreLabel = score >= 75 ? 'Guclu' : score >= 50 ? 'Dengeli' : 'Riskli';
   const scoreColor = score >= 75 ? 'text-success' : score >= 50 ? 'text-secondary' : 'text-danger';
   const scoreBg = score >= 75 ? 'from-success/20' : score >= 50 ? 'from-secondary/20' : 'from-danger/20';
 
   const openInvestments = portfolio?.openInvestments ?? 0;
   const totalInvestments = portfolio?.totalInvestments ?? 0;
-  const concentration = (portfolio?.holdings ?? []).reduce((max, item) => Math.max(max, item.weight), 0);
+  const concentration = (portfolio?.holdings ?? []).reduce((max, item) => Math.max(max, toFiniteNumber(item.weight)), 0);
 
   return (
     <motion.div variants={fadeInUp}>
@@ -770,6 +834,151 @@ function PortfolioOnboardingCard() {
   );
 }
 
+interface StarterIdeasSectionProps {
+  loading: boolean;
+  quotes: MarketQuote[];
+}
+
+function StarterIdeasSection({ loading, quotes }: Readonly<StarterIdeasSectionProps>) {
+  if (loading) return null;
+
+  return (
+    <motion.div variants={fadeInUp}>
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Ilk Izleme Listesi
+          </CardTitle>
+          <p className="text-xs text-white/40">
+            Portfoyunuz bos olsa da secili hisseleri ve liderleri buradan takip etmeye baslayabilirsiniz.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {quotes.length === 0 ? (
+            <p className="text-white/35 text-sm text-center py-4">Izleme listesi verisi alinamadi</p>
+          ) : (
+            quotes.map((quote, index) => {
+              const changePercent = toFiniteNumber(quote.changePercent);
+              const isUp = changePercent >= 0;
+              const marketTag = quote.symbol.endsWith('.IS') ? 'BIST' : quote.exchange || 'Global';
+
+              return (
+                <div
+                  key={`starter-${quote.symbol}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{getQuoteLabel(quote.symbol)}</p>
+                      <div className="flex items-center gap-2 text-[11px] text-white/35">
+                        <span className="truncate">{quote.name}</span>
+                        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45 shrink-0">
+                          {marketTag}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-white number-ticker">{formatQuotePrice(quote.price)}</p>
+                    <p className={`text-xs font-medium ${getChangeColor(changePercent)}`}>
+                      {isUp ? <ArrowUpRight className="w-3 h-3 inline mr-0.5" /> : <ArrowDownRight className="w-3 h-3 inline mr-0.5" />}
+                      {formatPercent(changePercent)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <Link to="/portfolio">
+              <Button variant="gradient" className="w-full">
+                <Wallet className="w-4 h-4 mr-2" />
+                Ilk Yatirimi Ekle
+              </Button>
+            </Link>
+            <Link to="/market">
+              <Button variant="outline" className="w-full border-white/15 text-white/80 hover:text-white hover:border-white/30">
+                <Globe2 className="w-4 h-4 mr-2" />
+                Piyasayi Incele
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+function StarterChecklistCard() {
+  const steps = [
+    'Ilk hisse veya varligi portfoye ekleyin.',
+    'Alis fiyatini ve tarihi girin.',
+    'Dashboard otomatik olarak getiri ve dagilimi hesaplasin.',
+  ];
+
+  return (
+    <motion.div variants={fadeInUp}>
+      <Card className="overflow-hidden relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_42%)]" />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5 text-primary" />
+            Ilk 3 Adim
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="relative space-y-3">
+          {steps.map((step, index) => (
+            <div key={step} className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                {index + 1}
+              </div>
+              <p className="text-sm text-white/70 leading-6">{step}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+interface StarterSnapshotCardProps {
+  quotes: MarketQuote[];
+}
+
+function StarterSnapshotCard({ quotes }: Readonly<StarterSnapshotCardProps>) {
+  return (
+    <motion.div variants={fadeInUp}>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe2 className="w-5 h-5 text-secondary" />
+            Takip Edilebilecekler
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {quotes.length === 0 ? (
+            <p className="text-white/35 text-sm text-center py-4 sm:col-span-2">Takip kartlari yuklenemedi</p>
+          ) : (
+            quotes.slice(0, 4).map((quote) => (
+              <GlassCard key={`starter-snapshot-${quote.symbol}`} className="p-4 border border-white/[0.06] bg-white/[0.03]">
+                <p className="text-[10px] text-white/40 uppercase tracking-wider">{getQuoteLabel(quote.symbol)}</p>
+                <p className="text-lg font-bold text-white mt-1 number-ticker">{formatQuotePrice(quote.price)}</p>
+                <p className={`text-xs mt-1 ${getChangeColor(quote.changePercent)}`}>{formatPercent(quote.changePercent)}</p>
+              </GlassCard>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
 type MarketListMode = 'change' | 'marketCap';
 
 interface MarketListCardProps {
@@ -818,7 +1027,10 @@ function MarketListCard({
             <p className="text-white/35 text-sm text-center py-4">Liste verisi alinamadi</p>
           ) : (
             quotes.map((quote, index) => {
-              const isUp = quote.changePercent >= 0;
+              const changePercent = toFiniteNumber(quote.changePercent);
+              const price = toFiniteNumber(quote.price);
+              const marketCap = toFiniteNumber(quote.marketCap);
+              const isUp = changePercent >= 0;
               return (
                 <motion.div
                   key={`${title}-${quote.symbol}`}
@@ -832,7 +1044,7 @@ function MarketListCard({
                       {index + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{displaySymbol(quote.symbol)}</p>
+                      <p className="text-sm font-semibold text-white truncate">{getQuoteLabel(quote.symbol)}</p>
                       <p className="text-[10px] text-white/35 truncate">{quote.name}</p>
                     </div>
                   </div>
@@ -840,16 +1052,16 @@ function MarketListCard({
                   {mode === 'marketCap' ? (
                     <div className="text-right shrink-0">
                       <p className="text-sm font-bold text-white number-ticker">
-                        {quote.marketCap > 0 ? formatCompact(quote.marketCap) : '-'}
+                        {marketCap > 0 ? formatCompact(marketCap) : 'Bekleniyor'}
                       </p>
                       <p className="text-[10px] text-white/40">Piyasa degeri</p>
                     </div>
                   ) : (
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-white number-ticker">{formatCurrency(quote.price)}</p>
-                      <div className={`text-xs font-medium flex items-center justify-end gap-0.5 ${getChangeColor(quote.changePercent)}`}>
+                      <p className="text-sm font-semibold text-white number-ticker">{formatQuotePrice(price)}</p>
+                      <div className={`text-xs font-medium flex items-center justify-end gap-0.5 ${getChangeColor(changePercent)}`}>
                         {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                        {isUp ? '+' : ''}{formatPercent(quote.changePercent)}
+                        {formatPercent(changePercent)}
                       </div>
                     </div>
                   )}
@@ -870,12 +1082,18 @@ export default function DashboardPage() {
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [market, setMarket] = useState<MarketOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [portfolioError, setPortfolioError] = useState(false);
   const [marketError, setMarketError] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'initial') {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
     const [portfolioResult, marketResult] = await Promise.allSettled([
       portfolioService.getPortfolio(),
       marketService.getOverview(),
@@ -886,16 +1104,37 @@ export default function DashboardPage() {
     if (marketResult.status === 'fulfilled') setMarket(marketResult.value);
     setLastUpdated(new Date());
     setLoading(false);
+    setRefreshing(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    let cancelled = false;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }, 2500);
 
-  const allQuotes = market?.quotes ?? [];
-  const keyQuotes = allQuotes.filter((q) => q.symbol in MARKET_LABELS);
-  const pulseQuotes = allQuotes.filter((q) => !['XU100.IS'].includes(q.symbol)).slice(0, 12);
-  const topPerformers = portfolio?.holdings ? sortByProfitDesc(portfolio.holdings).slice(0, 4) : [];
-  const allocation = portfolio?.holdings ? sortByWeightDesc(portfolio.holdings).slice(0, 5) : [];
-  const recentInvestments = portfolio?.holdings?.slice(0, 3) ?? [];
+    fetchData('initial').finally(() => {
+      if (!cancelled) {
+        window.clearTimeout(fallbackTimer);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [fetchData]);
+
+  const allQuotes = Array.isArray(market?.quotes) ? market.quotes : [];
+  const keyQuotes = allQuotes.filter((q) => q?.symbol && KEY_QUOTE_SET.has(q.symbol));
+  const pulseQuotes = allQuotes.filter((q) => q?.symbol && !['XU100.IS'].includes(q.symbol)).slice(0, 12);
+  const holdings = Array.isArray(portfolio?.holdings) ? portfolio.holdings : [];
+  const topPerformers = holdings.length > 0 ? sortByProfitDesc(holdings).slice(0, 4) : [];
+  const allocation = holdings.length > 0 ? sortByWeightDesc(holdings).slice(0, 5) : [];
+  const recentInvestments = holdings.slice(0, 3);
+  const starterIdeas = sortQuotesBySymbolPriority(filterQuotes(allQuotes, STARTER_IDEA_SET), STARTER_IDEA_ORDER).slice(0, 6);
   const bist30List = filterQuotes(allQuotes, BIST30_SET)
     .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8);
   const bist100List = filterQuotes(allQuotes, BIST100_SET)
@@ -903,11 +1142,20 @@ export default function DashboardPage() {
   const nasdaqList = filterQuotes(allQuotes, NASDAQ_SET)
     .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8);
   const marketCapLeaders = filterQuotes(allQuotes, MARKET_CAP_SET)
-    .filter((q) => q.marketCap > 0)
-    .sort((a, b) => b.marketCap - a.marketCap).slice(0, 8);
+    .sort((a, b) => {
+      const marketCapDiff = toFiniteNumber(b.marketCap) - toFiniteNumber(a.marketCap);
+      if (marketCapDiff !== 0) {
+        return marketCapDiff;
+      }
+
+      return (MARKET_CAP_ORDER.get(a.symbol) ?? Number.MAX_SAFE_INTEGER)
+        - (MARKET_CAP_ORDER.get(b.symbol) ?? Number.MAX_SAFE_INTEGER);
+    })
+    .slice(0, 8);
   const portfolioUnavailable = !portfolio && portfolioError;
   const marketUnavailable = !market && marketError;
-  const showPortfolioOnboarding = Boolean(portfolio && portfolio.holdings.length === 0);
+  const showPortfolioOnboarding = Boolean(portfolio && holdings.length === 0);
+  const firstName = getFirstName(user?.name);
 
   if (loading) {
     return (
@@ -933,7 +1181,7 @@ export default function DashboardPage() {
       <motion.div variants={fadeInUp} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-            {getGreeting()}, <span className="text-gradient">{user?.name?.split(' ')[0]}</span>!
+            {getGreeting()}, <span className="text-gradient">{firstName}</span>!
           </h1>
           <p className="text-white/50 text-sm">Iste portfolyonun guncel durumu</p>
         </div>
@@ -942,8 +1190,8 @@ export default function DashboardPage() {
             <Clock className="w-3.5 h-3.5" />
             <span>{formatLastUpdated(lastUpdated)}</span>
           </div>
-          <Button variant="outline" className="border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-all" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" className="border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-all" onClick={() => fetchData('refresh')} disabled={refreshing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Yenile
           </Button>
         </div>
@@ -969,7 +1217,7 @@ export default function DashboardPage() {
           </span>
           <button
             type="button"
-            onClick={fetchData}
+            onClick={() => fetchData('refresh')}
             className="underline underline-offset-2 text-xs font-semibold shrink-0 opacity-80 hover:opacity-100"
           >
             Tekrar dene
@@ -1013,25 +1261,38 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <MarketSection loading={loading} quotes={marketUnavailable ? [] : keyQuotes} />
-          <TopPerformersSection
-            loading={loading}
-            performers={portfolioUnavailable ? [] : topPerformers}
-            unavailable={portfolioUnavailable}
-          />
+          {showPortfolioOnboarding ? (
+            <StarterIdeasSection loading={loading} quotes={starterIdeas} />
+          ) : (
+            <TopPerformersSection
+              loading={loading}
+              performers={portfolioUnavailable ? [] : topPerformers}
+              unavailable={portfolioUnavailable}
+            />
+          )}
         </div>
 
         <div className="space-y-6">
-          <PortfolioHealthCard portfolio={portfolioUnavailable ? null : portfolio} />
-          <AllocationSection
-            loading={loading}
-            allocation={portfolioUnavailable ? [] : allocation}
-            unavailable={portfolioUnavailable}
-          />
-          <RecentSection
-            loading={loading}
-            recent={portfolioUnavailable ? [] : recentInvestments}
-            unavailable={portfolioUnavailable}
-          />
+          {showPortfolioOnboarding ? (
+            <>
+              <StarterChecklistCard />
+              <StarterSnapshotCard quotes={starterIdeas} />
+            </>
+          ) : (
+            <>
+              <PortfolioHealthCard portfolio={portfolioUnavailable ? null : portfolio} />
+              <AllocationSection
+                loading={loading}
+                allocation={portfolioUnavailable ? [] : allocation}
+                unavailable={portfolioUnavailable}
+              />
+              <RecentSection
+                loading={loading}
+                recent={portfolioUnavailable ? [] : recentInvestments}
+                unavailable={portfolioUnavailable}
+              />
+            </>
+          )}
         </div>
       </div>
 

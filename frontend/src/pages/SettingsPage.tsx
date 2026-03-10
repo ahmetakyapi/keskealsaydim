@@ -73,7 +73,8 @@ export default function SettingsPage() {
   const { user } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!user);
+  const [refreshing, setRefreshing] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [isSavingAppearance, setIsSavingAppearance] = useState(false);
@@ -100,24 +101,55 @@ export default function SettingsPage() {
     }
   }, [setTheme]);
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (user) {
+      syncFromUser(user);
+      setLoading(false);
+    }
+  }, [syncFromUser, user]);
+
+  const loadProfile = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'initial' && !useAuthStore.getState().user) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
     try {
       const profile = await userService.getMe();
       useAuthStore.getState().updateUser(profile);
       syncFromUser(profile);
     } catch {
       toast.error('Ayarlar yüklenemedi.');
-      if (user) {
-        syncFromUser(user);
+      const fallbackUser = useAuthStore.getState().user;
+      if (fallbackUser) {
+        syncFromUser(fallbackUser);
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [syncFromUser, user]);
+  }, [syncFromUser]);
 
   useEffect(() => {
-    loadProfile();
+    let cancelled = false;
+    const hasCachedUser = Boolean(useAuthStore.getState().user);
+    const fallbackTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }, 2500);
+
+    loadProfile(hasCachedUser ? 'refresh' : 'initial').finally(() => {
+      if (!cancelled) {
+        window.clearTimeout(fallbackTimer);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+    };
   }, [loadProfile]);
 
   const handleSaveProfile = async () => {
@@ -315,8 +347,8 @@ export default function SettingsPage() {
                   ? `${unreadNotifications} okunmamış bildirim`
                   : 'Okunmamış bildirim yok'}
               </Badge>
-              <Button variant="outline" className="border-white/20 text-white" onClick={loadProfile} disabled={loading}>
-                <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />
+              <Button variant="outline" className="border-white/20 text-white" onClick={() => loadProfile('refresh')} disabled={refreshing}>
+                <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
                 Yenile
               </Button>
             </div>

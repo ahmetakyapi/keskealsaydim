@@ -54,3 +54,41 @@ func TestGetMarketCapsMapsBatchQuoteResponse(t *testing.T) {
 		t.Fatalf("expected AAPL market cap 987654321, got %d", got)
 	}
 }
+
+func TestFetchRetriesRetryableYahooErrors(t *testing.T) {
+	originalClient := httpClient
+	t.Cleanup(func() {
+		httpClient = originalClient
+	})
+
+	attempts := 0
+	httpClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			attempts++
+			if attempts < 3 {
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Body:       io.NopCloser(strings.NewReader("temporary outage")),
+					Header:     make(http.Header),
+				}, nil
+			}
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	body, err := fetch("https://query1.finance.yahoo.com/v8/finance/chart/AAPL")
+	if err != nil {
+		t.Fatalf("fetch returned error: %v", err)
+	}
+	if string(body) != `{"ok":true}` {
+		t.Fatalf("unexpected body %s", string(body))
+	}
+	if attempts != 3 {
+		t.Fatalf("expected 3 attempts, got %d", attempts)
+	}
+}

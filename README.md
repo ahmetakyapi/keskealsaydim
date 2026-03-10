@@ -178,6 +178,8 @@ npm start
 
 `npm start` komutu frontend'i `http://localhost:5173`, backend'i `http://localhost:3000` üzerinde başlatır.
 
+Backend artık `DATABASE_URL` dışında `POSTGRES_URL` veya standart `PGHOST` / `PGDATABASE` / `PGUSER` / `PGPASSWORD` değişkenlerinden de bağlantı kurabilir. Uzak veritabanlarında `sslmode=require`, yerelde ise `sslmode=disable` otomatik tamamlanır.
+
 > **Not:** İstersen backend'i ayrı da çalıştırabilirsin: `vercel dev`
 
 ### Veritabanı
@@ -203,6 +205,7 @@ Proje Vercel'e tek seferde deploy olur. Gerekli ortam değişkenleri:
 
 ```env
 DATABASE_URL=postgresql://...@pooler.neon.tech/neondb?sslmode=require
+# veya Vercel Postgres/Neon entegrasyonunda POSTGRES_URL otomatik gelebilir
 JWT_SECRET=<openssl rand -hex 32>
 UPSTASH_REDIS_REST_URL=https://...upstash.io
 UPSTASH_REDIS_REST_TOKEN=...

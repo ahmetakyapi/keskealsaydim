@@ -3,9 +3,42 @@ import type { RefreshResponse } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+const MAX_GET_RETRIES = 2;
+
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _authRetry?: boolean;
+  _networkRetryCount?: number;
+};
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function shouldRetryRequest(error: AxiosError, request: RetriableRequestConfig) {
+  const method = (request.method ?? 'get').toLowerCase();
+  if (method !== 'get') {
+    return false;
+  }
+
+  if ((request._networkRetryCount ?? 0) >= MAX_GET_RETRIES) {
+    return false;
+  }
+
+  if (request.url?.includes('/auth/refresh')) {
+    return false;
+  }
+
+  if (error.code === 'ECONNABORTED' || !error.response) {
+    return true;
+  }
+
+  return RETRYABLE_STATUSES.has(error.response.status);
+}
 
 export const api = axios.create({
   baseURL: API_URL,
+  timeout: 12000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,11 +60,20 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
-    // If 401 and not already retrying
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+    if (shouldRetryRequest(error, originalRequest)) {
+      originalRequest._networkRetryCount = (originalRequest._networkRetryCount ?? 0) + 1;
+      await wait(250 * originalRequest._networkRetryCount);
+      return api(originalRequest);
+    }
+
+    // If 401 and not already retrying auth refresh
+    if (error.response?.status === 401 && !originalRequest._authRetry) {
+      originalRequest._authRetry = true;
 
       const refreshToken = useAuthStore.getState().refreshToken;
       if (refreshToken) {
@@ -54,6 +96,7 @@ api.interceptors.response.use(
             });
           }
 
+          originalRequest.headers = originalRequest.headers ?? {};
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         } catch {

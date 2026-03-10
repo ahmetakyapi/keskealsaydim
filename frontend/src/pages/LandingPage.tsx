@@ -353,24 +353,36 @@ function SectionDivider() {
 
 function NvidiaMark() {
   return (
-    <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-xl bg-white px-2 ring-1 ring-white/10">
-      <img
-        src="/brands/nvidia-logo.svg"
-        alt="NVIDIA logo"
-        className="h-6 w-auto object-contain"
-      />
-    </span>
+    <PartnerLogoBadge
+      src="/brands/nvidia-logo.svg"
+      alt="NVIDIA logo"
+      imageClassName="max-h-[18px] w-full max-w-[52px]"
+    />
   );
 }
 
 function AppleMark() {
   return (
-    <span className="inline-flex h-8 w-9 items-center justify-center rounded-xl bg-white px-2 ring-1 ring-white/10">
-      <img
-        src="/brands/apple-logo-black.svg"
-        alt="Apple"
-        className="h-6 w-auto object-contain"
-      />
+    <PartnerLogoBadge
+      src="/brands/apple-logo-black.svg"
+      alt="Apple logo"
+      imageClassName="h-6 w-6"
+    />
+  );
+}
+
+function PartnerLogoBadge({
+  src,
+  alt,
+  imageClassName,
+}: Readonly<{
+  src: string;
+  alt: string;
+  imageClassName: string;
+}>) {
+  return (
+    <span className="inline-flex h-10 w-[84px] items-center justify-center rounded-2xl bg-white/95 px-3 shadow-[0_12px_30px_rgba(15,23,42,0.14)] ring-1 ring-slate-900/8">
+      <img src={src} alt={alt} className={`block object-contain ${imageClassName}`} />
     </span>
   );
 }

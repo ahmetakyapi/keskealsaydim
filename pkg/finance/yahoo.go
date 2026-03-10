@@ -432,22 +432,61 @@ func GetMarketCaps(symbols []string) (map[string]int64, error) {
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 func fetch(u string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		req, err := http.NewRequest(http.MethodGet, u, nil)
+		if err != nil {
+			return nil, err
+		}
+		// Mimic a real browser to avoid 429s.
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; keskealsaydim/1.0)")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < 3 {
+				time.Sleep(time.Duration(attempt) * 250 * time.Millisecond)
+				continue
+			}
+			return nil, err
+		}
+
+		payload, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			if attempt < 3 {
+				time.Sleep(time.Duration(attempt) * 250 * time.Millisecond)
+				continue
+			}
+			return nil, readErr
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			return payload, nil
+		}
+
+		lastErr = fmt.Errorf("yahoo API returned %d", resp.StatusCode)
+		if attempt < 3 && isRetryableYahooStatus(resp.StatusCode) {
+			time.Sleep(time.Duration(attempt) * 250 * time.Millisecond)
+			continue
+		}
+
+		return nil, lastErr
 	}
-	// Mimic a real browser to avoid 429s
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; keskealsaydim/1.0)")
-	req.Header.Set("Accept", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
+
+	return nil, lastErr
+}
+
+func isRetryableYahooStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusRequestTimeout, http.StatusTooManyRequests, http.StatusBadGateway,
+		http.StatusServiceUnavailable, http.StatusGatewayTimeout, http.StatusInternalServerError:
+		return true
+	default:
+		return false
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("yahoo API returned %d", resp.StatusCode)
-	}
-	return io.ReadAll(resp.Body)
 }
 
 func safeGet(s []float64, i int) float64 {

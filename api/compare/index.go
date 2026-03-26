@@ -112,6 +112,26 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		req.EndDate = time.Now().Format("2006-01-02")
 	}
 
+	// Validate date ranges
+	startT, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, "Geçersiz başlangıç tarihi formatı")
+		return
+	}
+	endT, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, "Geçersiz bitiş tarihi formatı")
+		return
+	}
+	if !startT.Before(endT) {
+		respond.Error(w, http.StatusBadRequest, "Başlangıç tarihi bitiş tarihinden önce olmalı")
+		return
+	}
+	if endT.After(time.Now().AddDate(0, 0, 1)) {
+		respond.Error(w, http.StatusBadRequest, "Bitiş tarihi bugünden sonra olamaz")
+		return
+	}
+
 	// Fetch history for both symbols concurrently
 	type histRes struct {
 		h   *finance.History

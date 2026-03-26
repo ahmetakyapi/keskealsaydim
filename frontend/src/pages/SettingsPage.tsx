@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   User,
@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { userService } from '@/services/userService';
+import { useUserProfile, useUpdateProfile } from '@/hooks/useQueries';
 import type { UserSettings } from '@/types';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -73,18 +73,21 @@ export default function SettingsPage() {
   const { user } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
 
-  const [loading, setLoading] = useState(!user);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
-  const [isSavingAppearance, setIsSavingAppearance] = useState(false);
+  const profileQuery = useUserProfile();
+  const updateProfile = useUpdateProfile();
+
+  const loading = profileQuery.isLoading;
+  const refreshing = profileQuery.isFetching && !profileQuery.isLoading;
 
   const [name, setName] = useState(user?.name ?? '');
   const [experienceLevel, setExperienceLevel] = useState(user?.experienceLevel ?? 'BEGINNER');
   const [preferredCurrency, setPreferredCurrency] = useState(user?.preferredCurrency ?? 'TRY');
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
 
-  const syncFromUser = useCallback((nextUser: typeof user) => {
+  // Sync form state when profile data changes
+  const profileData = profileQuery.data;
+  useEffect(() => {
+    const nextUser = profileData ?? user;
     if (!nextUser) return;
 
     setName(nextUser.name ?? '');
@@ -99,58 +102,7 @@ export default function SettingsPage() {
     ) {
       setTheme(nextUser.theme);
     }
-  }, [setTheme]);
-
-  useEffect(() => {
-    if (user) {
-      syncFromUser(user);
-      setLoading(false);
-    }
-  }, [syncFromUser, user]);
-
-  const loadProfile = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'initial' && !useAuthStore.getState().user) {
-      setLoading(true);
-    } else {
-      setRefreshing(true);
-    }
-
-    try {
-      const profile = await userService.getMe();
-      useAuthStore.getState().updateUser(profile);
-      syncFromUser(profile);
-    } catch {
-      toast.error('Ayarlar yüklenemedi.');
-      const fallbackUser = useAuthStore.getState().user;
-      if (fallbackUser) {
-        syncFromUser(fallbackUser);
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [syncFromUser]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const hasCachedUser = Boolean(useAuthStore.getState().user);
-    const fallbackTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setLoading(false);
-      }
-    }, 2500);
-
-    loadProfile(hasCachedUser ? 'refresh' : 'initial').finally(() => {
-      if (!cancelled) {
-        window.clearTimeout(fallbackTimer);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(fallbackTimer);
-    };
-  }, [loadProfile]);
+  }, [profileData, user, setTheme]);
 
   const handleSaveProfile = async () => {
     const trimmedName = name.trim();
@@ -159,51 +111,39 @@ export default function SettingsPage() {
       return;
     }
 
-    setIsSavingProfile(true);
     try {
-      const updated = await userService.updateMe({
+      const updated = await updateProfile.mutateAsync({
         name: trimmedName,
         experienceLevel,
         preferredCurrency,
       });
       useAuthStore.getState().updateUser(updated);
-      syncFromUser(updated);
       toast.success('Profil bilgileri kaydedildi.');
     } catch {
       toast.error('Profil güncellenemedi.');
-    } finally {
-      setIsSavingProfile(false);
     }
   };
 
   const handleSavePreferences = async () => {
-    setIsSavingPreferences(true);
     try {
-      const updated = await userService.updateMe({ settings });
+      const updated = await updateProfile.mutateAsync({ settings });
       useAuthStore.getState().updateUser(updated);
-      syncFromUser(updated);
       toast.success('Bildirim tercihleri kaydedildi.');
     } catch {
       toast.error('Bildirim tercihleri güncellenemedi.');
-    } finally {
-      setIsSavingPreferences(false);
     }
   };
 
   const handleSaveAppearance = async () => {
-    setIsSavingAppearance(true);
     try {
-      const updated = await userService.updateMe({
+      const updated = await updateProfile.mutateAsync({
         theme,
         settings: { compactMode: settings.compactMode },
       });
       useAuthStore.getState().updateUser(updated);
-      syncFromUser(updated);
       toast.success('Görünüm tercihleri kaydedildi.');
     } catch {
       toast.error('Görünüm tercihleri güncellenemedi.');
-    } finally {
-      setIsSavingAppearance(false);
     }
   };
 
@@ -347,7 +287,7 @@ export default function SettingsPage() {
                   ? `${unreadNotifications} okunmamış bildirim`
                   : 'Okunmamış bildirim yok'}
               </Badge>
-              <Button variant="outline" className="border-white/20 text-white" onClick={() => loadProfile('refresh')} disabled={refreshing}>
+              <Button variant="outline" className="border-white/20 text-white" onClick={() => profileQuery.refetch()} disabled={refreshing}>
                 <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
                 Yenile
               </Button>
@@ -450,7 +390,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button variant="gradient" onClick={handleSaveProfile} loading={isSavingProfile}>
+              <Button variant="gradient" onClick={handleSaveProfile} loading={updateProfile.isPending}>
                 <Save className="w-4 h-4 mr-2" />
                 Profili Kaydet
               </Button>
@@ -503,7 +443,7 @@ export default function SettingsPage() {
             })}
 
             <div className="pt-4 flex justify-end">
-              <Button variant="gradient" onClick={handleSavePreferences} loading={isSavingPreferences}>
+              <Button variant="gradient" onClick={handleSavePreferences} loading={updateProfile.isPending}>
                 <Save className="w-4 h-4 mr-2" />
                 Bildirimleri Kaydet
               </Button>
@@ -592,7 +532,7 @@ export default function SettingsPage() {
             </GlassCard>
 
             <div className="flex justify-end">
-              <Button variant="gradient" onClick={handleSaveAppearance} loading={isSavingAppearance}>
+              <Button variant="gradient" onClick={handleSaveAppearance} loading={updateProfile.isPending}>
                 <Save className="w-4 h-4 mr-2" />
                 Görünümü Kaydet
               </Button>

@@ -112,7 +112,7 @@ func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 		symbolSet[h.Symbol] = true
 	}
 
-	// Fetch current quotes concurrently
+	// Fetch current quotes concurrently (8s per-symbol timeout)
 	type quoteRes struct {
 		sym string
 		q   *finance.Quote
@@ -123,12 +123,11 @@ func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 		wg.Add(1)
 		go func(s string) {
 			defer wg.Done()
-			q, err := finance.GetQuote(s)
-			if err == nil {
-				ch <- quoteRes{s, q}
-			} else {
-				ch <- quoteRes{s, nil}
+			q, err := finance.GetQuoteWithTimeout(s, 8*time.Second)
+			if err != nil {
+				respond.LogError("portfolio/get", "fetch quote "+s, err)
 			}
+			ch <- quoteRes{s, q}
 		}(sym)
 	}
 	wg.Wait()

@@ -12,9 +12,17 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 let refreshRequest: Promise<RefreshResponse> | null = null;
+let isLoggingOut = false;
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function forceLogout() {
+  if (isLoggingOut) return;
+  isLoggingOut = true;
+  useAuthStore.getState().logout();
+  window.location.href = '/login';
 }
 
 function shouldRetryRequest(error: AxiosError, request: RetriableRequestConfig) {
@@ -118,12 +126,10 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         } catch {
-          useAuthStore.getState().logout();
-          window.location.href = '/login';
+          forceLogout();
         }
       } else {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        forceLogout();
       }
     }
 

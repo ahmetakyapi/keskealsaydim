@@ -95,7 +95,7 @@ func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
 		items = append(items, it)
 	}
 
-	// Fetch quotes concurrently
+	// Fetch quotes concurrently (8s per-symbol timeout)
 	type quoteRes struct {
 		i int
 		q *finance.Quote
@@ -106,12 +106,11 @@ func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
 		wg.Add(1)
 		go func(idx int, sym string) {
 			defer wg.Done()
-			q, err := finance.GetQuote(sym)
-			if err == nil {
-				ch <- quoteRes{idx, q}
-			} else {
-				ch <- quoteRes{idx, nil}
+			q, err := finance.GetQuoteWithTimeout(sym, 8*time.Second)
+			if err != nil {
+				respond.LogError("watchlist/get", "fetch quote "+sym, err)
 			}
+			ch <- quoteRes{idx, q}
 		}(i, it.Symbol)
 	}
 	wg.Wait()

@@ -407,12 +407,13 @@ function HeroSection() {
         const { getFrom, interval } = RANGE_CONFIG[r];
         const fromDate = getFrom();
         const toDate = new Date().toISOString().slice(0, 10);
-        const [histA, histB] = await Promise.all([
+        const [resA, resB] = await Promise.allSettled([
           stockService.getHistory(sA.symbol, fromDate, toDate, interval),
           stockService.getHistory(sB.symbol, fromDate, toDate, interval),
         ]);
-        let ptsA = toClosePoints(histA.data);
-        let ptsB = toClosePoints(histB.data);
+        if (resA.status === 'rejected' || resB.status === 'rejected') throw new Error('fetch failed');
+        let ptsA = toClosePoints(resA.value.data);
+        let ptsB = toClosePoints(resB.value.data);
         if (r === "1G" && ptsA.length > 0) {
           const lastDay = ptsA[ptsA.length - 1].date.slice(0, 10);
           ptsA = ptsA.filter((p) => p.date.startsWith(lastDay));

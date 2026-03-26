@@ -88,6 +88,7 @@ func isRetryableStatus(statusCode int) bool {
 }
 
 // Set stores a JSON-serialised value with a TTL.
+// Uses the Upstash REST pipeline endpoint to avoid URL-length limits.
 func Set(key string, v any, ttl time.Duration) error {
 	if !enabled() {
 		return nil
@@ -98,8 +99,13 @@ func Set(key string, v any, ttl time.Duration) error {
 		return err
 	}
 	secs := int(ttl.Seconds())
-	path := fmt.Sprintf("/set/%s/%s?EX=%d", url.PathEscape(key), url.PathEscape(string(data)), secs)
-	_, err = do(http.MethodGet, path, nil)
+	body, err := json.Marshal([][]interface{}{
+		{"SET", key, string(data), "EX", secs},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = do(http.MethodPost, "/pipeline", strings.NewReader(string(body)))
 	return err
 }
 

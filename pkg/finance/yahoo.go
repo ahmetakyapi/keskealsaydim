@@ -169,6 +169,26 @@ type quoteResponse struct {
 
 // ── Public API ────────────────────────────────────────────────────────────
 
+// GetQuoteWithTimeout fetches a quote with a hard deadline.
+// If the deadline expires, it returns nil and a timeout error.
+func GetQuoteWithTimeout(symbol string, timeout time.Duration) (*Quote, error) {
+	type result struct {
+		q   *Quote
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		q, err := GetQuote(symbol)
+		ch <- result{q, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.q, r.err
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("timeout fetching quote for %s", symbol)
+	}
+}
+
 // GetQuote fetches the latest quote for a symbol.
 func GetQuote(symbol string) (*Quote, error) {
 	yahoSym := toYahooSymbol(symbol)

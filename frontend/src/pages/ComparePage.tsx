@@ -28,9 +28,11 @@ import {
 import { GlassCard } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useQueryClient } from '@tanstack/react-query';
 import { compareService } from '@/services/compareService';
 import { stockService } from '@/services/stockService';
 import { useAuthStore } from '@/stores/authStore';
+import { useCompareHistory, useCompare, queryKeys } from '@/hooks/useQueries';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { cn, formatCurrency, formatPercent, getChangeColor } from '@/lib/utils';
 import type { CompareResponse, SavedScenario, StockPrice, StockSearchResult } from '@/types';
@@ -728,9 +730,13 @@ export default function ComparePage() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [comparing, setComparing] = useState(false);
   const [chartLoading, setChartLoading] = useState(false);
-  const [savedScenarios, setSavedScenarios] = useState<SavedScenario[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [sharedLoading, setSharedLoading] = useState(false);
+
+  const queryClient = useQueryClient();
+  const historyQuery = useCompareHistory(0, 6);
+  const savedScenarios = historyQuery.data?.content ?? [];
+  const historyLoading = historyQuery.isLoading;
+  const compareMutation = useCompare();
 
   const quoteA = useLiveQuote(symbolA);
   const quoteB = useLiveQuote(symbolB);
@@ -765,26 +771,9 @@ export default function ComparePage() {
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    if (!isAuthenticated) {
-      setSavedScenarios([]);
-      return;
-    }
-
-    setHistoryLoading(true);
-    try {
-      const page = await compareService.getHistory(0, 6);
-      setSavedScenarios(page.content);
-    } catch {
-      setSavedScenarios([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    void loadHistory();
-  }, [loadHistory]);
+  const invalidateHistory = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.compareHistory(0, 6) });
+  }, [queryClient]);
 
   useEffect(() => {
     if (!shareTokenParam) return;
@@ -843,7 +832,7 @@ export default function ComparePage() {
     }
 
     try {
-      const res = await compareService.compare({
+      const res = await compareMutation.mutateAsync({
         symbolA: symA,
         symbolB: symB,
         startDate,
@@ -854,7 +843,7 @@ export default function ComparePage() {
       applyResponse(res);
       await loadChart(res.symbolA, res.symbolB, res.startDate, res.endDate);
       if (isAuthenticated) {
-        await loadHistory();
+        invalidateHistory();
       }
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Karsilastirma basarisiz oldu'));

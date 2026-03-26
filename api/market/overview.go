@@ -66,12 +66,11 @@ func fetchAll(symbols []string) []finance.Quote {
 		wg.Add(1)
 		go func(idx int, s string) {
 			defer wg.Done()
-			q, err := finance.GetQuote(s)
-			if err == nil {
-				ch <- result{q, idx}
-			} else {
-				ch <- result{nil, idx}
+			q, err := finance.GetQuoteWithTimeout(s, 8*time.Second)
+			if err != nil {
+				respond.LogError("market/overview", "fetch quote "+s, err)
 			}
+			ch <- result{q, idx}
 		}(i, sym)
 	}
 	wg.Wait()

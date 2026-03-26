@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -15,47 +14,47 @@ import (
 )
 
 type updateProfileRequest struct {
-	Name              string `json:"name"`
-	ExperienceLevel   string `json:"experienceLevel"`
-	PreferredCurrency string `json:"preferredCurrency"`
-	Theme             string `json:"theme"`
+	Name              string                 `json:"name"`
+	ExperienceLevel   string                 `json:"experienceLevel"`
+	PreferredCurrency string                 `json:"preferredCurrency"`
+	Theme             string                 `json:"theme"`
 	Settings          *updateSettingsRequest `json:"settings"`
 }
 
 type updateSettingsRequest struct {
-	NotifyPriceAlerts   *bool `json:"notifyPriceAlerts"`
-	NotifyDailySummary  *bool `json:"notifyDailySummary"`
-	NotifyWeeklyReport  *bool `json:"notifyWeeklyReport"`
-	NotifyNews          *bool `json:"notifyNews"`
-	EmailNotifications  *bool `json:"emailNotifications"`
-	PushNotifications   *bool `json:"pushNotifications"`
-	CompactMode         *bool `json:"compactMode"`
+	NotifyPriceAlerts  *bool `json:"notifyPriceAlerts"`
+	NotifyDailySummary *bool `json:"notifyDailySummary"`
+	NotifyWeeklyReport *bool `json:"notifyWeeklyReport"`
+	NotifyNews         *bool `json:"notifyNews"`
+	EmailNotifications *bool `json:"emailNotifications"`
+	PushNotifications  *bool `json:"pushNotifications"`
+	CompactMode        *bool `json:"compactMode"`
 }
 
 type userSettings struct {
-	NotifyPriceAlerts   bool `json:"notifyPriceAlerts"`
-	NotifyDailySummary  bool `json:"notifyDailySummary"`
-	NotifyWeeklyReport  bool `json:"notifyWeeklyReport"`
-	NotifyNews          bool `json:"notifyNews"`
-	EmailNotifications  bool `json:"emailNotifications"`
-	PushNotifications   bool `json:"pushNotifications"`
-	CompactMode         bool `json:"compactMode"`
+	NotifyPriceAlerts  bool `json:"notifyPriceAlerts"`
+	NotifyDailySummary bool `json:"notifyDailySummary"`
+	NotifyWeeklyReport bool `json:"notifyWeeklyReport"`
+	NotifyNews         bool `json:"notifyNews"`
+	EmailNotifications bool `json:"emailNotifications"`
+	PushNotifications  bool `json:"pushNotifications"`
+	CompactMode        bool `json:"compactMode"`
 }
 
 type userProfile struct {
-	ID                uuid.UUID  `json:"id"`
-	Email             string     `json:"email"`
-	Name              string     `json:"name"`
-	ExperienceLevel   string     `json:"experienceLevel"`
-	AvatarURL         *string    `json:"avatarUrl"`
-	EmailVerified     bool       `json:"emailVerified"`
-	IsActive          bool       `json:"isActive"`
-	PreferredCurrency string     `json:"preferredCurrency"`
-	Theme             string     `json:"theme"`
-	CreatedAt         time.Time  `json:"createdAt"`
-	LastLoginAt       *time.Time `json:"lastLoginAt"`
-	Settings          userSettings `json:"settings"`
-	UnreadNotifications int       `json:"unreadNotifications"`
+	ID                  uuid.UUID    `json:"id"`
+	Email               string       `json:"email"`
+	Name                string       `json:"name"`
+	ExperienceLevel     string       `json:"experienceLevel"`
+	AvatarURL           *string      `json:"avatarUrl"`
+	EmailVerified       bool         `json:"emailVerified"`
+	IsActive            bool         `json:"isActive"`
+	PreferredCurrency   string       `json:"preferredCurrency"`
+	Theme               string       `json:"theme"`
+	CreatedAt           time.Time    `json:"createdAt"`
+	LastLoginAt         *time.Time   `json:"lastLoginAt"`
+	Settings            userSettings `json:"settings"`
+	UnreadNotifications int          `json:"unreadNotifications"`
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -81,12 +80,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 func getProfile(w http.ResponseWriter, claims *auth.Claims) {
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("users/me", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
+	ctx, cancel := respond.Ctx()
+	defer cancel()
+
 	var p userProfile
-	err = pool.QueryRow(context.Background(),
+	err = pool.QueryRow(ctx,
 		`SELECT
 			u.id,
 			u.email,
@@ -131,6 +134,7 @@ func getProfile(w http.ResponseWriter, claims *auth.Claims) {
 		&p.UnreadNotifications,
 	)
 	if err != nil {
+		respond.LogError("users/me", "query profile", err)
 		respond.Error(w, http.StatusNotFound, "Kullanıcı bulunamadı")
 		return
 	}
@@ -194,10 +198,12 @@ func updateProfile(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("users/me", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	// Build partial update
 	setClauses := []string{}
@@ -232,6 +238,7 @@ func updateProfile(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
+		respond.LogError("users/me", "begin tx", err)
 		respond.Error(w, http.StatusInternalServerError, "İşlem başlatılamadı")
 		return
 	}
@@ -249,6 +256,7 @@ func updateProfile(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 		args = append(args, claims.UserID)
 
 		if _, err = tx.Exec(ctx, query, args...); err != nil {
+			respond.LogError("users/me", "update user", err)
 			respond.Error(w, http.StatusInternalServerError, "Profil güncellenemedi")
 			return
 		}
@@ -260,6 +268,7 @@ func updateProfile(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 			 ON CONFLICT (user_id) DO NOTHING`,
 			claims.UserID,
 		); err != nil {
+			respond.LogError("users/me", "ensure settings row", err)
 			respond.Error(w, http.StatusInternalServerError, "Kullanıcı ayarları hazırlanamadı")
 			return
 		}
@@ -275,12 +284,14 @@ func updateProfile(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 		settingsArgs = append(settingsArgs, claims.UserID)
 
 		if _, err = tx.Exec(ctx, settingsQuery, settingsArgs...); err != nil {
+			respond.LogError("users/me", "update settings", err)
 			respond.Error(w, http.StatusInternalServerError, "Kullanıcı ayarları güncellenemedi")
 			return
 		}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
+		respond.LogError("users/me", "commit tx", err)
 		respond.Error(w, http.StatusInternalServerError, "Değişiklikler kaydedilemedi")
 		return
 	}

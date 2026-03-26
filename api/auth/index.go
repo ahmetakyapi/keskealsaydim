@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,6 +13,8 @@ import (
 	"keskealsaydim/pkg/db"
 	"keskealsaydim/pkg/respond"
 )
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if respond.CORS(w, r) {
@@ -54,11 +56,13 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("auth/login", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	var (
 		userID              uuid.UUID
@@ -142,7 +146,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, _ = pool.Exec(ctx, "UPDATE users SET last_login_at = NOW() WHERE id = $1", userID)
+	if _, err := pool.Exec(ctx, "UPDATE users SET last_login_at = NOW() WHERE id = $1", userID); err != nil {
+		respond.LogError("auth/login", "update last_login_at", err)
+	}
 
 	accessToken, err := auth.GenerateAccessToken(userID, email)
 	if err != nil {
@@ -159,6 +165,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO user_sessions (id, user_id, refresh_token, expires_at) VALUES ($1, $2, $3, $4)`,
 		uuid.New(), userID, refreshToken, time.Now().Add(auth.RefreshTokenTTL),
 	); err != nil {
+		respond.LogError("auth/login", "insert session", err)
 		respond.Error(w, http.StatusInternalServerError, "Oturum başlatılamadı")
 		return
 	}
@@ -216,7 +223,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "Ad en az 2 karakter olmalıdır")
 		return
 	}
-	if req.Email == "" || !strings.Contains(req.Email, "@") {
+	if !emailRegex.MatchString(req.Email) {
 		respond.Error(w, http.StatusBadRequest, "Geçerli bir e-posta adresi giriniz")
 		return
 	}
@@ -230,14 +237,20 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("auth/register", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	var exists bool
-	_ = pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email=$1)", req.Email).Scan(&exists)
+	if err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email=$1)", req.Email).Scan(&exists); err != nil {
+		respond.LogError("auth/register", "check email exists", err)
+		respond.Error(w, http.StatusInternalServerError, "Kayıt kontrol edilemedi")
+		return
+	}
 	if exists {
 		respond.Error(w, http.StatusConflict, "Bu e-posta adresi zaten kullanılıyor")
 		return
@@ -245,6 +258,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
+		respond.LogError("auth/register", "bcrypt hash", err)
 		respond.Error(w, http.StatusInternalServerError, "Şifre işlenirken hata oluştu")
 		return
 	}
@@ -258,6 +272,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		userID, req.Email, string(hash), req.Name, req.ExperienceLevel,
 	).Scan(&createdAt)
 	if err != nil {
+		respond.LogError("auth/register", "insert user", err)
 		respond.Error(w, http.StatusInternalServerError, "Kullanıcı oluşturulamadı")
 		return
 	}
@@ -277,6 +292,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO user_sessions (id, user_id, refresh_token, expires_at) VALUES ($1, $2, $3, $4)`,
 		uuid.New(), userID, refreshToken, time.Now().Add(auth.RefreshTokenTTL),
 	); err != nil {
+		respond.LogError("auth/register", "insert session", err)
 		respond.Error(w, http.StatusInternalServerError, "Oturum başlatılamadı")
 		return
 	}
@@ -334,13 +350,16 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("auth/refresh", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
+		respond.LogError("auth/refresh", "begin tx", err)
 		respond.Error(w, http.StatusInternalServerError, "Oturum yenileme işlemi başlatılamadı")
 		return
 	}
@@ -379,6 +398,7 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 		"UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1",
 		sessionID,
 	); err != nil {
+		respond.LogError("auth/refresh", "revoke old session", err)
 		respond.Error(w, http.StatusInternalServerError, "Eski oturum sonlandırılamadı")
 		return
 	}
@@ -387,11 +407,13 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO user_sessions (id, user_id, refresh_token, expires_at) VALUES ($1, $2, $3, $4)`,
 		uuid.New(), userID, newRefresh, time.Now().Add(auth.RefreshTokenTTL),
 	); err != nil {
+		respond.LogError("auth/refresh", "insert new session", err)
 		respond.Error(w, http.StatusInternalServerError, "Oturum yenilenemedi")
 		return
 	}
 
 	if err = tx.Commit(ctx); err != nil {
+		respond.LogError("auth/refresh", "commit tx", err)
 		respond.Error(w, http.StatusInternalServerError, "Oturum yenilenemedi")
 		return
 	}
@@ -424,14 +446,20 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("auth/logout", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
-	_, _ = pool.Exec(context.Background(),
+	ctx, cancel := respond.Ctx()
+	defer cancel()
+
+	if _, err := pool.Exec(ctx,
 		"UPDATE user_sessions SET revoked_at = NOW() WHERE refresh_token = $1 AND revoked_at IS NULL",
 		req.RefreshToken,
-	)
+	); err != nil {
+		respond.LogError("auth/logout", "revoke session", err)
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

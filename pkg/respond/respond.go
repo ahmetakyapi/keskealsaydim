@@ -1,10 +1,27 @@
 package respond
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
+	"time"
 )
+
+const DefaultTimeout = 15 * time.Second
+
+// Ctx returns a context.Background with DefaultTimeout.
+func Ctx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), DefaultTimeout)
+}
+
+// LogError logs an error with a prefix for structured debugging.
+func LogError(handler string, msg string, err error) {
+	if err != nil {
+		log.Printf("[ERROR] %s: %s — %v", handler, msg, err)
+	}
+}
 
 // CORS sets permissive CORS headers and handles preflight OPTIONS requests.
 // Returns true if the request was a preflight (caller should return immediately).
@@ -38,7 +55,7 @@ func allowedOrigin(origin string) string {
 			return origin
 		}
 	}
-	return permitted[0]
+	return ""
 }
 
 // JSON writes v as JSON with the given status code.

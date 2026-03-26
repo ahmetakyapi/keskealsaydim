@@ -41,6 +41,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	results, err := finance.Search(q)
 	if err != nil {
+		respond.LogError("stocks/search", "finance search", err)
 		respond.Error(w, http.StatusInternalServerError, "Arama başarısız")
 		return
 	}
@@ -66,11 +67,14 @@ func handlePrice(w http.ResponseWriter, r *http.Request) {
 
 	q, err := finance.GetQuote(symbol)
 	if err != nil {
+		respond.LogError("stocks/price", "get quote for "+symbol, err)
 		respond.Error(w, http.StatusNotFound, "Sembol bulunamadı: "+symbol)
 		return
 	}
 
-	_ = cache.Set(cacheKey, q, time.Minute)
+	if err := cache.Set(cacheKey, q, time.Minute); err != nil {
+		respond.LogError("stocks/price", "cache set", err)
+	}
 	respond.JSON(w, http.StatusOK, q)
 }
 
@@ -107,10 +111,13 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 
 	h, err := finance.GetHistory(symbol, from, to, interval)
 	if err != nil {
+		respond.LogError("stocks/history", "get history for "+symbol, err)
 		respond.Error(w, http.StatusNotFound, "Geçmiş veri bulunamadı: "+symbol)
 		return
 	}
 
-	_ = cache.Set(cacheKey, h, 24*time.Hour)
+	if err := cache.Set(cacheKey, h, 24*time.Hour); err != nil {
+		respond.LogError("stocks/history", "cache set", err)
+	}
 	respond.JSON(w, http.StatusOK, h)
 }

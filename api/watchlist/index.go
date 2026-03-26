@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -60,11 +59,15 @@ type watchItem struct {
 func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("watchlist/get", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
-	rows, err := pool.Query(context.Background(),
+	ctx, cancel := respond.Ctx()
+	defer cancel()
+
+	rows, err := pool.Query(ctx,
 		`SELECT id, symbol, symbol_name, exchange, notes, display_order, added_at
 		   FROM watchlist
 		  WHERE user_id = $1
@@ -72,6 +75,7 @@ func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
 		claims.UserID,
 	)
 	if err != nil {
+		respond.LogError("watchlist/get", "query watchlist", err)
 		respond.Error(w, http.StatusInternalServerError, "Favori listesi getirilemedi")
 		return
 	}
@@ -84,6 +88,7 @@ func getWatchlist(w http.ResponseWriter, claims *auth.Claims) {
 			&it.ID, &it.Symbol, &it.SymbolName, &it.Exchange,
 			&it.Notes, &it.DisplayOrder, &it.AddedAt,
 		); err != nil {
+			respond.LogError("watchlist/get", "scan row", err)
 			continue
 		}
 		it.Symbol = finance.NormalizeStoredSymbol(it.Symbol)
@@ -143,10 +148,12 @@ func addWatchlist(w http.ResponseWriter, r *http.Request, claims *auth.Claims) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("watchlist/add", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	var exists bool
 	variants := finance.SymbolVariants(req.Symbol)
@@ -171,6 +178,7 @@ func addWatchlist(w http.ResponseWriter, r *http.Request, claims *auth.Claims) {
 		).Scan(&exists)
 	}
 	if err != nil {
+		respond.LogError("watchlist/add", "check exists", err)
 		respond.Error(w, http.StatusInternalServerError, "Favori listesi kontrol edilemedi")
 		return
 	}
@@ -188,6 +196,7 @@ func addWatchlist(w http.ResponseWriter, r *http.Request, claims *auth.Claims) {
 		nullStr(req.Notes),
 	)
 	if err != nil {
+		respond.LogError("watchlist/add", "insert watchlist", err)
 		respond.Error(w, http.StatusInternalServerError, "Favoriye eklenemedi")
 		return
 	}

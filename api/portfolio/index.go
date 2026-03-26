@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"math"
 	"net/http"
@@ -70,10 +69,12 @@ type holding struct {
 func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("portfolio/get", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	rows, err := pool.Query(ctx,
 		`SELECT id, symbol, symbol_name, exchange, quantity, buy_price, buy_date,
@@ -84,6 +85,7 @@ func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 		claims.UserID,
 	)
 	if err != nil {
+		respond.LogError("portfolio/get", "query investments", err)
 		respond.Error(w, http.StatusInternalServerError, "Portföy getirilemedi")
 		return
 	}
@@ -99,6 +101,7 @@ func getPortfolio(w http.ResponseWriter, _ *http.Request, claims *auth.Claims) {
 			&h.Quantity, &h.BuyPrice, &buyDate,
 			&h.Notes, &h.Status, &h.Currency, &h.CreatedAt,
 		); err != nil {
+			respond.LogError("portfolio/get", "scan row", err)
 			continue
 		}
 		h.Symbol = finance.NormalizeStoredSymbol(h.Symbol)
@@ -214,12 +217,16 @@ func addInvestment(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("portfolio/add", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
+	ctx, cancel := respond.Ctx()
+	defer cancel()
+
 	id := uuid.New()
-	_, err = pool.Exec(context.Background(),
+	_, err = pool.Exec(ctx,
 		`INSERT INTO investments (id, user_id, symbol, symbol_name, exchange, quantity, buy_price, buy_date, notes)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		id, claims.UserID, req.Symbol, req.SymbolName, req.Exchange,
@@ -227,6 +234,7 @@ func addInvestment(w http.ResponseWriter, r *http.Request, claims *auth.Claims) 
 		nullStr(req.Notes),
 	)
 	if err != nil {
+		respond.LogError("portfolio/add", "insert investment", err)
 		respond.Error(w, http.StatusInternalServerError, "Yatırım eklenemedi")
 		return
 	}

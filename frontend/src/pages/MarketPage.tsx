@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -20,8 +20,8 @@ import { Button } from '@/components/ui/button';
 import { ShimmerCard, ShimmerRow } from '@/components/ui/skeleton';
 import { formatCurrency, formatPercent, cn } from '@/lib/utils';
 import CountUp from 'react-countup';
-import { marketService } from '@/services/marketService';
-import type { MarketOverview, MarketQuote } from '@/types';
+import { useMarketOverview } from '@/hooks/useQueries';
+import type { MarketQuote } from '@/types';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -511,40 +511,33 @@ function MarketSignalCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MarketPage() {
-  const [market, setMarket] = useState<MarketOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [apiError, setApiError] = useState(false);
+  const { data: market, isLoading: loading, isError: apiError, dataUpdatedAt, refetch } = useMarketOverview();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [result] = await Promise.allSettled([marketService.getOverview()]);
-    if (result.status === 'fulfilled') {
-      setMarket(result.value);
-      setApiError(false);
-    } else {
-      setApiError(true);
-    }
-    setLastUpdated(new Date());
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const quoteMap = new Map<string, MarketQuote>(
-    market?.quotes?.map((q) => [q.symbol, q]) ?? []
+  const lastUpdated = useMemo(
+    () => (dataUpdatedAt ? new Date(dataUpdatedAt) : null),
+    [dataUpdatedAt],
   );
 
-  const bistStocks = market?.quotes?.filter(isBistStock) ?? [];
-  const allGainers = bistStocks
-    .filter((q) => q.changePercent > 0)
-    .sort((a, b) => b.changePercent - a.changePercent);
-  const allLosers = bistStocks
-    .filter((q) => q.changePercent < 0)
-    .sort((a, b) => a.changePercent - b.changePercent);
-  const unchanged = bistStocks.filter((q) => q.changePercent === 0);
-  const gainers = allGainers.slice(0, 5);
-  const losers = allLosers.slice(0, 5);
+  const quoteMap = useMemo(
+    () => new Map<string, MarketQuote>(market?.quotes?.map((q) => [q.symbol, q]) ?? []),
+    [market],
+  );
+
+  const { bistStocks, allGainers, allLosers, unchanged, gainers, losers } = useMemo(() => {
+    const bist = market?.quotes?.filter(isBistStock) ?? [];
+    const ag = bist.filter((q) => q.changePercent > 0).sort((a, b) => b.changePercent - a.changePercent);
+    const al = bist.filter((q) => q.changePercent < 0).sort((a, b) => a.changePercent - b.changePercent);
+    const unch = bist.filter((q) => q.changePercent === 0);
+    return {
+      bistStocks: bist,
+      allGainers: ag,
+      allLosers: al,
+      unchanged: unch,
+      gainers: ag.slice(0, 5),
+      losers: al.slice(0, 5),
+    };
+  }, [market]);
+
   const marketUnavailable = !market && apiError;
 
   return (
@@ -571,7 +564,7 @@ export default function MarketPage() {
               <span>{formatLastUpdated(lastUpdated)}</span>
             </div>
           </div>
-          <Button variant="outline" className="border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-all" onClick={fetchData} disabled={loading}>
+          <Button variant="outline" className="border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-all" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />
             Yenile
           </Button>
@@ -596,7 +589,7 @@ export default function MarketPage() {
           </span>
           <button
             type="button"
-            onClick={fetchData}
+            onClick={() => refetch()}
             className="underline underline-offset-2 text-xs font-semibold shrink-0 opacity-80 hover:opacity-100"
           >
             Tekrar dene

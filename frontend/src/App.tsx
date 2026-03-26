@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect } from 'react';
 
 // Components
 import { Toaster } from '@/components/ui/toaster';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const LandingPage = lazy(() => import('@/pages/LandingPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -86,7 +87,7 @@ function App() {
   }, [theme, syncTheme]);
 
   return (
-    <>
+    <ErrorBoundary>
       <Routes>
         {/* Public routes */}
         <Route
@@ -197,7 +198,7 @@ function App() {
       </Routes>
 
       <Toaster />
-    </>
+    </ErrorBoundary>
   );
 }
 

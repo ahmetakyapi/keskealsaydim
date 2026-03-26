@@ -2,9 +2,13 @@ import api from './api';
 import { normalizePortfolioSummary } from '@/lib/api-normalizers';
 import type { PortfolioSummary, AddInvestmentRequest } from '@/types';
 
+const PORTFOLIO_TIMEOUT_MS = 15000;
+
 export const portfolioService = {
   async getPortfolio(): Promise<PortfolioSummary> {
-    const res = await api.get<PortfolioSummary>('/portfolio');
+    const res = await api.get<PortfolioSummary>('/portfolio', {
+      timeout: PORTFOLIO_TIMEOUT_MS,
+    });
     return normalizePortfolioSummary(res.data);
   },
 

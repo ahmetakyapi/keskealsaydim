@@ -20,8 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { ShimmerCard } from '@/components/ui/skeleton';
 import { formatCurrency, formatPercent, formatCompact, cn } from '@/lib/utils';
-import { useState, useEffect, useCallback } from 'react';
-import { watchlistService } from '@/services/watchlistService';
+import { useState, useMemo, useEffect } from 'react';
+import { useWatchlist, useAddWatchlistItem, useRemoveWatchlistItem } from '@/hooks/useQueries';
 import type { WatchlistItem } from '@/types';
 import { toast } from 'sonner';
 import CountUp from 'react-countup';
@@ -310,29 +310,22 @@ function ItemsView({ viewMode, filtered, removingId, onRemove }: ItemsViewProps)
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function WatchlistPage() {
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: watchlist = [], isLoading: loading, error: queryError } = useWatchlist();
+  const addWatchlistItem = useAddWatchlistItem();
+  const removeWatchlistItem = useRemoveWatchlistItem();
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSymbol, setNewSymbol] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const loadWatchlist = useCallback(async () => {
-    try {
-      const data = await watchlistService.getWatchlist();
-      setWatchlist(data);
-    } catch {
-      toast.error('Izleme listesi yuklenemedi.');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (queryError) {
+      toast.error(getApiErrorMessage(queryError, 'Izleme listesi yuklenemedi.'));
     }
-  }, []);
+  }, [queryError]);
 
-  useEffect(() => { loadWatchlist(); }, [loadWatchlist]);
-
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const symbol = newSymbol.trim().toUpperCase();
     if (!symbol) return;
@@ -340,46 +333,55 @@ export default function WatchlistPage() {
       toast.error('Bu hisse zaten izleme listenizde.');
       return;
     }
-    setAdding(true);
-    try {
-      await watchlistService.addSymbol(symbol);
-      toast.success(`${symbol} izleme listesine eklendi.`);
-      setNewSymbol('');
-      setShowAddForm(false);
-      setLoading(true);
-      await loadWatchlist();
-    } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'Hisse eklenirken hata olustu.'));
-    } finally {
-      setAdding(false);
-    }
+    addWatchlistItem.mutate(
+      { symbol },
+      {
+        onSuccess: () => {
+          toast.success(`${symbol} izleme listesine eklendi.`);
+          setNewSymbol('');
+          setShowAddForm(false);
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, 'Hisse eklenirken hata olustu.'));
+        },
+      },
+    );
   };
 
-  const handleRemove = async (id: string, symbol: string) => {
-    setRemovingId(id);
-    setWatchlist(prev => prev.filter(item => item.id !== id));
-    try {
-      await watchlistService.removeSymbol(id);
-      toast.success(`${symbol} listeden cikarildi.`);
-    } catch {
-      toast.error('Hisse cikarilirken hata olustu.');
-      await loadWatchlist();
-    } finally {
-      setRemovingId(null);
-    }
+  const handleRemove = (id: string, symbol: string) => {
+    removeWatchlistItem.mutate(id, {
+      onSuccess: () => {
+        toast.success(`${symbol} listeden cikarildi.`);
+      },
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error, 'Hisse cikarilirken hata olustu.'));
+      },
+    });
   };
 
-  const filtered = watchlist.filter(
-    s => s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         s.symbolName.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filtered = useMemo(
+    () => watchlist.filter(
+      s => s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           s.symbolName.toLowerCase().includes(searchQuery.toLowerCase()),
+    ),
+    [watchlist, searchQuery],
   );
 
-  const gainers   = watchlist.filter(s => s.changePercent > 0).length;
-  const losers    = watchlist.filter(s => s.changePercent < 0).length;
-  const unchanged = watchlist.filter(s => s.changePercent === 0).length;
-  const sortedByMomentum = [...watchlist].sort((a, b) => b.changePercent - a.changePercent);
-  const topGainer = sortedByMomentum[0];
-  const topLoser = [...watchlist].sort((a, b) => a.changePercent - b.changePercent)[0];
+  const { gainers, losers, unchanged, topGainer, topLoser } = useMemo(() => {
+    const g = watchlist.filter(s => s.changePercent > 0).length;
+    const l = watchlist.filter(s => s.changePercent < 0).length;
+    const u = watchlist.filter(s => s.changePercent === 0).length;
+    const sortedByMomentum = [...watchlist].sort((a, b) => b.changePercent - a.changePercent);
+    return {
+      gainers: g,
+      losers: l,
+      unchanged: u,
+      topGainer: sortedByMomentum[0] as WatchlistItem | undefined,
+      topLoser: [...watchlist].sort((a, b) => a.changePercent - b.changePercent)[0] as WatchlistItem | undefined,
+    };
+  }, [watchlist]);
+
+  const removingId = removeWatchlistItem.isPending ? (removeWatchlistItem.variables ?? null) : null;
 
   return (
     <motion.div
@@ -448,7 +450,7 @@ export default function WatchlistPage() {
                   <label htmlFor="new-symbol" className="text-white/60 text-sm font-medium">Sembol</label>
                   <Input id="new-symbol" placeholder="orn. THYAO" value={newSymbol} onChange={e => setNewSymbol(e.target.value.toUpperCase())} className="bg-white/5 border-white/10 text-white placeholder:text-white/30 uppercase" autoFocus required />
                 </div>
-                <Button type="submit" variant="gradient" disabled={adding || !newSymbol.trim()}>{adding ? 'Ekleniyor...' : 'Ekle'}</Button>
+                <Button type="submit" variant="gradient" disabled={addWatchlistItem.isPending || !newSymbol.trim()}>{addWatchlistItem.isPending ? 'Ekleniyor...' : 'Ekle'}</Button>
                 <Button type="button" variant="ghost" className="text-white/60 hover:text-white" onClick={() => { setShowAddForm(false); setNewSymbol(''); }}>Iptal</Button>
               </form>
             </GlassCard>

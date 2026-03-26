@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -35,15 +34,24 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("watchlist/item", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
 
-	tag, err := pool.Exec(context.Background(),
+	ctx, cancel := respond.Ctx()
+	defer cancel()
+
+	tag, err := pool.Exec(ctx,
 		"DELETE FROM watchlist WHERE id = $1 AND user_id = $2",
 		watchID, claims.UserID,
 	)
-	if err != nil || tag.RowsAffected() == 0 {
+	if err != nil {
+		respond.LogError("watchlist/item", "delete watchlist item", err)
+		respond.Error(w, http.StatusInternalServerError, "Kayıt silinemedi")
+		return
+	}
+	if tag.RowsAffected() == 0 {
 		respond.Error(w, http.StatusNotFound, "Kayıt bulunamadı")
 		return
 	}

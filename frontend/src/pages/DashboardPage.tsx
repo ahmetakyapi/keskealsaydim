@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Crown,
@@ -27,12 +28,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ShimmerCard, ShimmerRow, ShimmerProgress } from '@/components/ui/skeleton';
 import { useAuthStore } from '@/stores/authStore';
-import { formatCompact, formatCurrency, formatPercent, getChangeColor } from '@/lib/utils';
+import { formatCompact, formatCurrency, formatDate, formatPercent, formatRelativeTime, getChangeColor } from '@/lib/utils';
 import CountUp from 'react-countup';
 import { Link } from 'react-router-dom';
-import { portfolioService } from '@/services/portfolioService';
-import { marketService } from '@/services/marketService';
-import type { PortfolioSummary, MarketOverview, Investment, MarketQuote } from '@/types';
+import { usePortfolio, useMarketOverview, useUserProfile, queryKeys } from '@/hooks/useQueries';
+import type { PortfolioSummary, Investment, MarketQuote, User } from '@/types';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -97,6 +97,7 @@ const KEY_QUOTE_SET = new Set(KEY_QUOTE_SYMBOLS);
 const STARTER_IDEA_SET = new Set(STARTER_IDEA_SYMBOLS);
 const MARKET_CAP_ORDER = new Map(MARKET_CAP_LEADER_SYMBOLS.map((symbol, index) => [symbol, index]));
 const STARTER_IDEA_ORDER = new Map(STARTER_IDEA_SYMBOLS.map((symbol, index) => [symbol, index]));
+// React Query handles caching — no manual localStorage needed.
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -187,6 +188,67 @@ function getFirstName(name: unknown): string {
 
   const firstName = name.trim().split(/\s+/)[0];
   return firstName || 'Yatirimci';
+}
+
+function formatExperienceLevel(level: unknown): string {
+  switch (level) {
+    case 'BEGINNER':
+      return 'Baslangic';
+    case 'INTERMEDIATE':
+      return 'Orta seviye';
+    case 'ADVANCED':
+      return 'Ileri';
+    case 'EXPERT':
+      return 'Uzman';
+    default:
+      return 'Takipte';
+  }
+}
+
+// Cache functions removed — React Query manages staleness and refetching.
+
+function getMarketBreadth(quotes: MarketQuote[]) {
+  const normalized = quotes.filter((quote) => quote?.symbol);
+  const advancers = normalized.filter((quote) => toFiniteNumber(quote.changePercent) > 0);
+  const decliners = normalized.filter((quote) => toFiniteNumber(quote.changePercent) < 0);
+  const flat = Math.max(normalized.length - advancers.length - decliners.length, 0);
+  const strongest = normalized.reduce<MarketQuote | null>((best, quote) => {
+    if (!best) {
+      return quote;
+    }
+
+    return toFiniteNumber(quote.changePercent) > toFiniteNumber(best.changePercent) ? quote : best;
+  }, null);
+  const weakest = normalized.reduce<MarketQuote | null>((worst, quote) => {
+    if (!worst) {
+      return quote;
+    }
+
+    return toFiniteNumber(quote.changePercent) < toFiniteNumber(worst.changePercent) ? quote : worst;
+  }, null);
+  const mostActive = normalized.reduce<MarketQuote | null>((active, quote) => {
+    if (!active) {
+      return quote;
+    }
+
+    return toFiniteNumber(quote.volume) > toFiniteNumber(active.volume) ? quote : active;
+  }, null);
+  const averageChange = normalized.length > 0
+    ? normalized.reduce((sum, quote) => sum + toFiniteNumber(quote.changePercent), 0) / normalized.length
+    : 0;
+  const positiveRatio = normalized.length > 0 ? (advancers.length / normalized.length) * 100 : 0;
+
+  return {
+    advancers: advancers.length,
+    decliners: decliners.length,
+    flat,
+    strongest,
+    weakest,
+    mostActive,
+    averageChange,
+    positiveRatio,
+    total: normalized.length,
+  };
 }
 
 // ── Live Indicator ────────────────────────────────────────────────────────────
@@ -586,6 +648,77 @@ function MarketPulseStrip({ loading, quotes }: Readonly<MarketPulseStripProps>) 
   );
 }
 
+interface InsightStripProps {
+  loading: boolean;
+  user: User | null;
+  quotes: MarketQuote[];
+}
+
+function InsightStrip({ loading, user, quotes }: Readonly<InsightStripProps>) {
+  if (loading) {
+    return null;
+  }
+
+  const breadth = getMarketBreadth(quotes);
+  const insights = [
+    {
+      label: 'Seviye',
+      value: formatExperienceLevel(user?.experienceLevel),
+      helper: user?.createdAt ? `Uye: ${formatDate(user.createdAt)}` : 'Profil hazirlaniyor',
+      icon: ShieldCheck,
+      tone: 'text-primary',
+    },
+    {
+      label: 'Son Giris',
+      value: user?.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'Yeni oturum',
+      helper: user?.email ?? 'Hesap verisi baglandi',
+      icon: Clock,
+      tone: 'text-secondary',
+    },
+    {
+      label: 'Bildirim',
+      value: `${user?.unreadNotifications ?? 0} okunmamis`,
+      helper: (user?.settings?.notifyDailySummary ?? false) ? 'Gunluk ozet acik' : 'Gunluk ozet kapali',
+      icon: Sparkles,
+      tone: 'text-success',
+    },
+    {
+      label: 'Piyasa Lideri',
+      value: breadth.strongest ? getQuoteLabel(breadth.strongest.symbol) : 'Bekleniyor',
+      helper: breadth.strongest ? formatPercent(breadth.strongest.changePercent) : 'Canli veri bekleniyor',
+      icon: Radio,
+      tone: 'text-primary',
+    },
+  ];
+
+  return (
+    <motion.div variants={fadeInUp}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        {insights.map((item) => {
+          const Icon = item.icon;
+          return (
+            <GlassCard
+              key={item.label}
+              className="p-4 border border-white/[0.07] bg-[linear-gradient(145deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] hover:bg-white/[0.06] transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">{item.label}</p>
+                  <p className="mt-2 text-lg font-semibold text-white leading-tight">{item.value}</p>
+                  <p className="mt-1 text-xs text-white/45">{item.helper}</p>
+                </div>
+                <div className={`w-10 h-10 rounded-xl bg-white/[0.05] flex items-center justify-center ring-1 ring-white/10 ${item.tone}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+              </div>
+            </GlassCard>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 interface PortfolioHealthCardProps { portfolio: PortfolioSummary | null }
 function PortfolioHealthCard({ portfolio }: Readonly<PortfolioHealthCardProps>) {
   if (!portfolio) {
@@ -661,6 +794,115 @@ function PortfolioHealthCard({ portfolio }: Readonly<PortfolioHealthCardProps>) 
               <p className="text-[10px] text-white/30 mt-0.5">Toplam: {totalInvestments}</p>
             </GlassCard>
           </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+interface MarketBreadthCardProps {
+  loading: boolean;
+  quotes: MarketQuote[];
+}
+
+function MarketBreadthCard({ loading, quotes }: Readonly<MarketBreadthCardProps>) {
+  if (loading) {
+    return null;
+  }
+
+  const breadth = getMarketBreadth(quotes);
+
+  return (
+    <motion.div variants={fadeInUp}>
+      <Card className="overflow-hidden relative">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.12),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.1),transparent_40%)]" />
+        <CardHeader className="relative">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            Piyasa Derinligi
+          </CardTitle>
+          <p className="text-xs text-white/40">
+            Secili gostergelerde yukselen, gerileyen ve odak sirketlerin dagilimi.
+          </p>
+        </CardHeader>
+        <CardContent className="relative space-y-4">
+          {quotes.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-white/45">
+              Canli piyasa verisi gelmediginde bu alan son onbellek veya yeni veri ile doldurulur.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <GlassCard className="p-3 border border-success/15 bg-success/10">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-success/80">Yukselen</p>
+                  <p className="mt-2 text-2xl font-bold text-success">{breadth.advancers}</p>
+                  <p className="text-[11px] text-success/70">Pozitif kapanisa yakin</p>
+                </GlassCard>
+                <GlassCard className="p-3 border border-danger/15 bg-danger/10">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-danger/80">Gerileyen</p>
+                  <p className="mt-2 text-2xl font-bold text-danger">{breadth.decliners}</p>
+                  <p className="text-[11px] text-danger/70">Basincli tarafta</p>
+                </GlassCard>
+                <GlassCard className="p-3 border border-white/10 bg-white/[0.04]">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">Yatay</p>
+                  <p className="mt-2 text-2xl font-bold text-white">{breadth.flat}</p>
+                  <p className="text-[11px] text-white/35">Notr gorunum</p>
+                </GlassCard>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <p className="text-white/55">Pozitif oran</p>
+                  <p className="font-semibold text-white">{breadth.positiveRatio.toFixed(0)}%</p>
+                </div>
+                <Progress value={breadth.positiveRatio} variant="gradient" className="mt-3" />
+                <div className="mt-3 flex items-center justify-between text-xs text-white/35">
+                  <span>Ortalama hareket</span>
+                  <span className={getChangeColor(breadth.averageChange)}>{formatPercent(breadth.averageChange)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {[
+                  {
+                    label: 'En guclu',
+                    quote: breadth.strongest,
+                    secondary: breadth.strongest ? formatPercent(breadth.strongest.changePercent) : 'Bekleniyor',
+                  },
+                  {
+                    label: 'En zayif',
+                    quote: breadth.weakest,
+                    secondary: breadth.weakest ? formatPercent(breadth.weakest.changePercent) : 'Bekleniyor',
+                  },
+                  {
+                    label: 'En aktif',
+                    quote: breadth.mostActive,
+                    secondary: breadth.mostActive ? formatCompact(breadth.mostActive.volume) : 'Bekleniyor',
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">{item.label}</p>
+                      <p className="mt-1 text-sm font-semibold text-white">
+                        {item.quote ? getQuoteLabel(item.quote.symbol) : 'Veri bekleniyor'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-white">
+                        {item.quote ? formatQuotePrice(item.quote.price) : '--'}
+                      </p>
+                      <p className={`text-xs mt-1 ${item.quote ? getChangeColor(item.quote.changePercent) : 'text-white/35'}`}>
+                        {item.secondary}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </motion.div>
@@ -1078,84 +1320,60 @@ function MarketListCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
-  const [market, setMarket] = useState<MarketOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [portfolioError, setPortfolioError] = useState(false);
-  const [marketError, setMarketError] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
 
-  const fetchData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (mode === 'initial') {
-      setLoading(true);
-    } else {
-      setRefreshing(true);
-    }
+  const portfolioQuery = usePortfolio();
+  const marketQuery = useMarketOverview();
+  useUserProfile(); // keeps user profile fresh in background
 
-    const [portfolioResult, marketResult] = await Promise.allSettled([
-      portfolioService.getPortfolio(),
-      marketService.getOverview(),
-    ]);
-    setPortfolioError(portfolioResult.status === 'rejected');
-    setMarketError(marketResult.status === 'rejected');
-    if (portfolioResult.status === 'fulfilled') setPortfolio(portfolioResult.value);
-    if (marketResult.status === 'fulfilled') setMarket(marketResult.value);
-    setLastUpdated(new Date());
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+  const loading = portfolioQuery.isLoading && marketQuery.isLoading;
+  const refreshing = portfolioQuery.isFetching || marketQuery.isFetching;
+  const portfolioError = portfolioQuery.isError;
+  const marketError = marketQuery.isError;
 
-  useEffect(() => {
-    let cancelled = false;
-    const fallbackTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setLoading(false);
-      }
-    }, 2500);
+  const portfolio = portfolioQuery.data ?? null;
+  const market = marketQuery.data ?? null;
+  const lastUpdated = useMemo(() => {
+    const ts = portfolioQuery.dataUpdatedAt || marketQuery.dataUpdatedAt;
+    return ts ? new Date(ts) : null;
+  }, [portfolioQuery.dataUpdatedAt, marketQuery.dataUpdatedAt]);
 
-    fetchData('initial').finally(() => {
-      if (!cancelled) {
-        window.clearTimeout(fallbackTimer);
-      }
-    });
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.portfolio });
+    queryClient.invalidateQueries({ queryKey: queryKeys.market });
+    queryClient.invalidateQueries({ queryKey: queryKeys.userProfile });
+  };
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(fallbackTimer);
-    };
-  }, [fetchData]);
-
-  const allQuotes = Array.isArray(market?.quotes) ? market.quotes : [];
-  const keyQuotes = allQuotes.filter((q) => q?.symbol && KEY_QUOTE_SET.has(q.symbol));
-  const pulseQuotes = allQuotes.filter((q) => q?.symbol && !['XU100.IS'].includes(q.symbol)).slice(0, 12);
-  const holdings = Array.isArray(portfolio?.holdings) ? portfolio.holdings : [];
-  const topPerformers = holdings.length > 0 ? sortByProfitDesc(holdings).slice(0, 4) : [];
-  const allocation = holdings.length > 0 ? sortByWeightDesc(holdings).slice(0, 5) : [];
-  const recentInvestments = holdings.slice(0, 3);
-  const starterIdeas = sortQuotesBySymbolPriority(filterQuotes(allQuotes, STARTER_IDEA_SET), STARTER_IDEA_ORDER).slice(0, 6);
-  const bist30List = filterQuotes(allQuotes, BIST30_SET)
-    .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8);
-  const bist100List = filterQuotes(allQuotes, BIST100_SET)
-    .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8);
-  const nasdaqList = filterQuotes(allQuotes, NASDAQ_SET)
-    .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8);
-  const marketCapLeaders = filterQuotes(allQuotes, MARKET_CAP_SET)
+  const allQuotes = useMemo(() => Array.isArray(market?.quotes) ? market.quotes : [], [market]);
+  const keyQuotes = useMemo(() => allQuotes.filter((q) => q?.symbol && KEY_QUOTE_SET.has(q.symbol)), [allQuotes]);
+  const pulseQuotes = useMemo(() => allQuotes.filter((q) => q?.symbol && !['XU100.IS'].includes(q.symbol)).slice(0, 12), [allQuotes]);
+  const holdings = useMemo(() => Array.isArray(portfolio?.holdings) ? portfolio.holdings : [], [portfolio]);
+  const topPerformers = useMemo(() => holdings.length > 0 ? sortByProfitDesc(holdings).slice(0, 4) : [], [holdings]);
+  const allocation = useMemo(() => holdings.length > 0 ? sortByWeightDesc(holdings).slice(0, 5) : [], [holdings]);
+  const recentInvestments = useMemo(() => holdings.slice(0, 3), [holdings]);
+  const starterIdeas = useMemo(() => sortQuotesBySymbolPriority(filterQuotes(allQuotes, STARTER_IDEA_SET), STARTER_IDEA_ORDER).slice(0, 6), [allQuotes]);
+  const bist30List = useMemo(() => filterQuotes(allQuotes, BIST30_SET)
+    .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8), [allQuotes]);
+  const bist100List = useMemo(() => filterQuotes(allQuotes, BIST100_SET)
+    .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8), [allQuotes]);
+  const nasdaqList = useMemo(() => filterQuotes(allQuotes, NASDAQ_SET)
+    .sort((a, b) => b.changePercent - a.changePercent).slice(0, 8), [allQuotes]);
+  const marketCapLeaders = useMemo(() => filterQuotes(allQuotes, MARKET_CAP_SET)
     .sort((a, b) => {
       const marketCapDiff = toFiniteNumber(b.marketCap) - toFiniteNumber(a.marketCap);
-      if (marketCapDiff !== 0) {
-        return marketCapDiff;
-      }
-
+      if (marketCapDiff !== 0) return marketCapDiff;
       return (MARKET_CAP_ORDER.get(a.symbol) ?? Number.MAX_SAFE_INTEGER)
         - (MARKET_CAP_ORDER.get(b.symbol) ?? Number.MAX_SAFE_INTEGER);
     })
-    .slice(0, 8);
+    .slice(0, 8), [allQuotes]);
+
   const portfolioUnavailable = !portfolio && portfolioError;
   const marketUnavailable = !market && marketError;
   const showPortfolioOnboarding = Boolean(portfolio && holdings.length === 0);
+  const showMarketFallbackPanel = showPortfolioOnboarding || portfolioUnavailable;
   const firstName = getFirstName(user?.name);
+  const snapshotQuotes = starterIdeas.length > 0 ? starterIdeas : allQuotes.slice(0, 4);
 
   if (loading) {
     return (
@@ -1190,7 +1408,7 @@ export default function DashboardPage() {
             <Clock className="w-3.5 h-3.5" />
             <span>{formatLastUpdated(lastUpdated)}</span>
           </div>
-          <Button variant="outline" className="border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-all" onClick={() => fetchData('refresh')} disabled={refreshing}>
+          <Button variant="outline" className="border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-all" onClick={handleRefresh} disabled={refreshing}>
             <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Yenile
           </Button>
@@ -1217,7 +1435,7 @@ export default function DashboardPage() {
           </span>
           <button
             type="button"
-            onClick={() => fetchData('refresh')}
+            onClick={handleRefresh}
             className="underline underline-offset-2 text-xs font-semibold shrink-0 opacity-80 hover:opacity-100"
           >
             Tekrar dene
@@ -1226,6 +1444,7 @@ export default function DashboardPage() {
       )}
 
       <MarketPulseStrip loading={loading} quotes={pulseQuotes} />
+      <InsightStrip loading={loading} user={user} quotes={allQuotes} />
 
       {/* Portfolio Summary Cards */}
       <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1261,7 +1480,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <MarketSection loading={loading} quotes={marketUnavailable ? [] : keyQuotes} />
-          {showPortfolioOnboarding ? (
+          {showMarketFallbackPanel ? (
             <StarterIdeasSection loading={loading} quotes={starterIdeas} />
           ) : (
             <TopPerformersSection
@@ -1273,14 +1492,16 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-6">
-          {showPortfolioOnboarding ? (
+          {showMarketFallbackPanel ? (
             <>
+              <MarketBreadthCard loading={loading} quotes={allQuotes} />
               <StarterChecklistCard />
-              <StarterSnapshotCard quotes={starterIdeas} />
+              <StarterSnapshotCard quotes={snapshotQuotes} />
             </>
           ) : (
             <>
               <PortfolioHealthCard portfolio={portfolioUnavailable ? null : portfolio} />
+              <MarketBreadthCard loading={loading} quotes={allQuotes} />
               <AllocationSection
                 loading={loading}
                 allocation={portfolioUnavailable ? [] : allocation}

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -223,10 +222,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if authErr == nil && req.SaveScenario {
 		pool, dbErr := db.Get()
 		if dbErr == nil {
+			ctx, cancel := respond.Ctx()
+			defer cancel()
 			shareToken := randomToken()
 			resultBytes, _ := json.Marshal(result)
 			scenarioID := uuid.New()
-			_, saveErr := pool.Exec(context.Background(),
+			_, saveErr := pool.Exec(ctx,
 				`INSERT INTO comparison_scenarios
 				  (id, user_id, symbol_a, symbol_a_name, symbol_b, symbol_b_name,
 				   start_date, end_date, amount, amount_type, result_json, title, notes, share_token)

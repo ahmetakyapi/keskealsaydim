@@ -11,16 +11,15 @@ import (
 )
 
 // overviewSymbols covers all dashboard sections in one concurrent Go fetch.
-// Split into 4 groups matching the dashboard list cards.
 var overviewSymbols = []string{
-	// Key market indices & currencies (Market Section + Pulse Strip)
+	// Key market indices & currencies
 	"XU100.IS", "USDTRY=X", "EURTRY=X", "GBPTRY=X", "GC=F",
 
-	// BIST30 picks (≤14 unique)
+	// BIST30 picks
 	"AKBNK.IS", "ASELS.IS", "BIMAS.IS", "EREGL.IS", "FROTO.IS",
 	"GARAN.IS", "KCHOL.IS", "THYAO.IS", "TUPRS.IS", "YKBNK.IS",
 
-	// BIST100 extras (non-overlapping with BIST30 above)
+	// BIST100 extras
 	"CCOLA.IS", "ENKAI.IS", "ISCTR.IS", "MAVI.IS",
 	"PETKM.IS", "SAHOL.IS", "SISE.IS", "TCELL.IS",
 
@@ -28,7 +27,7 @@ var overviewSymbols = []string{
 	"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL",
 	"META", "TSLA", "NFLX", "AMD", "AVGO",
 
-	// Market cap leaders (extras beyond Nasdaq overlap)
+	// Market cap leaders
 	"BRK-B", "TSM", "JPM", "LLY", "V",
 }
 
@@ -50,11 +49,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	quotes := fetchAll(overviewSymbols)
 
-	_ = cache.Set(cacheKey, quotes, 2*time.Minute)
+	if err := cache.Set(cacheKey, quotes, 2*time.Minute); err != nil {
+		respond.LogError("market/overview", "cache set", err)
+	}
 	respond.JSON(w, http.StatusOK, map[string]any{"quotes": quotes})
 }
 
-// fetchAll fetches quotes for all symbols concurrently, skipping failures.
 func fetchAll(symbols []string) []finance.Quote {
 	type result struct {
 		q   *finance.Quote

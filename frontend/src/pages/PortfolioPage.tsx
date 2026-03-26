@@ -20,11 +20,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShimmerCard, ShimmerRow, ShimmerProgress } from '@/components/ui/skeleton';
 import { formatCurrency, formatPercent, getChangeColor, cn } from '@/lib/utils';
-import { useState, useEffect, useCallback } from 'react';
-import { portfolioService } from '@/services/portfolioService';
-import type { Investment, PortfolioSummary, AddInvestmentRequest } from '@/types';
+import { useState, useMemo, useEffect } from 'react';
+import { usePortfolio, useAddInvestment, useDeleteInvestment } from '@/hooks/useQueries';
+import type { Investment, AddInvestmentRequest } from '@/types';
 import { toast } from 'sonner';
 import CountUp from 'react-countup';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -293,74 +294,71 @@ function AllocationPanel({ holdings, totalValue }: AllocationPanelProps) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PortfolioPage() {
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: portfolio, isLoading: loading, error: queryError } = usePortfolio();
+  const addInvestment = useAddInvestment();
+  const deleteInvestment = useDeleteInvestment();
+
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<AddInvestmentRequest>(emptyForm);
-  const [submitting, setSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadPortfolio = useCallback(async () => {
-    try {
-      const data = await portfolioService.getPortfolio();
-      setPortfolio(data);
-    } catch {
-      toast.error('Portfoy verileri yuklenemedi.');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (queryError) {
+      toast.error(getApiErrorMessage(queryError, 'Portfoy verileri yuklenemedi.'));
     }
-  }, []);
-
-  useEffect(() => { loadPortfolio(); }, [loadPortfolio]);
+  }, [queryError]);
 
   const handleFormChange = (field: keyof AddInvestmentRequest, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    try {
-      const symbol = formData.symbol.toUpperCase();
-      await portfolioService.addInvestment({
+    const symbol = formData.symbol.toUpperCase();
+    addInvestment.mutate(
+      {
         ...formData,
         symbol,
         quantity: Number(formData.quantity),
         buyPrice: Number(formData.buyPrice),
-      });
-      toast.success(`${symbol} portfolye eklendi.`);
-      setShowForm(false);
-      setFormData(emptyForm);
-      setLoading(true);
-      await loadPortfolio();
-    } catch {
-      toast.error('Yatirim eklenirken hata olustu.');
-    } finally {
-      setSubmitting(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          toast.success(`${symbol} portfolye eklendi.`);
+          setShowForm(false);
+          setFormData(emptyForm);
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, 'Yatirim eklenirken hata olustu.'));
+        },
+      },
+    );
   };
 
-  const handleDelete = async (id: string, symbol: string) => {
-    setDeletingId(id);
-    try {
-      await portfolioService.deleteInvestment(id);
-      toast.success(`${symbol} portfolyden silindi.`);
-      setLoading(true);
-      await loadPortfolio();
-    } catch {
-      toast.error('Yatirim silinirken hata olustu.');
-    } finally {
-      setDeletingId(null);
-    }
+  const handleDelete = (id: string, symbol: string) => {
+    deleteInvestment.mutate(id, {
+      onSuccess: () => {
+        toast.success(`${symbol} portfolyden silindi.`);
+      },
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error, 'Yatirim silinirken hata olustu.'));
+      },
+    });
   };
 
-  const holdings = portfolio?.holdings ?? [];
-  const gainers = holdings.filter(h => h.changePercent > 0).length;
-  const losers  = holdings.filter(h => h.changePercent < 0).length;
-  const neutral = holdings.filter(h => h.changePercent === 0).length;
-  const totalPositions = holdings.length || 1;
-  const positiveRatio = (gainers / totalPositions) * 100;
-  const negativeRatio = (losers / totalPositions) * 100;
+  const holdings = useMemo(() => portfolio?.holdings ?? [], [portfolio]);
+  const { gainers, losers, neutral, positiveRatio, negativeRatio } = useMemo(() => {
+    const g = holdings.filter(h => h.changePercent > 0).length;
+    const l = holdings.filter(h => h.changePercent < 0).length;
+    const n = holdings.filter(h => h.changePercent === 0).length;
+    const total = holdings.length || 1;
+    return {
+      gainers: g,
+      losers: l,
+      neutral: n,
+      positiveRatio: (g / total) * 100,
+      negativeRatio: (l / total) * 100,
+    };
+  }, [holdings]);
 
   return (
     <motion.div
@@ -411,7 +409,7 @@ export default function PortfolioPage() {
                 />
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${((neutral) / totalPositions) * 100}%` }}
+                  animate={{ width: `${((neutral) / (holdings.length || 1)) * 100}%` }}
                   transition={{ duration: 0.8, delay: 0.06 }}
                   className="h-full bg-white/20"
                 />
@@ -538,8 +536,8 @@ export default function PortfolioPage() {
                   >
                     Iptal
                   </Button>
-                  <Button type="submit" variant="gradient" disabled={submitting}>
-                    {submitting ? 'Ekleniyor...' : 'Yatirimi Ekle'}
+                  <Button type="submit" variant="gradient" disabled={addInvestment.isPending}>
+                    {addInvestment.isPending ? 'Ekleniyor...' : 'Yatirimi Ekle'}
                   </Button>
                 </div>
               </form>
@@ -661,7 +659,7 @@ export default function PortfolioPage() {
                 <CardContent>
                   <HoldingsTable
                     holdings={holdings}
-                    deletingId={deletingId}
+                    deletingId={deleteInvestment.isPending ? (deleteInvestment.variables ?? null) : null}
                     onDelete={handleDelete}
                     onAddClick={() => setShowForm(true)}
                   />

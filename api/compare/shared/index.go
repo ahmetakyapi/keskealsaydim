@@ -47,10 +47,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("compare/shared", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	var s sharedScenario
 	var startDate, endDate interface{}
@@ -84,12 +86,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	s.SymbolA = finance.NormalizeStoredSymbol(s.SymbolA)
 	s.SymbolB = finance.NormalizeStoredSymbol(s.SymbolB)
 
-	// Increment view count asynchronously
+	// Increment view count asynchronously with timeout
 	go func() {
-		_, _ = pool.Exec(context.Background(),
+		bgCtx, bgCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer bgCancel()
+		if _, err := pool.Exec(bgCtx,
 			"UPDATE comparison_scenarios SET view_count = view_count + 1 WHERE share_token = $1",
 			token,
-		)
+		); err != nil {
+			respond.LogError("compare/shared", "increment view count", err)
+		}
 	}()
 
 	respond.JSON(w, http.StatusOK, s)

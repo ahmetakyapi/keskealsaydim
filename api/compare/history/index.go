@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -61,17 +60,23 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	pool, err := db.Get()
 	if err != nil {
+		respond.LogError("compare/history", "db connection", err)
 		respond.Error(w, http.StatusInternalServerError, "Veritabanı bağlantısı kurulamadı")
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := respond.Ctx()
+	defer cancel()
 
 	// Count total
 	var total int
-	_ = pool.QueryRow(ctx,
+	if err := pool.QueryRow(ctx,
 		"SELECT COUNT(*) FROM comparison_scenarios WHERE user_id = $1",
 		claims.UserID,
-	).Scan(&total)
+	).Scan(&total); err != nil {
+		respond.LogError("compare/history", "count scenarios", err)
+		respond.Error(w, http.StatusInternalServerError, "Senaryo sayısı alınamadı")
+		return
+	}
 
 	rows, err := pool.Query(ctx,
 		`SELECT id, symbol_a, symbol_a_name, symbol_b, symbol_b_name,
@@ -84,6 +89,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		claims.UserID, size, offset,
 	)
 	if err != nil {
+		respond.LogError("compare/history", "query scenarios", err)
 		respond.Error(w, http.StatusInternalServerError, "Senaryolar getirilemedi")
 		return
 	}
@@ -98,9 +104,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			&startDate, &endDate, &s.Amount, &s.AmountType, &s.Result,
 			&s.Title, &s.Notes, &s.IsFavorite, &s.ShareToken, &s.ViewCount, &s.CreatedAt,
 		); err != nil {
+			respond.LogError("compare/history", "scan row", err)
 			continue
 		}
-		// Format dates as strings
 		if t, ok := startDate.(time.Time); ok {
 			s.StartDate = t.Format("2006-01-02")
 		}

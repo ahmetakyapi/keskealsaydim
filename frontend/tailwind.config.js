@@ -72,7 +72,9 @@ export default {
         sm: "calc(var(--radius) - 8px)",
       },
       fontFamily: {
-        sans: ["Space Grotesk", "system-ui", "-apple-system", "sans-serif"],
+        // Archivo is a grotesque drawn for small-size legibility and has real
+        // tabular figures, which is what a screen full of prices needs.
+        sans: ["Archivo", "system-ui", "-apple-system", "sans-serif"],
         mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
       },
       transitionTimingFunction: {

@@ -2,6 +2,14 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+// The local Go API (`go run ./cmd/server/`) listens on 3000 by default.
+// Change the port here if you start it elsewhere — an env var was tried and
+// does not reach the config at evaluation time, so this stays explicit.
+const API_PROXY = {
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+} as const;
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -11,12 +19,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-    },
+    proxy: { '/api': API_PROXY },
+  },
+  // `vite preview` serves the production build. Without the same proxy every
+  // /api call 404s, which makes previewing a real build useless.
+  preview: {
+    port: 4173,
+    proxy: { '/api': API_PROXY },
   },
   build: {
     outDir: 'dist',

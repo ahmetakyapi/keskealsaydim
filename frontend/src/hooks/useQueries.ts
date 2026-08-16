@@ -144,16 +144,21 @@ export function useCompareHistory(page = 0, size = 10, favoritesOnly = false) {
  * so the inputs live in the cache key: switching presets cannot race, and
  * going back to one the visitor already viewed is instant.
  */
-export function useDemoComparison(symbolA: string, symbolB: string, years: number) {
+export function useDemoComparison(
+  symbolA: string,
+  symbolB: string,
+  years: number,
+  amount = 10_000
+) {
   return useQuery({
-    queryKey: ['demo-comparison', symbolA, symbolB, years] as const,
+    queryKey: ['demo-comparison', symbolA, symbolB, years, amount] as const,
     queryFn: () =>
       compareService.compare({
         symbolA,
         symbolB,
         startDate: toISODate(subtractYears(new Date(), years)),
         endDate: TODAY_ISO(),
-        amount: 10000,
+        amount,
         amountType: 'MONEY',
       }),
     enabled: Boolean(symbolA && symbolB && symbolA !== symbolB),

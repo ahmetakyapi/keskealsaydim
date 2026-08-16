@@ -153,6 +153,40 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /*
+   * Display cut. Archivo ships a width axis (75–125), so headlines get
+   * presence from the same family the body text uses — no second font to
+   * download, no clash. Falls back to the normal cut where the variable
+   * font is unavailable.
+   */
+  .display {
+    font-stretch: 118%;
+    letter-spacing: -0.035em;
+    font-weight: 700;
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+
+  .display-sm {
+    font-stretch: 110%;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  /*
+   * Eyebrow label above a section heading. Deliberately no
+   * `text-transform: uppercase`: even with lang="tr" that leans on
+   * language-sensitive casing to turn "i" into "İ". Labels are written
+   * already-uppercase in the markup instead, which cannot go wrong.
+   */
+  .eyebrow {
+    font-stretch: 112%;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    font-size: 0.6875rem;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -266,6 +300,79 @@
   /* Anchored sections must clear the sticky header when jumped to. */
   .scroll-anchor {
     scroll-margin-top: 6rem;
+  }
+
+  /*
+   * Marketing surfaces get a layered ground: a faint engineering grid that
+   * fades out toward the edges, sitting under the ambient gradients. Both
+   * layers are token-driven, so the light theme gets ink instead of light.
+   */
+  .grid-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgb(var(--hairline) / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--hairline) / 0.055) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  /* Soft coloured bloom behind a hero or feature block. */
+  .bloom {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+    filter: blur(80px);
+    opacity: 0.5;
+  }
+
+  /* Accent hairline that reads as a lit edge on the primary surface. */
+  .lit-edge {
+    position: relative;
+  }
+
+  .lit-edge::before {
+    content: '';
+    position: absolute;
+    inset-inline: 15%;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary) / 0.55),
+      hsl(var(--secondary) / 0.45),
+      transparent
+    );
+  }
+
+  /* Horizontal marquee for the live market strip. */
+  .marquee {
+    display: flex;
+    width: max-content;
+    animation: marquee 48s linear infinite;
+  }
+
+  .marquee:hover,
+  .marquee:focus-within {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee {
+      animation: none;
+    }
   }
 }
 

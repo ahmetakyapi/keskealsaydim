@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "createdAt": "2026-08-16T22:48:56.741Z",
+        "reason": "Ahmet'in global CLAUDE.md tema tablosu Keskealsaydim projesi icin fontu 'Space Grotesk + IBM Plex' olarak tanimliyor; proje tasarim sistemi geregi."
+      }
+    ]
+  }
+}

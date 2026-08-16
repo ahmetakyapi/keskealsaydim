@@ -79,3 +79,6 @@ temp/
 *.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+
+# impeccable tarayıcı önbelleği (config.json takip edilir)
+.impeccable/hook.cache.json

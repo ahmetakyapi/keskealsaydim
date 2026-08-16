@@ -1,511 +1,681 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
-  Plus,
-  Star,
-  TrendingUp,
-  TrendingDown,
-  Search,
+  ArrowUpDown,
+  BellPlus,
+  GitCompare,
   LayoutGrid,
   List,
-  Eye,
-  ArrowUpRight,
-  ArrowDownRight,
-  X,
+  MoreVertical,
+  NotebookPen,
+  Plus,
+  RefreshCw,
+  Search,
+  Star,
   Trash2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, GlassCard } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { ShimmerCard } from '@/components/ui/skeleton';
-import { formatCurrency, formatPercent, formatCompact, cn } from '@/lib/utils';
-import { useState, useMemo, useEffect } from 'react';
-import { useWatchlist, useAddWatchlistItem, useRemoveWatchlistItem } from '@/hooks/useQueries';
-import type { WatchlistItem } from '@/types';
-import { toast } from 'sonner';
-import CountUp from 'react-countup';
+import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { PageHeader } from '@/components/ui/page-header';
+import { ShimmerTable } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChangeBadge, Money, UnavailableValue } from '@/components/ui/value';
+import { SymbolSearch } from '@/components/SymbolSearch';
+import {
+  useAddWatchlistItem,
+  useRemoveWatchlistItem,
+  useUpdateWatchlistItem,
+  useWatchlist,
+} from '@/hooks/useQueries';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useNow } from '@/hooks/useNow';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { cn, formatCompact, formatNumber, formatRelativeTime, matchesQuery } from '@/lib/utils';
+import type { WatchlistItem } from '@/types';
 
-// ── Animation variants ────────────────────────────────────────────────────────
+type SortKey = 'order' | 'changeDesc' | 'changeAsc' | 'symbol';
+type ViewMode = 'list' | 'grid';
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-};
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'order', label: 'Eklenme Sırasına Göre' },
+  { value: 'changeDesc', label: 'En Çok Yükselenler' },
+  { value: 'changeAsc', label: 'En Çok Düşenler' },
+  { value: 'symbol', label: 'Sembole Göre' },
+];
 
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.08 } },
-};
+export default function WatchlistPage() {
+  useDocumentTitle('İzleme Listem');
+  const navigate = useNavigate();
+  const now = useNow(30_000);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useWatchlist();
+  const removeItem = useRemoveWatchlistItem();
 
-function pricePosition(item: WatchlistItem): number {
-  const range = item.week52High - item.week52Low;
-  if (range === 0) return 50;
-  return Math.min(100, Math.max(0, ((item.price - item.week52Low) / range) * 100));
-}
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('order');
+  const [view, setView] = useState<ViewMode>('list');
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingNotes, setEditingNotes] = useState<WatchlistItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<WatchlistItem | null>(null);
 
-// ── Premium Loading ──────────────────────────────────────────────────────────
+  const items = useMemo(() => data ?? [], [data]);
 
-function WatchlistLoadingSkeleton() {
+  const visibleItems = useMemo(() => {
+    const filtered = items.filter(
+      (item) => matchesQuery(item.symbol, query) || matchesQuery(item.symbolName, query)
+    );
+
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'changeDesc':
+          return b.changePercent - a.changePercent;
+        case 'changeAsc':
+          return a.changePercent - b.changePercent;
+        case 'symbol':
+          return a.symbol.localeCompare(b.symbol, 'tr');
+        default:
+          return a.displayOrder - b.displayOrder;
+      }
+    });
+  }, [items, query, sortKey]);
+
+  // Leaders are computed from the priced subset of what is on screen, so the
+  // headline never disagrees with the list beneath it.
+  const { leader, laggard } = useMemo(() => {
+    const priced = visibleItems.filter((item) => item.priceAvailable);
+    if (priced.length === 0) return { leader: null, laggard: null };
+
+    const sorted = [...priced].sort((a, b) => b.changePercent - a.changePercent);
+    const top = sorted[0];
+    const bottom = sorted[sorted.length - 1];
+
+    return {
+      leader: top.changePercent > 0 ? top : null,
+      laggard: bottom.changePercent < 0 && bottom.id !== top.id ? bottom : null,
+    };
+  }, [visibleItems]);
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await removeItem.mutateAsync(pendingDelete.id);
+      toast.success(`${pendingDelete.symbol} listeden çıkarıldı`);
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={`wl-stat-${i}`} className="skeleton-shimmer rounded-2xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl skeleton-shimmer" />
-              <div className="space-y-2">
-                <div className="w-20 h-3 rounded-lg skeleton-shimmer" />
-                <div className="w-10 h-5 rounded-lg skeleton-shimmer" />
+    <div className="space-y-5">
+      <PageHeader
+        title="İzleme Listem"
+        description="Takip ettiğiniz hisselerin güncel fiyatları. Liste dakikada bir kendini yeniler."
+        meta={
+          data && (
+            <span className="text-xs text-muted-foreground">
+              Son güncelleme: {formatRelativeTime(new Date(dataUpdatedAt), now)}
+            </span>
+          )
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+              loading={isFetching && !isLoading}
+            >
+              {!(isFetching && !isLoading) && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+              Yenile
+            </Button>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Hisse Ekle
+            </Button>
+          </>
+        }
+      />
+
+      {(leader || laggard) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {leader && (
+            <Card className="p-4">
+              <p className="text-xs text-muted-foreground">Günün Lideri</p>
+              <div className="mt-1.5 flex items-center justify-between gap-3">
+                <span className="text-lg font-semibold">{leader.symbol}</span>
+                <ChangeBadge value={leader.changePercent} />
               </div>
+            </Card>
+          )}
+          {laggard && (
+            <Card className="p-4">
+              <p className="text-xs text-muted-foreground">Günün Zayıf Halkası</p>
+              <div className="mt-1.5 flex items-center justify-between gap-3">
+                <span className="text-lg font-semibold">{laggard.symbol}</span>
+                <ChangeBadge value={laggard.changePercent} />
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+          <CardTitle>
+            {items.length} Hisse
+            {query && visibleItems.length !== items.length && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({visibleItems.length} eşleşme)
+              </span>
+            )}
+          </CardTitle>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-full sm:w-48">
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Listede ara"
+                aria-label="İzleme listesinde ara"
+                icon={<Search className="h-4 w-4" />}
+                className="h-9"
+              />
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">
+                    {SORT_OPTIONS.find((option) => option.value === sortKey)?.label}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onSelect={() => setSortKey(option.value)}
+                    className={cn(sortKey === option.value && 'bg-accent')}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="flex rounded-lg border border-border p-0.5">
+              <Button
+                variant={view === 'list' ? 'subtle' : 'ghost'}
+                size="icon-sm"
+                onClick={() => setView('list')}
+                aria-label="Liste görünümü"
+                aria-pressed={view === 'list'}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === 'grid' ? 'subtle' : 'ghost'}
+                size="icon-sm"
+                onClick={() => setView('grid')}
+                aria-label="Kart görünümü"
+                aria-pressed={view === 'grid'}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }, (_, i) => (
-          <ShimmerCard key={`wl-card-${i}`} />
-        ))}
-      </div>
+        </CardHeader>
+
+        <CardContent>
+          {isLoading ? (
+            <ShimmerTable rows={5} />
+          ) : isError ? (
+            <ErrorState
+              error={error}
+              title="İzleme listesi yüklenemedi"
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={Star}
+              title="İzleme listeniz boş"
+              description="Takip etmek istediğiniz hisseleri ekleyin; fiyatları, günlük değişimlerini ve 52 haftalık aralıklarını tek ekranda görün."
+              actionLabel="Hisse Ekle"
+              onAction={() => setAddOpen(true)}
+              secondaryLabel="Piyasaya Göz At"
+              onSecondary={() => navigate('/market')}
+            />
+          ) : visibleItems.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              “{query}” için sonuç bulunamadı.
+            </p>
+          ) : view === 'list' ? (
+            <ul className="space-y-2">
+              {visibleItems.map((item) => (
+                <WatchRow
+                  key={item.id}
+                  item={item}
+                  onOpen={() => navigate(`/stocks/${encodeURIComponent(item.symbol)}`)}
+                  onCompare={() => navigate(`/compare?a=${encodeURIComponent(item.symbol)}`)}
+                  onAlert={() => navigate(`/alerts?symbol=${encodeURIComponent(item.symbol)}`)}
+                  onAddToPortfolio={() =>
+                    navigate(`/portfolio?add=${encodeURIComponent(item.symbol)}`)
+                  }
+                  onEditNotes={() => setEditingNotes(item)}
+                  onDelete={() => setPendingDelete(item)}
+                />
+              ))}
+            </ul>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleItems.map((item) => (
+                <WatchCard
+                  key={item.id}
+                  item={item}
+                  onOpen={() => navigate(`/stocks/${encodeURIComponent(item.symbol)}`)}
+                  onDelete={() => setPendingDelete(item)}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AddWatchDialog open={addOpen} onOpenChange={setAddOpen} existing={items} />
+      <NotesDialog item={editingNotes} onClose={() => setEditingNotes(null)} />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Listeden çıkarılsın mı?"
+        description={
+          pendingDelete
+            ? `${pendingDelete.symbol} izleme listenizden kaldırılacak. Portföyünüzdeki pozisyonlar etkilenmez.`
+            : ''
+        }
+        confirmLabel="Çıkar"
+        destructive
+        loading={removeItem.isPending}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
 
-// ── Watchlist card (grid view) ────────────────────────────────────────────────
+// ── Rows ────────────────────────────────────────────────────────────────────
 
-interface WatchlistCardProps {
-  readonly item: WatchlistItem;
-  readonly index: number;
-  readonly isRemoving: boolean;
-  readonly onRemove: (id: string, symbol: string) => void;
+function rangePosition(item: WatchlistItem): number | null {
+  if (!item.priceAvailable) return null;
+  const span = item.week52High - item.week52Low;
+  if (span <= 0) return null;
+  return Math.min(100, Math.max(0, ((item.price - item.week52Low) / span) * 100));
 }
 
-function WatchlistCard({ item, index, isRemoving, onRemove }: WatchlistCardProps) {
-  const pos = pricePosition(item);
-  const isUp = item.changePercent >= 0;
+function WatchRow({
+  item,
+  onOpen,
+  onCompare,
+  onAlert,
+  onAddToPortfolio,
+  onEditNotes,
+  onDelete,
+}: {
+  item: WatchlistItem;
+  onOpen: () => void;
+  onCompare: () => void;
+  onAlert: () => void;
+  onAddToPortfolio: () => void;
+  onEditNotes: () => void;
+  onDelete: () => void;
+}) {
+  const position = rangePosition(item);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <GlassCard className={cn(
-        'p-6 hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative overflow-hidden',
-        isUp ? 'card-glow-green' : 'card-glow-red',
-      )}>
-        <div className={cn(
-          'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br',
-          isUp ? 'from-success/5 to-transparent' : 'from-danger/5 to-transparent',
-        )} />
-
-        <div className="relative">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                'w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ring-1',
-                isUp ? 'bg-success/15 ring-success/20' : 'bg-danger/15 ring-danger/20',
-              )}>
-                {isUp
-                  ? <TrendingUp className="w-6 h-6 text-success" />
-                  : <TrendingDown className="w-6 h-6 text-danger" />
-                }
-              </div>
-              <div>
-                <p className="font-semibold text-white">{item.symbol}</p>
-                <p className="text-xs text-white/35">{item.symbolName}</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 shrink-0 text-white/45 hover:text-danger md:opacity-0 md:group-hover:opacity-100 transition-all"
-              onClick={() => onRemove(item.id, item.symbol)}
-              disabled={isRemoving}
-              title="Listeden cikar"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="mb-4">
-            <div className="flex items-end justify-between">
-              <span className="text-2xl font-bold text-white number-ticker">
-                <CountUp end={item.price} prefix="₺" decimals={2} decimal="," separator="." duration={0.5} />
-              </span>
-              <Badge variant={isUp ? 'success' : 'danger'}>
-                <span className="flex items-center gap-1">
-                  {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  {formatPercent(Math.abs(item.changePercent))}
-                </span>
+    <li className="rounded-xl border border-border p-3 transition-colors hover:border-primary/40">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">{item.symbol}</span>
+            {item.currency && item.currency !== 'TRY' && (
+              <Badge variant="outline" size="sm">
+                {item.currency}
               </Badge>
-            </div>
+            )}
+          </div>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.symbolName}</p>
+          {item.notes && (
+            <p className="mt-1 truncate text-xs italic text-muted-foreground">“{item.notes}”</p>
+          )}
+        </button>
+
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            {item.priceAvailable ? (
+              <>
+                <Money
+                  value={item.price}
+                  currency={item.currency}
+                  price
+                  className="block text-sm font-semibold"
+                />
+                <span className="text-[11px] text-muted-foreground" data-numeric="">
+                  hacim {item.volume > 0 ? formatCompact(item.volume) : '—'}
+                </span>
+              </>
+            ) : (
+              <UnavailableValue />
+            )}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
-              <span className="text-white/35">52H Min</span>
-              <span className="text-white/35">52H Max</span>
-            </div>
-            <div className="relative">
-              <Progress value={pos} variant="gradient" size="sm" />
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full border-2 border-primary shadow-lg shadow-primary/30 pointer-events-none"
-                style={{ left: `calc(${pos}% - 6px)` }}
+          {item.priceAvailable && (
+            <ChangeBadge value={item.changePercent} amount={item.change} currency={item.currency} />
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label={`${item.symbol} işlemleri`}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onOpen}>Detayı Aç</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onCompare}>
+                <GitCompare className="h-4 w-4" aria-hidden="true" />
+                Karşılaştır
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAlert}>
+                <BellPlus className="h-4 w-4" aria-hidden="true" />
+                Fiyat Alarmı Kur
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAddToPortfolio}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Portföye Ekle
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onEditNotes}>
+                <NotebookPen className="h-4 w-4" aria-hidden="true" />
+                {item.notes ? 'Notu Düzenle' : 'Not Ekle'}
+              </DropdownMenuItem>
+              <DropdownMenuItem destructive onSelect={onDelete}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                Listeden Çıkar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {position !== null && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span data-numeric="">{formatNumber(item.week52Low)}</span>
+            <span>52 haftalık aralık</span>
+            <span data-numeric="">{formatNumber(item.week52High)}</span>
+          </div>
+          <div className="relative mt-1 h-1.5 w-full rounded-full bg-muted">
+            <span
+              className="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+              style={{ left: `${position}%` }}
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function WatchCard({
+  item,
+  onOpen,
+  onDelete,
+}: {
+  item: WatchlistItem;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card className="group relative p-4" interactive>
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{item.symbol}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.symbolName}</p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {item.priceAvailable ? (
+            <>
+              <Money
+                value={item.price}
+                currency={item.currency}
+                price
+                className="text-xl font-semibold"
               />
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-white/50 font-mono">{formatCurrency(item.week52Low)}</span>
-              <span className="text-white/50 font-mono">{formatCurrency(item.week52High)}</span>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-white/[0.04] flex items-center justify-between">
-            <span className="text-white/35 text-[10px] uppercase tracking-wider">Hacim</span>
-            <span className="text-white/60 text-sm font-medium number-ticker">{formatCompact(item.volume)}</span>
-          </div>
+              <div className="mt-2">
+                <ChangeBadge value={item.changePercent} size="sm" />
+              </div>
+            </>
+          ) : (
+            <UnavailableValue label="Fiyat verisi alınamadı" />
+          )}
         </div>
-      </GlassCard>
-    </motion.div>
+      </button>
+
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onDelete}
+        aria-label={`${item.symbol} hissesini listeden çıkar`}
+        // Always reachable by keyboard; only the hover reveal is decorative.
+        className="absolute right-2 top-2 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </Card>
   );
 }
 
-// ── Watchlist list view ───────────────────────────────────────────────────────
+// ── Dialogs ─────────────────────────────────────────────────────────────────
 
-interface WatchlistListViewProps {
-  readonly items: WatchlistItem[];
-  readonly removingId: string | null;
-  readonly onRemove: (id: string, symbol: string) => void;
-}
+function AddWatchDialog({
+  open,
+  onOpenChange,
+  existing,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existing: WatchlistItem[];
+}) {
+  const addItem = useAddWatchlistItem();
+  const [symbol, setSymbol] = useState('');
+  const [symbolName, setSymbolName] = useState('');
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState('');
 
-function WatchlistListView({ items, removingId, onRemove }: WatchlistListViewProps) {
-  return (
-    <motion.div variants={fadeInUp}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="w-5 h-5 text-primary" />
-            Takip Listesi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-white/35 text-xs uppercase tracking-wider border-b border-white/[0.06]">
-                  <th className="pb-4 font-medium">Hisse</th>
-                  <th className="pb-4 font-medium">Fiyat</th>
-                  <th className="pb-4 font-medium">Degisim</th>
-                  <th className="pb-4 font-medium hidden md:table-cell">52H Aralik</th>
-                  <th className="pb-4 font-medium hidden md:table-cell">Hacim</th>
-                  <th className="pb-4 font-medium text-right w-10" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {items.map((stock, index) => {
-                  const pos = pricePosition(stock);
-                  const isUp = stock.changePercent >= 0;
-                  return (
-                    <motion.tr
-                      key={stock.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ delay: index * 0.04 }}
-                      className="hover:bg-white/[0.03] transition-colors group"
-                    >
-                      <td className="py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            'w-10 h-10 rounded-xl flex items-center justify-center ring-1 transition-transform group-hover:scale-110',
-                            isUp ? 'bg-success/15 ring-success/20' : 'bg-danger/15 ring-danger/20',
-                          )}>
-                            {isUp
-                              ? <TrendingUp className="w-5 h-5 text-success" />
-                              : <TrendingDown className="w-5 h-5 text-danger" />
-                            }
-                          </div>
-                          <div>
-                            <p className="font-semibold text-white">{stock.symbol}</p>
-                            <p className="text-xs text-white/35">{stock.symbolName}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4">
-                        <span className="text-white font-medium number-ticker">{formatCurrency(stock.price)}</span>
-                      </td>
-                      <td className="py-4">
-                        <Badge variant={isUp ? 'success' : 'danger'}>
-                          {formatPercent(stock.changePercent)}
-                        </Badge>
-                      </td>
-                      <td className="py-4 hidden md:table-cell">
-                        <div className="w-32">
-                          <Progress value={pos} variant="gradient" size="sm" />
-                          <div className="flex justify-between text-[10px] text-white/35 mt-1 font-mono">
-                            <span>{formatCurrency(stock.week52Low)}</span>
-                            <span>{formatCurrency(stock.week52High)}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 text-white/50 hidden md:table-cell text-sm number-ticker">
-                        {formatCompact(stock.volume)}
-                      </td>
-                      <td className="py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8 text-white/45 hover:text-danger md:opacity-0 md:group-hover:opacity-100 transition-all"
-                          onClick={() => onRemove(stock.id, stock.symbol)}
-                          disabled={removingId === stock.id}
-                          title="Listeden cikar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+  const alreadyAdded = existing.some(
+    (item) => item.symbol.toUpperCase() === symbol.toUpperCase().replace(/\.IS$/, '')
   );
-}
 
-// ── Items view ────────────────────────────────────────────────────────────────
+  const reset = () => {
+    setSymbol('');
+    setSymbolName('');
+    setNotes('');
+    setFormError('');
+  };
 
-interface ItemsViewProps {
-  readonly viewMode: 'grid' | 'list';
-  readonly filtered: WatchlistItem[];
-  readonly removingId: string | null;
-  readonly onRemove: (id: string, symbol: string) => void;
-}
-
-function ItemsView({ viewMode, filtered, removingId, onRemove }: ItemsViewProps) {
-  if (viewMode === 'grid') {
-    return (
-      <AnimatePresence mode="popLayout">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((item, index) => (
-            <WatchlistCard key={item.id} item={item} index={index} isRemoving={removingId === item.id} onRemove={onRemove} />
-          ))}
-        </div>
-      </AnimatePresence>
-    );
-  }
-  return (
-    <AnimatePresence mode="popLayout">
-      <WatchlistListView items={filtered} removingId={removingId} onRemove={onRemove} />
-    </AnimatePresence>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-export default function WatchlistPage() {
-  const { data: watchlist = [], isLoading: loading, error: queryError } = useWatchlist();
-  const addWatchlistItem = useAddWatchlistItem();
-  const removeWatchlistItem = useRemoveWatchlistItem();
-
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newSymbol, setNewSymbol] = useState('');
-
-  useEffect(() => {
-    if (queryError) {
-      toast.error(getApiErrorMessage(queryError, 'Izleme listesi yuklenemedi.'));
-    }
-  }, [queryError]);
-
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    const symbol = newSymbol.trim().toUpperCase();
-    if (!symbol) return;
-    if (watchlist.some((item) => item.symbol.toUpperCase() === symbol)) {
-      toast.error('Bu hisse zaten izleme listenizde.');
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!symbol) {
+      setFormError('Bir hisse seçin');
       return;
     }
-    addWatchlistItem.mutate(
-      { symbol },
-      {
-        onSuccess: () => {
-          toast.success(`${symbol} izleme listesine eklendi.`);
-          setNewSymbol('');
-          setShowAddForm(false);
-        },
-        onError: (error) => {
-          toast.error(getApiErrorMessage(error, 'Hisse eklenirken hata olustu.'));
-        },
-      },
-    );
+    if (alreadyAdded) {
+      setFormError('Bu hisse zaten listenizde');
+      return;
+    }
+
+    try {
+      await addItem.mutateAsync({ symbol, symbolName, notes: notes || undefined });
+      toast.success(`${symbol} izleme listesine eklendi`);
+      reset();
+      onOpenChange(false);
+    } catch (err) {
+      setFormError(getApiErrorMessage(err));
+    }
   };
-
-  const handleRemove = (id: string, symbol: string) => {
-    removeWatchlistItem.mutate(id, {
-      onSuccess: () => {
-        toast.success(`${symbol} listeden cikarildi.`);
-      },
-      onError: (error) => {
-        toast.error(getApiErrorMessage(error, 'Hisse cikarilirken hata olustu.'));
-      },
-    });
-  };
-
-  const filtered = useMemo(
-    () => watchlist.filter(
-      s => s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           s.symbolName.toLowerCase().includes(searchQuery.toLowerCase()),
-    ),
-    [watchlist, searchQuery],
-  );
-
-  const { gainers, losers, unchanged, topGainer, topLoser } = useMemo(() => {
-    const g = watchlist.filter(s => s.changePercent > 0).length;
-    const l = watchlist.filter(s => s.changePercent < 0).length;
-    const u = watchlist.filter(s => s.changePercent === 0).length;
-    const sortedByMomentum = [...watchlist].sort((a, b) => b.changePercent - a.changePercent);
-    return {
-      gainers: g,
-      losers: l,
-      unchanged: u,
-      topGainer: sortedByMomentum[0] as WatchlistItem | undefined,
-      topLoser: [...watchlist].sort((a, b) => a.changePercent - b.changePercent)[0] as WatchlistItem | undefined,
-    };
-  }, [watchlist]);
-
-  const removingId = removeWatchlistItem.isPending ? (removeWatchlistItem.variables ?? null) : null;
 
   return (
-    <motion.div
-      className="space-y-6 rounded-3xl border border-white/[0.06] bg-[linear-gradient(145deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] p-3 md:p-4 shadow-[0_28px_90px_-62px_rgba(234,179,8,0.72)]"
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) reset();
+      }}
     >
-      {/* Header */}
-      <motion.div variants={fadeInUp} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1 flex items-center gap-3">
-            <Star className="w-7 h-7 text-yellow-500" />
-            Favorilerim
-          </h1>
-          <p className="text-white/50 text-sm">Takip ettigin hisseleri izle</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35" />
-            <Input placeholder="Hisse ara..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 w-full md:w-56 bg-white/5 border-white/10" />
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Hisse Ekle</DialogTitle>
+          <DialogDescription>
+            Listeden seçin. Fiyat verisi bulunamayan semboller eklenemez.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <SymbolSearch
+            label="Hisse"
+            value={symbol}
+            error={alreadyAdded ? 'Bu hisse zaten listenizde' : undefined}
+            onSelect={(item) => {
+              setSymbol(item.symbol);
+              setSymbolName(item.name);
+              setFormError('');
+            }}
+            onClear={() => {
+              setSymbol('');
+              setSymbolName('');
+            }}
+          />
+
+          <div>
+            <Label htmlFor="watch-notes">Not (İsteğe Bağlı)</Label>
+            <Input
+              id="watch-notes"
+              value={notes}
+              maxLength={500}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Neden takip ediyorsunuz?"
+              className="mt-1.5"
+            />
           </div>
-          <div className="flex rounded-lg bg-white/[0.04] p-1 border border-white/[0.06]">
-            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
-              <LayoutGrid className="w-4 h-4" />
-            </Button>
-            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
-          <Button variant="gradient" onClick={() => setShowAddForm(prev => !prev)}>
-            {showAddForm ? <><X className="w-4 h-4 mr-2" />Vazgec</> : <><Plus className="w-4 h-4 mr-2" />Hisse Ekle</>}
-          </Button>
-        </div>
-      </motion.div>
 
-      {/* Leader/Loser highlight */}
-      {!loading && watchlist.length > 0 && (
-        <motion.div variants={fadeInUp}>
-          <GlassCard className="p-5 md:p-6 relative overflow-hidden border-breathing">
-            <div className="absolute -top-20 -left-10 h-36 w-36 rounded-full bg-success/15 blur-3xl" />
-            <div className="absolute -bottom-16 right-4 h-40 w-40 rounded-full bg-danger/10 blur-3xl" />
-            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-success/20 bg-success/[0.06] p-4 hover:bg-success/10 transition-colors card-glow-green">
-                <p className="text-[10px] text-success/70 uppercase tracking-[0.12em] mb-1">Gunun Lideri</p>
-                <p className="text-white font-semibold text-lg">{topGainer?.symbol ?? '-'}</p>
-                <p className="text-success text-sm font-medium mt-1">{topGainer ? formatPercent(topGainer.changePercent) : '-'}</p>
-              </div>
-              <div className="rounded-xl border border-danger/20 bg-danger/[0.06] p-4 hover:bg-danger/10 transition-colors card-glow-red">
-                <p className="text-[10px] text-danger/70 uppercase tracking-[0.12em] mb-1">Zayif Halka</p>
-                <p className="text-white font-semibold text-lg">{topLoser?.symbol ?? '-'}</p>
-                <p className="text-danger text-sm font-medium mt-1">{topLoser ? formatPercent(topLoser.changePercent) : '-'}</p>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-      )}
-
-      {/* Inline add form */}
-      <AnimatePresence>
-        {showAddForm && (
-          <motion.div key="add-symbol-form" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: 'auto', y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={{ duration: 0.25 }}>
-            <GlassCard className="p-5">
-              <form onSubmit={handleAdd} className="flex items-end gap-3">
-                <div className="flex-1 max-w-xs space-y-2">
-                  <label htmlFor="new-symbol" className="text-white/60 text-sm font-medium">Sembol</label>
-                  <Input id="new-symbol" placeholder="orn. THYAO" value={newSymbol} onChange={e => setNewSymbol(e.target.value.toUpperCase())} className="bg-white/5 border-white/10 text-white placeholder:text-white/30 uppercase" autoFocus required />
-                </div>
-                <Button type="submit" variant="gradient" disabled={addWatchlistItem.isPending || !newSymbol.trim()}>{addWatchlistItem.isPending ? 'Ekleniyor...' : 'Ekle'}</Button>
-                <Button type="button" variant="ghost" className="text-white/60 hover:text-white" onClick={() => { setShowAddForm(false); setNewSymbol(''); }}>Iptal</Button>
-              </form>
-            </GlassCard>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {loading ? (
-        <WatchlistLoadingSkeleton />
-      ) : (
-        <>
-          {/* Stats row */}
-          <motion.div variants={fadeInUp} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <GlassCard className="p-4 card-glow-gold">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center ring-1 ring-yellow-500/20"><Star className="w-5 h-5 text-yellow-500" /></div>
-                <div><p className="text-white/50 text-[10px] uppercase tracking-wider">Takip Edilen</p><p className="text-xl font-bold text-white">{watchlist.length}</p></div>
-              </div>
-            </GlassCard>
-            <GlassCard className="p-4 card-glow-green">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center ring-1 ring-success/20"><TrendingUp className="w-5 h-5 text-success" /></div>
-                <div><p className="text-white/50 text-[10px] uppercase tracking-wider">Yukselenler</p><p className="text-xl font-bold text-success">{gainers}</p></div>
-              </div>
-            </GlassCard>
-            <GlassCard className="p-4 card-glow-red">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-danger/15 flex items-center justify-center ring-1 ring-danger/20"><TrendingDown className="w-5 h-5 text-danger" /></div>
-                <div><p className="text-white/50 text-[10px] uppercase tracking-wider">Dusenler</p><p className="text-xl font-bold text-danger">{losers}</p></div>
-              </div>
-            </GlassCard>
-            <GlassCard className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/[0.06] flex items-center justify-center ring-1 ring-white/10"><ArrowUpRight className="w-5 h-5 text-white/50" /></div>
-                <div><p className="text-white/50 text-[10px] uppercase tracking-wider">Degismeyenler</p><p className="text-xl font-bold text-white">{unchanged}</p></div>
-              </div>
-            </GlassCard>
-          </motion.div>
-
-          {filtered.length === 0 ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-16">
-              <div className="w-20 h-20 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-6 border border-white/[0.06]">
-                <Search className="w-10 h-10 text-white/15" />
-              </div>
-              {searchQuery ? (
-                <><h3 className="text-xl font-semibold text-white mb-2">Sonuc bulunamadi</h3><p className="text-white/50 text-center max-w-sm text-sm">"{searchQuery}" icin eslesen hisse bulunamadi</p></>
-              ) : (
-                <><h3 className="text-xl font-semibold text-white mb-2">Izleme listeniz bos</h3><p className="text-white/50 text-center max-w-sm mb-4 text-sm">Takip etmek istediginiz hisseleri ekleyin</p><Button variant="gradient" onClick={() => setShowAddForm(true)}><Plus className="w-4 h-4 mr-2" />Hisse Ekle</Button></>
-              )}
-            </motion.div>
-          ) : (
-            <ItemsView viewMode={viewMode} filtered={filtered} removingId={removingId} onRemove={handleRemove} />
+          {formError && !alreadyAdded && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
           )}
-        </>
-      )}
-    </motion.div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Vazgeç
+            </Button>
+            <Button type="submit" loading={addItem.isPending} disabled={alreadyAdded}>
+              Ekle
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NotesDialog({ item, onClose }: { item: WatchlistItem | null; onClose: () => void }) {
+  const updateItem = useUpdateWatchlistItem();
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    setNotes(item?.notes ?? '');
+    setFormError('');
+  }, [item]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!item) return;
+
+    try {
+      await updateItem.mutateAsync({ id: item.id, data: { notes } });
+      toast.success('Not kaydedildi');
+      onClose();
+    } catch (err) {
+      setFormError(getApiErrorMessage(err));
+    }
+  };
+
+  return (
+    <Dialog open={item !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{item?.symbol} Notu</DialogTitle>
+          <DialogDescription>
+            Bu hisseyi neden takip ettiğinizi not edin; listede görünür.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div>
+            <Label htmlFor="notes-field">Not</Label>
+            <textarea
+              id="notes-field"
+              value={notes}
+              maxLength={500}
+              rows={4}
+              onChange={(event) => setNotes(event.target.value)}
+              className="mt-1.5 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              placeholder="Örn. 250 TL altına inerse almayı düşünüyorum."
+            />
+            <p className="mt-1 text-right text-xs text-muted-foreground">{notes.length}/500</p>
+          </div>
+
+          {formError && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Vazgeç
+            </Button>
+            <Button type="submit" loading={updateItem.isPending}>
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

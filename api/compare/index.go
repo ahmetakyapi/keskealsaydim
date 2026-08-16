@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,9 @@ import (
 	"keskealsaydim/pkg/finance"
 	"keskealsaydim/pkg/respond"
 )
+
+// maxSeriesPoints caps the chart payload; longer ranges are evenly downsampled.
+const maxSeriesPoints = 420
 
 type compareRequest struct {
 	SymbolA      string  `json:"symbolA"`
@@ -38,6 +42,10 @@ type symbolResult struct {
 	EndValue      float64 `json:"endValue"`
 	Profit        float64 `json:"profit"`
 	ProfitPercent float64 `json:"profitPercent"`
+	Currency      string  `json:"currency"`
+	MaxDrawdown   float64 `json:"maxDrawdown"`
+	BestValue     float64 `json:"bestValue"`
+	WorstValue    float64 `json:"worstValue"`
 }
 
 type differenceResult struct {
@@ -51,6 +59,14 @@ type metricsResult struct {
 	SymbolAVolatility float64 `json:"symbolAVolatility"`
 	SymbolBVolatility float64 `json:"symbolBVolatility"`
 	Correlation       float64 `json:"correlation"`
+	TradingDays       int     `json:"tradingDays"`
+}
+
+// seriesPoint is one aligned day of both scenarios, valued in TRY.
+type seriesPoint struct {
+	Date   string  `json:"date"`
+	ValueA float64 `json:"valueA"`
+	ValueB float64 `json:"valueB"`
 }
 
 type resultJSON struct {
@@ -58,6 +74,7 @@ type resultJSON struct {
 	SymbolB    symbolResult     `json:"symbolB"`
 	Difference differenceResult `json:"difference"`
 	Metrics    metricsResult    `json:"metrics"`
+	Series     []seriesPoint    `json:"series"`
 }
 
 type compareResponse struct {
@@ -75,7 +92,12 @@ type compareResponse struct {
 	Result      resultJSON `json:"result"`
 }
 
-var getHistory = finance.GetHistory
+var (
+	getHistory  = finance.GetHistory
+	getRates    = finance.RateSeriesToTRY
+	timeNow     = time.Now
+	errNotFound = "Sembol için veri bulunamadı: "
+)
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if respond.CORS(w, r) {
@@ -98,6 +120,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "symbolA ve symbolB gerekli")
 		return
 	}
+	if req.SymbolA == req.SymbolB {
+		respond.Error(w, http.StatusBadRequest, "Aynı sembolü kendisiyle karşılaştıramazsınız")
+		return
+	}
 	if req.StartDate == "" {
 		respond.Error(w, http.StatusBadRequest, "startDate gerekli")
 		return
@@ -109,10 +135,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		req.AmountType = "MONEY"
 	}
 	if req.EndDate == "" {
-		req.EndDate = time.Now().Format("2006-01-02")
+		req.EndDate = timeNow().Format("2006-01-02")
 	}
 
-	// Validate date ranges
 	startT, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
 		respond.Error(w, http.StatusBadRequest, "Geçersiz başlangıç tarihi formatı")
@@ -127,12 +152,19 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "Başlangıç tarihi bitiş tarihinden önce olmalı")
 		return
 	}
-	if endT.After(time.Now().AddDate(0, 0, 1)) {
+	if endT.After(timeNow().AddDate(0, 0, 1)) {
 		respond.Error(w, http.StatusBadRequest, "Bitiş tarihi bugünden sonra olamaz")
 		return
 	}
 
-	// Fetch history for both symbols concurrently
+	// Saving requires a session; say so instead of silently dropping the scenario.
+	claims, authErr := auth.FromRequest(r)
+	if req.SaveScenario && authErr != nil {
+		respond.Error(w, http.StatusUnauthorized, "Senaryoyu kaydetmek için giriş yapmalısınız")
+		return
+	}
+
+	// Fetch history for both symbols concurrently.
 	type histRes struct {
 		h   *finance.History
 		err error
@@ -149,24 +181,49 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}()
 	rA, rB := <-chA, <-chB
 
-	if rA.err != nil {
-		respond.Error(w, http.StatusBadRequest, "Sembol A için veri bulunamadı: "+req.SymbolA)
+	if rA.err != nil || rA.h == nil {
+		respond.LogError("compare", "history "+req.SymbolA, rA.err)
+		respond.Error(w, http.StatusBadRequest, errNotFound+req.SymbolA)
 		return
 	}
-	if rB.err != nil {
-		respond.Error(w, http.StatusBadRequest, "Sembol B için veri bulunamadı: "+req.SymbolB)
+	if rB.err != nil || rB.h == nil {
+		respond.LogError("compare", "history "+req.SymbolB, rB.err)
+		respond.Error(w, http.StatusBadRequest, errNotFound+req.SymbolB)
 		return
 	}
 	if len(rA.h.Data) < 2 || len(rB.h.Data) < 2 {
-		respond.Error(w, http.StatusBadRequest, "Yeterli geçmiş veri bulunamadı")
+		respond.Error(w, http.StatusBadRequest, "Bu tarih aralığında yeterli işlem verisi yok")
 		return
 	}
 
-	// Prices
-	startA, endA := rA.h.Data[0].Close, rA.h.Data[len(rA.h.Data)-1].Close
-	startB, endB := rB.h.Data[0].Close, rB.h.Data[len(rB.h.Data)-1].Close
+	// Both legs are valued in TRY so a Turkish investor sees a like-for-like
+	// comparison; without this a USD stock's gain is understated by the FX move.
+	seriesA, currencyA, err := toTRYSeries(rA.h, req.StartDate, req.EndDate)
+	if err != nil {
+		respond.LogError("compare", "fx "+req.SymbolA, err)
+		respond.Error(w, http.StatusBadGateway, "Kur verisi alınamadı, lütfen tekrar deneyin")
+		return
+	}
+	seriesB, currencyB, err := toTRYSeries(rB.h, req.StartDate, req.EndDate)
+	if err != nil {
+		respond.LogError("compare", "fx "+req.SymbolB, err)
+		respond.Error(w, http.StatusBadGateway, "Kur verisi alınamadı, lütfen tekrar deneyin")
+		return
+	}
 
-	// Quantities and values
+	aligned := alignSeries(seriesA, seriesB)
+	if len(aligned) < 2 {
+		respond.Error(w, http.StatusBadRequest, "İki sembolün ortak işlem günü bulunamadı")
+		return
+	}
+
+	startA, endA := aligned[0].a, aligned[len(aligned)-1].a
+	startB, endB := aligned[0].b, aligned[len(aligned)-1].b
+	if startA <= 0 || startB <= 0 {
+		respond.Error(w, http.StatusBadRequest, "Başlangıç tarihinde geçerli fiyat bulunamadı")
+		return
+	}
+
 	var qtyA, qtyB float64
 	if req.AmountType == "QUANTITY" {
 		qtyA, qtyB = req.Amount, req.Amount
@@ -174,6 +231,19 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		qtyA = req.Amount / startA
 		qtyB = req.Amount / startB
 	}
+
+	points := make([]seriesPoint, 0, len(aligned))
+	for _, p := range aligned {
+		points = append(points, seriesPoint{
+			Date:   p.date,
+			ValueA: r2(qtyA * p.a),
+			ValueB: r2(qtyB * p.b),
+		})
+	}
+	statsA := summarize(points, func(p seriesPoint) float64 { return p.ValueA })
+	statsB := summarize(points, func(p seriesPoint) float64 { return p.ValueB })
+	points = downsample(points, maxSeriesPoints)
+
 	startValA, endValA := qtyA*startA, qtyA*endA
 	startValB, endValB := qtyB*startB, qtyB*endB
 	profitA, profitB := endValA-startValA, endValB-startValB
@@ -183,6 +253,13 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	winner := "A"
 	if profitPctB > profitPctA {
 		winner = "B"
+	}
+
+	closesA := make([]float64, len(aligned))
+	closesB := make([]float64, len(aligned))
+	for i, p := range aligned {
+		closesA[i] = p.a
+		closesB[i] = p.b
 	}
 
 	result := resultJSON{
@@ -195,6 +272,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			EndValue:      r2(endValA),
 			Profit:        r2(profitA),
 			ProfitPercent: r2(profitPctA),
+			Currency:      currencyA,
+			MaxDrawdown:   statsA.maxDrawdown,
+			BestValue:     statsA.best,
+			WorstValue:    statsA.worst,
 		},
 		SymbolB: symbolResult{
 			StartPrice:    r2(startB),
@@ -205,6 +286,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			EndValue:      r2(endValB),
 			Profit:        r2(profitB),
 			ProfitPercent: r2(profitPctB),
+			Currency:      currencyB,
+			MaxDrawdown:   statsB.maxDrawdown,
+			BestValue:     statsB.best,
+			WorstValue:    statsB.worst,
 		},
 		Difference: differenceResult{
 			AbsoluteTL:        r2(math.Abs(endValB - endValA)),
@@ -212,7 +297,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			WinnerSymbol:      winner,
 			MissedOpportunity: winner == "B",
 		},
-		Metrics: computeMetrics(rA.h.Data, rB.h.Data),
+		Metrics: computeMetrics(closesA, closesB),
+		Series:  points,
 	}
 
 	symbolAName := req.SymbolAName
@@ -229,74 +315,233 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		SymbolAName: symbolAName,
 		SymbolB:     req.SymbolB,
 		SymbolBName: symbolBName,
-		StartDate:   req.StartDate,
-		EndDate:     req.EndDate,
+		StartDate:   aligned[0].date,
+		EndDate:     aligned[len(aligned)-1].date,
 		Amount:      req.Amount,
 		AmountType:  req.AmountType,
 		Title:       req.Title,
 		Result:      result,
 	}
 
-	// Save to DB if authenticated and requested
-	claims, authErr := auth.FromRequest(r)
-	if authErr == nil && req.SaveScenario {
+	if req.SaveScenario && claims != nil {
 		pool, dbErr := db.Get()
-		if dbErr == nil {
-			ctx, cancel := respond.Ctx()
-			defer cancel()
-			shareToken := randomToken()
-			resultBytes, _ := json.Marshal(result)
-			scenarioID := uuid.New()
-			_, saveErr := pool.Exec(ctx,
-				`INSERT INTO comparison_scenarios
-				  (id, user_id, symbol_a, symbol_a_name, symbol_b, symbol_b_name,
-				   start_date, end_date, amount, amount_type, result_json, title, notes, share_token)
-				 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-				scenarioID, claims.UserID,
-				req.SymbolA, symbolAName, req.SymbolB, symbolBName,
-				req.StartDate, req.EndDate, req.Amount, req.AmountType,
-				resultBytes, req.Title, req.Notes, shareToken,
-			)
-			if saveErr == nil {
-				sid := scenarioID.String()
-				resp.ScenarioID = &sid
-				resp.ShareToken = &shareToken
-			}
+		if dbErr != nil {
+			respond.LogError("compare", "db connection", dbErr)
+			respond.Error(w, http.StatusInternalServerError, "Senaryo kaydedilemedi")
+			return
 		}
+
+		ctx, cancel := respond.Ctx()
+		defer cancel()
+		shareToken := randomToken()
+		resultBytes, marshalErr := json.Marshal(result)
+		if marshalErr != nil {
+			respond.LogError("compare", "marshal result", marshalErr)
+			respond.Error(w, http.StatusInternalServerError, "Senaryo kaydedilemedi")
+			return
+		}
+		scenarioID := uuid.New()
+		_, saveErr := pool.Exec(ctx,
+			`INSERT INTO comparison_scenarios
+			  (id, user_id, symbol_a, symbol_a_name, symbol_b, symbol_b_name,
+			   start_date, end_date, amount, amount_type, result_json, title, notes, share_token)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+			scenarioID, claims.UserID,
+			req.SymbolA, symbolAName, req.SymbolB, symbolBName,
+			resp.StartDate, resp.EndDate, req.Amount, req.AmountType,
+			resultBytes, nullStr(req.Title), nullStr(req.Notes), shareToken,
+		)
+		if saveErr != nil {
+			respond.LogError("compare", "insert scenario", saveErr)
+			respond.Error(w, http.StatusInternalServerError, "Senaryo kaydedilemedi")
+			return
+		}
+		sid := scenarioID.String()
+		resp.ScenarioID = &sid
+		resp.ShareToken = &shareToken
 	}
 
 	respond.JSON(w, http.StatusOK, resp)
 }
 
-// computeMetrics calculates annualized volatility for each symbol and their correlation.
-func computeMetrics(dataA, dataB []finance.HistoryPoint) metricsResult {
-	returnsA := logReturns(dataA)
-	returnsB := logReturns(dataB)
+// ── Series handling ────────────────────────────────────────────────────────
+
+type datedValue struct {
+	date  string
+	value float64
+}
+
+type alignedPoint struct {
+	date string
+	a    float64
+	b    float64
+}
+
+// toTRYSeries converts a symbol's closes into TRY using the FX rate that
+// applied on each day. Symbols already in TRY are returned untouched.
+func toTRYSeries(h *finance.History, from, to string) ([]datedValue, string, error) {
+	currency := h.Currency
+	if currency == "" {
+		currency = finance.BaseCurrency
+	}
+
+	rates := finance.ConstantRateSeries(1)
+	if currency != finance.BaseCurrency {
+		if !finance.SupportedCurrency(currency) {
+			// Unknown currency: report it and leave the values unconverted
+			// rather than inventing a rate.
+			currency = h.Currency
+		} else {
+			loaded, err := getRates(currency, from, to)
+			if err != nil {
+				return nil, currency, err
+			}
+			rates = loaded
+		}
+	}
+
+	out := make([]datedValue, 0, len(h.Data))
+	for _, point := range h.Data {
+		close := point.Close
+		if point.AdjClose > 0 {
+			close = point.AdjClose
+		}
+		if close <= 0 {
+			continue
+		}
+		date := point.Date
+		if len(date) > 10 {
+			date = date[:10]
+		}
+		out = append(out, datedValue{date: date, value: close * rates.On(date)})
+	}
+
+	return out, currency, nil
+}
+
+// alignSeries produces one row per date where both symbols have a known price,
+// forward-filling across the other market's holidays.
+func alignSeries(a, b []datedValue) []alignedPoint {
+	mapA := make(map[string]float64, len(a))
+	mapB := make(map[string]float64, len(b))
+	dateSet := make(map[string]struct{}, len(a)+len(b))
+	for _, p := range a {
+		mapA[p.date] = p.value
+		dateSet[p.date] = struct{}{}
+	}
+	for _, p := range b {
+		mapB[p.date] = p.value
+		dateSet[p.date] = struct{}{}
+	}
+
+	dates := make([]string, 0, len(dateSet))
+	for d := range dateSet {
+		dates = append(dates, d)
+	}
+	sort.Strings(dates)
+
+	out := make([]alignedPoint, 0, len(dates))
+	lastA, lastB := 0.0, 0.0
+	for _, d := range dates {
+		if v, ok := mapA[d]; ok {
+			lastA = v
+		}
+		if v, ok := mapB[d]; ok {
+			lastB = v
+		}
+		// Skip leading days before both series have started.
+		if lastA <= 0 || lastB <= 0 {
+			continue
+		}
+		out = append(out, alignedPoint{date: d, a: lastA, b: lastB})
+	}
+
+	return out
+}
+
+// downsample keeps the first and last point and evenly thins the middle.
+func downsample(points []seriesPoint, maxPoints int) []seriesPoint {
+	if maxPoints < 2 || len(points) <= maxPoints {
+		return points
+	}
+
+	out := make([]seriesPoint, 0, maxPoints)
+	step := float64(len(points)-1) / float64(maxPoints-1)
+	for i := 0; i < maxPoints-1; i++ {
+		out = append(out, points[int(math.Round(float64(i)*step))])
+	}
+	return append(out, points[len(points)-1])
+}
+
+type valueStats struct {
+	best        float64
+	worst       float64
+	maxDrawdown float64
+}
+
+// summarize reports the peak, trough and worst peak-to-trough fall of a leg.
+func summarize(points []seriesPoint, pick func(seriesPoint) float64) valueStats {
+	if len(points) == 0 {
+		return valueStats{}
+	}
+
+	first := pick(points[0])
+	stats := valueStats{best: first, worst: first}
+	peak := first
+	for _, p := range points {
+		v := pick(p)
+		if v > stats.best {
+			stats.best = v
+		}
+		if v < stats.worst {
+			stats.worst = v
+		}
+		if v > peak {
+			peak = v
+		}
+		if peak > 0 {
+			if drawdown := (peak - v) / peak * 100; drawdown > stats.maxDrawdown {
+				stats.maxDrawdown = drawdown
+			}
+		}
+	}
+
+	stats.best = r2(stats.best)
+	stats.worst = r2(stats.worst)
+	stats.maxDrawdown = r2(stats.maxDrawdown)
+	return stats
+}
+
+// ── Metrics ────────────────────────────────────────────────────────────────
+
+// computeMetrics calculates annualized volatility for each symbol and their
+// correlation, both from the TRY-converted, date-aligned closes.
+func computeMetrics(closesA, closesB []float64) metricsResult {
+	returnsA := logReturns(closesA)
+	returnsB := logReturns(closesB)
 
 	n := min(len(returnsA), len(returnsB))
-
-	volA := annualizedVol(returnsA) * 100
-	volB := annualizedVol(returnsB) * 100
 	corr := 0.0
 	if n >= 2 {
 		corr = pearson(returnsA[:n], returnsB[:n])
 	}
 
 	return metricsResult{
-		SymbolAVolatility: r2(volA),
-		SymbolBVolatility: r2(volB),
+		SymbolAVolatility: r2(annualizedVol(returnsA) * 100),
+		SymbolBVolatility: r2(annualizedVol(returnsB) * 100),
 		Correlation:       r4(corr),
+		TradingDays:       len(closesA),
 	}
 }
 
-func logReturns(data []finance.HistoryPoint) []float64 {
-	if len(data) < 2 {
+func logReturns(closes []float64) []float64 {
+	if len(closes) < 2 {
 		return nil
 	}
-	out := make([]float64, 0, len(data)-1)
-	for i := 1; i < len(data); i++ {
-		if data[i-1].Close > 0 && data[i].Close > 0 {
-			out = append(out, math.Log(data[i].Close/data[i-1].Close))
+	out := make([]float64, 0, len(closes)-1)
+	for i := 1; i < len(closes); i++ {
+		if closes[i-1] > 0 && closes[i] > 0 {
+			out = append(out, math.Log(closes[i]/closes[i-1]))
 		}
 	}
 	return out
@@ -350,8 +595,18 @@ func pearson(a, b []float64) float64 {
 
 func randomToken() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand failing means we cannot mint a guessable-proof token.
+		return uuid.NewString()
+	}
 	return hex.EncodeToString(b)
+}
+
+func nullStr(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 func r2(v float64) float64 { return math.Round(v*100) / 100 }

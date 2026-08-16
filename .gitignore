@@ -74,3 +74,8 @@ temp/
 *.tmp
 .vercel
 .env*.local
+
+# TypeScript / Vite build artifacts
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts

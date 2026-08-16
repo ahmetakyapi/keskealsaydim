@@ -132,5 +132,59 @@ func Get(key string, dest any) (bool, error) {
 	if wrapper.Result == nil {
 		return false, nil
 	}
-	return true, json.Unmarshal([]byte(*wrapper.Result), dest)
+
+	// A payload we cannot decode is a cache miss, not a hit with a zero value —
+	// reporting it as found would serve an empty struct until the key expires.
+	if err := json.Unmarshal([]byte(*wrapper.Result), dest); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// Delete removes a key, used to evict entries that turned out to be unusable.
+func Delete(key string) error {
+	if !enabled() {
+		return nil
+	}
+	_, err := do(http.MethodGet, "/del/"+url.PathEscape(key), nil)
+	return err
+}
+
+// Available reports whether a cache backend is configured. Callers that use
+// the cache for correctness (rate limiting) need to know when it is absent.
+func Available() bool { return enabled() }
+
+// Incr increments a counter and (re)applies the TTL on first use, returning
+// the new value. It backs the fixed-window rate limiter on the auth routes.
+// When no cache is configured it returns (0, false) so callers can decide
+// whether to fail open.
+func Incr(key string, window time.Duration) (int64, bool) {
+	if !enabled() {
+		return 0, false
+	}
+
+	body, err := json.Marshal([][]any{
+		{"INCR", key},
+		{"EXPIRE", key, int(window.Seconds()), "NX"},
+	})
+	if err != nil {
+		return 0, false
+	}
+
+	payload, err := do(http.MethodPost, "/pipeline", strings.NewReader(string(body)))
+	if err != nil {
+		return 0, false
+	}
+
+	var results []struct {
+		Result json.Number `json:"result"`
+	}
+	if err := json.Unmarshal(payload, &results); err != nil || len(results) == 0 {
+		return 0, false
+	}
+	count, err := results[0].Result.Int64()
+	if err != nil {
+		return 0, false
+	}
+	return count, true
 }

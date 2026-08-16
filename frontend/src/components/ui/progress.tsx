@@ -1,57 +1,46 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
+import * as React from 'react';
+import { cn } from '@/lib/utils';
 
 interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: number;
   max?: number;
-  variant?: "default" | "success" | "danger" | "gradient";
-  size?: "sm" | "md" | "lg";
-  showLabel?: boolean;
+  variant?: 'default' | 'success' | 'danger' | 'warning';
+  size?: 'sm' | 'md' | 'lg';
+  label?: string;
 }
 
+const SIZES = { sm: 'h-1', md: 'h-2', lg: 'h-3' } as const;
+const VARIANTS = {
+  default: 'bg-primary',
+  success: 'bg-success',
+  danger: 'bg-danger',
+  warning: 'bg-warning',
+} as const;
+
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
-  ({ className, value = 0, max = 100, variant = "default", size = "md", showLabel = false, ...props }, ref) => {
-    const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
-
-    const sizeClasses = {
-      sm: "h-1",
-      md: "h-2",
-      lg: "h-3",
-    };
-
-    const variantClasses = {
-      default: "bg-primary",
-      success: "bg-success",
-      danger: "bg-danger",
-      gradient: "bg-gradient-to-r from-primary to-secondary",
-    };
+  ({ className, value = 0, max = 100, variant = 'default', size = 'md', label, ...props }, ref) => {
+    const safeMax = max > 0 ? max : 100;
+    const percentage = Math.min(Math.max((value / safeMax) * 100, 0), 100);
 
     return (
-      <div className="w-full">
+      <div
+        ref={ref}
+        role="progressbar"
+        aria-valuenow={Math.round(percentage)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label}
+        className={cn('w-full overflow-hidden rounded-full bg-muted', SIZES[size], className)}
+        {...props}
+      >
         <div
-          ref={ref}
-          className={cn(
-            "w-full overflow-hidden rounded-full bg-white/10",
-            sizeClasses[size],
-            className
-          )}
-          {...props}
-        >
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-500 ease-out",
-              variantClasses[variant]
-            )}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-        {showLabel && (
-          <span className="text-xs text-white/60 mt-1">{Math.round(percentage)}%</span>
-        )}
+          className={cn('h-full rounded-full transition-[width] duration-500', VARIANTS[variant])}
+          style={{ width: `${percentage}%` }}
+        />
       </div>
     );
   }
 );
-Progress.displayName = "Progress";
+Progress.displayName = 'Progress';
 
 export { Progress };

@@ -16,6 +16,26 @@ import (
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
+const (
+	minPasswordLength = 8
+	// bcrypt silently ignores everything past 72 bytes, so a longer password
+	// must be rejected instead of being truncated (or erroring at hash time).
+	maxPasswordBytes = 72
+	maxNameLength    = 100
+	bcryptCost       = 12
+)
+
+var validExperienceLevels = map[string]bool{
+	"BEGINNER": true, "INTERMEDIATE": true, "ADVANCED": true, "EXPERT": true,
+}
+
+var (
+	loginLimit = respond.RateLimit{Name: "login", Max: 10, Window: 5 * time.Minute}
+	// Registration is rarer and more expensive, so it gets a tighter budget.
+	registerLimit = respond.RateLimit{Name: "register", Max: 5, Window: time.Hour}
+	refreshLimit  = respond.RateLimit{Name: "refresh", Max: 60, Window: 5 * time.Minute}
+)
+
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if respond.CORS(w, r) {
 		return
@@ -53,6 +73,12 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Limit per IP+email so one attacker cannot grind a single account, and a
+	// shared NAT cannot lock every user out either.
+	if !loginLimit.Allow(w, r, req.Email) {
+		return
+	}
 
 	pool, err := db.Get()
 	if err != nil {
@@ -141,6 +167,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Password) > maxPasswordBytes {
+		respond.Error(w, http.StatusUnauthorized, "E-posta veya şifre hatalı")
+		return
+	}
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)); err != nil {
 		respond.Error(w, http.StatusUnauthorized, "E-posta veya şifre hatalı")
 		return
@@ -219,20 +249,40 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	req.Name = strings.TrimSpace(req.Name)
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
-	if req.Name == "" || len(req.Name) < 2 {
+	if !registerLimit.Allow(w, r, "") {
+		return
+	}
+
+	// Count runes, not bytes: "Ayşe" is 4 characters but 5 bytes, and the old
+	// byte check let a single-character Turkish name through.
+	nameLength := len([]rune(req.Name))
+	if nameLength < 2 {
 		respond.Error(w, http.StatusBadRequest, "Ad en az 2 karakter olmalıdır")
 		return
 	}
-	if !emailRegex.MatchString(req.Email) {
+	if nameLength > maxNameLength {
+		respond.Error(w, http.StatusBadRequest, "Ad en fazla 100 karakter olabilir")
+		return
+	}
+	if !emailRegex.MatchString(req.Email) || len(req.Email) > 255 {
 		respond.Error(w, http.StatusBadRequest, "Geçerli bir e-posta adresi giriniz")
 		return
 	}
-	if len(req.Password) < 6 {
-		respond.Error(w, http.StatusBadRequest, "Şifre en az 6 karakter olmalıdır")
+	if len(req.Password) < minPasswordLength {
+		respond.Error(w, http.StatusBadRequest, "Şifre en az 8 karakter olmalıdır")
+		return
+	}
+	if len(req.Password) > maxPasswordBytes {
+		respond.Error(w, http.StatusBadRequest, "Şifre çok uzun, en fazla 72 bayt olabilir")
 		return
 	}
 	if req.ExperienceLevel == "" {
 		req.ExperienceLevel = "BEGINNER"
+	}
+	req.ExperienceLevel = strings.ToUpper(req.ExperienceLevel)
+	if !validExperienceLevels[req.ExperienceLevel] {
+		respond.Error(w, http.StatusBadRequest, "Geçersiz deneyim seviyesi")
+		return
 	}
 
 	pool, err := db.Get()
@@ -256,7 +306,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
 	if err != nil {
 		respond.LogError("auth/register", "bcrypt hash", err)
 		respond.Error(w, http.StatusInternalServerError, "Şifre işlenirken hata oluştu")
@@ -335,6 +385,10 @@ func handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req refreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
 		respond.Error(w, http.StatusBadRequest, "refreshToken gerekli")
+		return
+	}
+
+	if !refreshLimit.Allow(w, r, "") {
 		return
 	}
 
@@ -433,7 +487,8 @@ type logoutRequest struct {
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
-	if _, err := auth.FromRequest(r); err != nil {
+	claims, err := auth.FromRequest(r)
+	if err != nil {
 		respond.Error(w, http.StatusUnauthorized, "Kimlik doğrulaması gerekli")
 		return
 	}
@@ -454,11 +509,23 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := respond.Ctx()
 	defer cancel()
 
+	// Scope the revoke to the caller: without the user_id check anyone holding
+	// a valid access token could revoke another account's session.
 	if _, err := pool.Exec(ctx,
-		"UPDATE user_sessions SET revoked_at = NOW() WHERE refresh_token = $1 AND revoked_at IS NULL",
-		req.RefreshToken,
+		`UPDATE user_sessions SET revoked_at = NOW()
+		  WHERE refresh_token = $1 AND user_id = $2 AND revoked_at IS NULL`,
+		req.RefreshToken, claims.UserID,
 	); err != nil {
 		respond.LogError("auth/logout", "revoke session", err)
+	}
+
+	// Opportunistically prune rows that can never be used again so the table
+	// does not grow without bound.
+	if _, err := pool.Exec(ctx,
+		"DELETE FROM user_sessions WHERE user_id = $1 AND (expires_at < NOW() OR revoked_at < NOW() - INTERVAL '7 days')",
+		claims.UserID,
+	); err != nil {
+		respond.LogError("auth/logout", "prune sessions", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

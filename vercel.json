@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
+  "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "cd frontend && npm install",
   "framework": null,
@@ -11,17 +11,38 @@
     { "source": "/api/stocks/search", "destination": "/api/stocks?action=search" },
     { "source": "/api/stocks/:symbol/price", "destination": "/api/stocks?action=price&symbol=:symbol" },
     { "source": "/api/stocks/:symbol/history", "destination": "/api/stocks?action=history&symbol=:symbol" },
+    { "source": "/api/users/password", "destination": "/api/users/me?action=password" },
     { "source": "/api/compare/shared/:token", "destination": "/api/compare/shared?token=:token" },
+    { "source": "/api/compare/scenarios/:id", "destination": "/api/compare/history?id=:id" },
+    { "source": "/api/notifications/:id", "destination": "/api/alerts?resource=notifications&id=:id" },
+    { "source": "/api/notifications", "destination": "/api/alerts?resource=notifications" },
+    { "source": "/api/alerts/:id", "destination": "/api/alerts?resource=alerts&id=:id" },
     { "source": "/api/portfolio/:id", "destination": "/api/portfolio/item?id=:id" },
     { "source": "/api/watchlist/:id", "destination": "/api/watchlist/item?id=:id" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/$1" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     }
   ]

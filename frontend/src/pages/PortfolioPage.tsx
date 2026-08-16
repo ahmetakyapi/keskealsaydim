@@ -1,689 +1,1136 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import {
+  AlertTriangle,
+  ArrowUpDown,
+  Banknote,
+  Download,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  Pencil,
   Plus,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  PiggyBank,
-  Target,
-  ArrowUpRight,
-  ArrowDownRight,
-  BarChart3,
+  RefreshCw,
+  Search,
   Trash2,
-  X,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, GlassCard } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShimmerCard, ShimmerRow, ShimmerProgress } from '@/components/ui/skeleton';
-import { formatCurrency, formatPercent, getChangeColor, cn } from '@/lib/utils';
-import { useState, useMemo, useEffect } from 'react';
-import { usePortfolio, useAddInvestment, useDeleteInvestment } from '@/hooks/useQueries';
-import type { Investment, AddInvestmentRequest } from '@/types';
-import { toast } from 'sonner';
-import CountUp from 'react-countup';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { PageHeader } from '@/components/ui/page-header';
+import { StatCard } from '@/components/ui/stat-card';
+import { ShimmerStats } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChangeBadge, Money, Percent, UnavailableValue } from '@/components/ui/value';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { SymbolSearch } from '@/components/SymbolSearch';
+import {
+  useAddInvestment,
+  useDeleteInvestment,
+  usePortfolio,
+  useSellInvestment,
+  useStockQuote,
+  useUpdateInvestment,
+  useUserProfile,
+} from '@/hooks/useQueries';
+import { useChartPalette } from '@/hooks/useChartPalette';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useNow } from '@/hooks/useNow';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  cn,
+  formatCurrency,
+  formatDate,
+  formatNumber,
+  formatRelativeTime,
+  matchesQuery,
+  TODAY_ISO,
+} from '@/lib/utils';
+import type { Investment } from '@/types';
 
-// ── Animation variants ────────────────────────────────────────────────────────
+type SortKey = 'value' | 'profit' | 'profitPercent' | 'symbol' | 'weight';
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-};
-
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.08 } },
-};
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const ALLOCATION_COLORS = [
-  'from-primary to-primary',
-  'from-secondary to-secondary',
-  'from-success to-success',
-  'from-purple-500 to-purple-500',
-  'from-orange-500 to-orange-500',
-  'from-pink-500 to-pink-500',
-  'from-teal-500 to-teal-500',
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'value', label: 'Değere Göre' },
+  { value: 'profit', label: 'Kâra Göre' },
+  { value: 'profitPercent', label: 'Getiri Yüzdesine Göre' },
+  { value: 'weight', label: 'Ağırlığa Göre' },
+  { value: 'symbol', label: 'Sembole Göre' },
 ];
 
-const emptyForm: AddInvestmentRequest = {
-  symbol: '',
-  symbolName: '',
-  exchange: '',
-  quantity: 0,
-  buyPrice: 0,
-  buyDate: new Date().toISOString().split('T')[0],
-  notes: '',
-};
-
-// ── Premium Loading ──────────────────────────────────────────────────────────
-
-function PortfolioLoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      {/* Pulse bar shimmer */}
-      <div className="skeleton-shimmer rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="w-24 h-3 rounded-lg skeleton-shimmer" />
-            <div className="w-40 h-5 rounded-lg skeleton-shimmer" />
-          </div>
-          <div className="flex gap-2">
-            <div className="w-20 h-6 rounded-full skeleton-shimmer" />
-            <div className="w-16 h-6 rounded-full skeleton-shimmer" />
-          </div>
-        </div>
-        <div className="w-full h-3 rounded-full skeleton-shimmer" />
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <ShimmerCard key={`pf-card-${i}`} />
-        ))}
-      </div>
-
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <div className="skeleton-shimmer rounded-2xl p-6 space-y-4">
-            <div className="w-24 h-5 rounded-lg skeleton-shimmer" />
-            {Array.from({ length: 5 }, (_, i) => (
-              <ShimmerRow key={`pf-row-${i}`} />
-            ))}
-          </div>
-        </div>
-        <div className="skeleton-shimmer rounded-2xl p-6 space-y-4">
-          <div className="w-32 h-5 rounded-lg skeleton-shimmer" />
-          {Array.from({ length: 4 }, (_, i) => (
-            <ShimmerProgress key={`pf-prog-${i}`} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Holdings table sub-component ──────────────────────────────────────────────
-
-interface HoldingsTableProps {
-  readonly holdings: Investment[];
-  readonly deletingId: string | null;
-  readonly onDelete: (id: string, symbol: string) => void;
-  readonly onAddClick: () => void;
-}
-
-function HoldingsTable({ holdings, deletingId, onDelete, onAddClick }: HoldingsTableProps) {
-  if (holdings.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-20 h-20 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-5 border border-white/[0.06]">
-          <Wallet className="w-10 h-10 text-white/15" />
-        </div>
-        <p className="text-white/50 mb-1 font-medium">Portfolyunuzde henuz yatirim yok</p>
-        <p className="text-white/30 text-sm mb-5">Ilk yatiriminizi ekleyerek baslayin</p>
-        <Button variant="gradient" size="sm" onClick={onAddClick}>
-          <Plus className="w-4 h-4 mr-2" />
-          Ilk Yatirimi Ekle
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="text-left text-white/35 text-xs uppercase tracking-wider border-b border-white/[0.06]">
-            <th className="pb-4 font-medium">Hisse</th>
-            <th className="pb-4 font-medium hidden md:table-cell">Miktar</th>
-            <th className="pb-4 font-medium hidden md:table-cell">Alis</th>
-            <th className="pb-4 font-medium">Guncel</th>
-            <th className="pb-4 font-medium text-right">Kar/Zarar</th>
-            <th className="pb-4 font-medium w-10" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/[0.04]">
-          {holdings.map((holding, index) => (
-            <HoldingRow
-              key={holding.id}
-              holding={holding}
-              index={index}
-              isDeleting={deletingId === holding.id}
-              onDelete={onDelete}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── Single holding row ────────────────────────────────────────────────────────
-
-interface HoldingRowProps {
-  readonly holding: Investment;
-  readonly index: number;
-  readonly isDeleting: boolean;
-  readonly onDelete: (id: string, symbol: string) => void;
-}
-
-function HoldingRow({ holding, index, isDeleting, onDelete }: HoldingRowProps) {
-  const isPositive = holding.changePercent >= 0;
-  const isProfitable = holding.profit >= 0;
-
-  return (
-    <motion.tr
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
-      className="hover:bg-white/[0.03] transition-colors group"
-    >
-      <td className="py-4">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ring-1',
-            isPositive ? 'bg-success/15 ring-success/20' : 'bg-danger/15 ring-danger/20',
-          )}>
-            {isPositive
-              ? <TrendingUp className="w-5 h-5 text-success" />
-              : <TrendingDown className="w-5 h-5 text-danger" />
-            }
-          </div>
-          <div>
-            <p className="font-semibold text-white">{holding.symbol}</p>
-            <p className="text-xs text-white/35">{holding.symbolName}</p>
-          </div>
-        </div>
-      </td>
-      <td className="py-4 text-white/80 hidden md:table-cell font-mono text-sm">
-        {holding.quantity.toLocaleString('tr-TR')}
-      </td>
-      <td className="py-4 text-white/50 hidden md:table-cell text-sm">
-        {formatCurrency(holding.buyPrice)}
-      </td>
-      <td className="py-4">
-        <div>
-          <span className="text-white font-medium text-sm number-ticker">{formatCurrency(holding.currentPrice)}</span>
-          <div className={cn('text-xs flex items-center gap-1 mt-0.5', getChangeColor(holding.changePercent))}>
-            {isPositive
-              ? <ArrowUpRight className="w-3 h-3" />
-              : <ArrowDownRight className="w-3 h-3" />
-            }
-            {formatPercent(Math.abs(holding.changePercent))}
-          </div>
-        </div>
-      </td>
-      <td className="py-4 text-right">
-        <p className={cn('font-semibold text-sm number-ticker', getChangeColor(holding.profit))}>
-          {isProfitable ? '+' : ''}{formatCurrency(holding.profit)}
-        </p>
-        <Badge variant={isProfitable ? 'success' : 'danger'} size="sm" className="mt-1">
-          {formatPercent(holding.profitPercent)}
-        </Badge>
-      </td>
-      <td className="py-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-8 h-8 text-white/45 hover:text-danger md:opacity-0 md:group-hover:opacity-100 transition-all"
-          onClick={() => onDelete(holding.id, holding.symbol)}
-          disabled={isDeleting}
-          title="Sil"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </td>
-    </motion.tr>
-  );
-}
-
-// ── Allocation panel sub-component ────────────────────────────────────────────
-
-interface AllocationPanelProps {
-  readonly holdings: Investment[];
-  readonly totalValue: number;
-}
-
-function AllocationPanel({ holdings, totalValue }: AllocationPanelProps) {
-  const sorted = [...holdings].sort((a, b) => b.weight - a.weight);
-
-  if (sorted.length === 0) {
-    return <p className="text-white/35 text-sm text-center py-8">Henuz varlik yok</p>;
-  }
-
-  return (
-    <>
-      {sorted.map((item, index) => (
-        <motion.div
-          key={item.id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: index * 0.08 }}
-          className="space-y-2"
-        >
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <div className={cn('w-3 h-3 rounded-full bg-gradient-to-r', ALLOCATION_COLORS[index % ALLOCATION_COLORS.length])} />
-              <span className="text-white font-medium">{item.symbol}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-white/50 font-mono text-xs">{item.weight.toFixed(1)}%</span>
-              <span className="text-white/30 text-xs ml-2">({formatCurrency(item.currentValue)})</span>
-            </div>
-          </div>
-          <Progress value={item.weight} variant="gradient" size="sm" />
-        </motion.div>
-      ))}
-
-      <div className="pt-4 mt-4 border-t border-white/[0.06]">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-white/50">Toplam</span>
-          <span className="text-white font-bold number-ticker">{formatCurrency(totalValue)}</span>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
 export default function PortfolioPage() {
-  const { data: portfolio, isLoading: loading, error: queryError } = usePortfolio();
-  const addInvestment = useAddInvestment();
+  useDocumentTitle('Portföyüm');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const palette = useChartPalette();
+  const now = useNow(30_000);
+
+  const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = usePortfolio();
+  const { data: profile } = useUserProfile();
   const deleteInvestment = useDeleteInvestment();
 
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<AddInvestmentRequest>(emptyForm);
+  const [tab, setTab] = useState<'open' | 'closed'>('open');
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('value');
+  const [addOpen, setAddOpen] = useState(Boolean(searchParams.get('add')));
+  const [editing, setEditing] = useState<Investment | null>(null);
+  const [selling, setSelling] = useState<Investment | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Investment | null>(null);
 
+  // Respects the "hide portfolio value" preference from Settings.
+  const [valuesHidden, setValuesHidden] = useState(false);
   useEffect(() => {
-    if (queryError) {
-      toast.error(getApiErrorMessage(queryError, 'Portfoy verileri yuklenemedi.'));
-    }
-  }, [queryError]);
+    if (profile?.settings) setValuesHidden(!profile.settings.showPortfolioValue);
+  }, [profile?.settings]);
 
-  const handleFormChange = (field: keyof AddInvestmentRequest, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const holdings = useMemo(() => data?.holdings ?? [], [data]);
+  const closed = useMemo(() => data?.closedPositions ?? [], [data]);
+  const staleCount = holdings.filter((holding) => holding.stale).length;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const symbol = formData.symbol.toUpperCase();
-    addInvestment.mutate(
-      {
-        ...formData,
-        symbol,
-        quantity: Number(formData.quantity),
-        buyPrice: Number(formData.buyPrice),
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${symbol} portfolye eklendi.`);
-          setShowForm(false);
-          setFormData(emptyForm);
-        },
-        onError: (error) => {
-          toast.error(getApiErrorMessage(error, 'Yatirim eklenirken hata olustu.'));
-        },
-      },
+  const visibleHoldings = useMemo(() => {
+    const filtered = holdings.filter(
+      (holding) => matchesQuery(holding.symbol, query) || matchesQuery(holding.symbolName, query)
     );
-  };
 
-  const handleDelete = (id: string, symbol: string) => {
-    deleteInvestment.mutate(id, {
-      onSuccess: () => {
-        toast.success(`${symbol} portfolyden silindi.`);
-      },
-      onError: (error) => {
-        toast.error(getApiErrorMessage(error, 'Yatirim silinirken hata olustu.'));
-      },
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'symbol':
+          return a.symbol.localeCompare(b.symbol, 'tr');
+        case 'profit':
+          return b.profit - a.profit;
+        case 'profitPercent':
+          return b.profitPercent - a.profitPercent;
+        case 'weight':
+          return b.weight - a.weight;
+        default:
+          return b.currentValue - a.currentValue;
+      }
     });
-  };
+  }, [holdings, query, sortKey]);
 
-  const holdings = useMemo(() => portfolio?.holdings ?? [], [portfolio]);
-  const { gainers, losers, neutral, positiveRatio, negativeRatio } = useMemo(() => {
-    const g = holdings.filter(h => h.changePercent > 0).length;
-    const l = holdings.filter(h => h.changePercent < 0).length;
-    const n = holdings.filter(h => h.changePercent === 0).length;
-    const total = holdings.length || 1;
-    return {
-      gainers: g,
-      losers: l,
-      neutral: n,
-      positiveRatio: (g / total) * 100,
-      negativeRatio: (l / total) * 100,
-    };
+  // Multiple lots of the same symbol are one slice, not several.
+  const allocation = useMemo(() => {
+    const bySymbol = new Map<string, number>();
+    for (const holding of holdings) {
+      bySymbol.set(holding.symbol, (bySymbol.get(holding.symbol) ?? 0) + holding.currentValue);
+    }
+    return [...bySymbol.entries()]
+      .map(([symbol, value]) => ({ symbol, value }))
+      .sort((a, b) => b.value - a.value);
   }, [holdings]);
 
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await deleteInvestment.mutateAsync(pendingDelete.id);
+      toast.success(`${pendingDelete.symbol} portföyden kaldırıldı`);
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    }
+  };
+
+  const exportCsv = () => {
+    const header = [
+      'Sembol', 'Ad', 'Adet', 'Alış Fiyatı', 'Alış Tarihi', 'Komisyon',
+      'Güncel Fiyat', 'Para Birimi', 'Maliyet (TRY)', 'Değer (TRY)', 'Kâr (TRY)', 'Getiri %',
+    ];
+    const rows = holdings.map((holding) => [
+      holding.symbol, holding.symbolName, holding.quantity, holding.buyPrice,
+      holding.buyDate, holding.buyCommission, holding.currentPrice, holding.currency,
+      holding.totalCost, holding.currentValue, holding.profit, holding.profitPercent,
+    ]);
+
+    // Semicolon-separated with a BOM: Turkish Excel reads commas as decimals.
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `portfoy-${TODAY_ISO()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <motion.div
-      className="space-y-6 rounded-3xl border border-white/[0.06] bg-[linear-gradient(145deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] p-3 md:p-4 shadow-[0_28px_90px_-62px_rgba(16,185,129,0.82)]"
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-    >
-      {/* Header */}
-      <motion.div variants={fadeInUp} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Portfolyum</h1>
-          <p className="text-white/50 text-sm">Yatirimlarini takip et ve yonet</p>
-        </div>
-        <Button variant="gradient" onClick={() => setShowForm(prev => !prev)}>
-          {showForm
-            ? <><X className="w-4 h-4 mr-2" />Vazgec</>
-            : <><Plus className="w-4 h-4 mr-2" />Yeni Yatirim</>
-          }
-        </Button>
-      </motion.div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Portföyüm"
+        description="Tüm pozisyonlarınız ve toplamlarınız Türk lirası cinsinden gösterilir."
+        meta={
+          data && (
+            <>
+              <span className="text-xs text-muted-foreground">
+                Son güncelleme: {formatRelativeTime(new Date(dataUpdatedAt), now)}
+              </span>
+              {staleCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Badge variant="warning" size="sm">
+                        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                        {staleCount} pozisyonun fiyatı alınamadı
+                      </Badge>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Bu pozisyonlar için güncel fiyat çekilemedi; maliyet fiyatı gösteriliyor ve
+                    kâr/zarar hesabına dahil edilmiyor.
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </>
+          )
+        }
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setValuesHidden((current) => !current)}
+              aria-label={valuesHidden ? 'Tutarları göster' : 'Tutarları gizle'}
+            >
+              {valuesHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+              loading={isFetching && !isLoading}
+            >
+              {!(isFetching && !isLoading) && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+              Yenile
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={holdings.length === 0}>
+              <Download className="h-4 w-4" aria-hidden="true" />
+              CSV
+            </Button>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Yatırım Ekle
+            </Button>
+          </>
+        }
+      />
 
-      {/* Portfolio Pulse Bar */}
-      {!loading && holdings.length > 0 && (
-        <motion.div variants={fadeInUp}>
-          <GlassCard className="p-5 md:p-6 relative overflow-hidden border-breathing">
-            <div className="absolute -top-20 -right-14 h-40 w-40 rounded-full bg-primary/15 blur-3xl" />
-            <div className="absolute -bottom-16 left-10 h-40 w-40 rounded-full bg-secondary/15 blur-3xl" />
-            <div className="relative">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <p className="text-white/40 text-[10px] uppercase tracking-[0.14em]">Portfoy Pulse</p>
-                  <p className="text-white font-semibold text-lg mt-1">Acik pozisyon dagilimi</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="success">{gainers} yukselen</Badge>
-                  <Badge variant="danger">{losers} dusen</Badge>
-                  <Badge variant="outline">{neutral} yatay</Badge>
-                </div>
-              </div>
-
-              <div className="mt-4 h-3 rounded-full overflow-hidden bg-white/[0.06] flex">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${positiveRatio}%` }}
-                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                  className="h-full bg-gradient-to-r from-success to-success/80"
-                />
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${((neutral) / (holdings.length || 1)) * 100}%` }}
-                  transition={{ duration: 0.8, delay: 0.06 }}
-                  className="h-full bg-white/20"
-                />
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${negativeRatio}%` }}
-                  transition={{ duration: 0.8, delay: 0.12 }}
-                  className="h-full bg-gradient-to-r from-danger/80 to-danger"
-                />
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-      )}
-
-      {/* Inline Add Form */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div
-            key="add-form"
-            initial={{ opacity: 0, height: 0, y: -10 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            <GlassCard className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Plus className="w-5 h-5 text-primary" />
-                Yeni Yatirim Ekle
-              </h2>
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="symbol" className="text-white/70">
-                      Sembol <span className="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="symbol"
-                      placeholder="orn. THYAO"
-                      value={formData.symbol}
-                      onChange={e => handleFormChange('symbol', e.target.value.toUpperCase())}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30 uppercase"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="symbolName" className="text-white/70">Sirket Adi</Label>
-                    <Input
-                      id="symbolName"
-                      placeholder="orn. Turk Hava Yollari"
-                      value={formData.symbolName}
-                      onChange={e => handleFormChange('symbolName', e.target.value)}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity" className="text-white/70">
-                      Miktar <span className="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="orn. 100"
-                      value={formData.quantity || ''}
-                      onChange={e => handleFormChange('quantity', e.target.value)}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="buyPrice" className="text-white/70">
-                      Alis Fiyati (₺) <span className="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="buyPrice"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="orn. 280.50"
-                      value={formData.buyPrice || ''}
-                      onChange={e => handleFormChange('buyPrice', e.target.value)}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="buyDate" className="text-white/70">
-                      Alis Tarihi <span className="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="buyDate"
-                      type="date"
-                      value={formData.buyDate}
-                      onChange={e => handleFormChange('buyDate', e.target.value)}
-                      className="bg-white/5 border-white/10 text-white"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes" className="text-white/70">Not</Label>
-                    <Input
-                      id="notes"
-                      placeholder="Istege bagli not..."
-                      value={formData.notes}
-                      onChange={e => handleFormChange('notes', e.target.value)}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-6">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-white/60 hover:text-white"
-                    onClick={() => { setShowForm(false); setFormData(emptyForm); }}
-                  >
-                    Iptal
-                  </Button>
-                  <Button type="submit" variant="gradient" disabled={addInvestment.isPending}>
-                    {addInvestment.isPending ? 'Ekleniyor...' : 'Yatirimi Ekle'}
-                  </Button>
-                </div>
-              </form>
-            </GlassCard>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {loading ? (
-        <PortfolioLoadingSkeleton />
+      {isLoading ? (
+        <ShimmerStats count={4} />
+      ) : isError ? (
+        <Card>
+          <ErrorState
+            error={error}
+            title="Portföy yüklenemedi"
+            onRetry={() => void refetch()}
+            retrying={isFetching}
+          />
+        </Card>
       ) : (
         <>
-          {/* Summary Cards */}
-          <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Value */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-green">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="absolute -top-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center ring-1 ring-primary/20">
-                    <Wallet className="w-6 h-6 text-primary" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="Toplam Değer"
+              value={data?.totalValue ?? 0}
+              format="currency"
+              icon={Wallet}
+              masked={valuesHidden}
+              hint={`${data?.openInvestments ?? 0} açık pozisyon`}
+            />
+            <StatCard
+              title="Toplam Maliyet"
+              value={data?.totalCost ?? 0}
+              format="currency"
+              icon={Banknote}
+              masked={valuesHidden}
+            />
+            <StatCard
+              title="Açık Kâr / Zarar"
+              value={data?.totalProfit ?? 0}
+              format="currency"
+              signed
+              icon={TrendingUp}
+              masked={valuesHidden}
+              footer={<Percent value={data?.totalProfitPercent ?? 0} className="text-sm" />}
+            />
+            <StatCard
+              title="Günlük Değişim"
+              value={data?.dailyChange ?? 0}
+              format="currency"
+              signed
+              icon={ArrowUpDown}
+              masked={valuesHidden}
+              footer={<Percent value={data?.dailyChangePercent ?? 0} className="text-sm" />}
+            />
+          </div>
+
+          {(data?.realizedProfit ?? 0) !== 0 && (
+            <Card>
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-5 sm:pt-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">Gerçekleşen Kâr / Zarar</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    <Money value={data?.realizedProfit ?? 0} signed className={cn(valuesHidden && 'blur-sm')} />
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setTab('closed')}>
+                  Kapanan Pozisyonlar ({closed.length})
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+                <CardTitle>Pozisyonlar</CardTitle>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="w-full sm:w-48">
+                    <Input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Pozisyon ara"
+                      aria-label="Pozisyonlarda ara"
+                      icon={<Search className="h-4 w-4" />}
+                      className="h-9"
+                    />
                   </div>
-                  {portfolio && (
-                    <Badge variant={portfolio.totalProfitPercent >= 0 ? 'success' : 'danger'}>
-                      {formatPercent(portfolio.totalProfitPercent)}
-                    </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
+                        {SORT_OPTIONS.find((option) => option.value === sortKey)?.label}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {SORT_OPTIONS.map((option) => (
+                        <DropdownMenuItem
+                          key={option.value}
+                          onSelect={() => setSortKey(option.value)}
+                          className={cn(sortKey === option.value && 'bg-accent')}
+                        >
+                          {option.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                <Tabs value={tab} onValueChange={(value) => setTab(value as 'open' | 'closed')}>
+                  <TabsList>
+                    <TabsTrigger value="open">Açık ({holdings.length})</TabsTrigger>
+                    <TabsTrigger value="closed">Kapanan ({closed.length})</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <div className="mt-4">
+                  {tab === 'open' ? (
+                    holdings.length === 0 ? (
+                      <EmptyState
+                        icon={Wallet}
+                        compact
+                        title="Portföyünüz boş"
+                        description="İlk yatırımınızı ekleyin; güncel değeri, kâr/zararı ve dağılımı burada takip edin."
+                        actionLabel="Yatırım Ekle"
+                        onAction={() => setAddOpen(true)}
+                      />
+                    ) : visibleHoldings.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        “{query}” için pozisyon bulunamadı.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {visibleHoldings.map((holding) => (
+                          <HoldingRow
+                            key={holding.id}
+                            holding={holding}
+                            masked={valuesHidden}
+                            onOpen={() => navigate(`/stocks/${encodeURIComponent(holding.symbol)}`)}
+                            onEdit={() => setEditing(holding)}
+                            onSell={() => setSelling(holding)}
+                            onDelete={() => setPendingDelete(holding)}
+                          />
+                        ))}
+                      </ul>
+                    )
+                  ) : closed.length === 0 ? (
+                    <EmptyState
+                      icon={Banknote}
+                      compact
+                      title="Kapanan pozisyon yok"
+                      description="Bir pozisyonu sattığınızda gerçekleşen kâr/zararıyla birlikte burada listelenir."
+                    />
+                  ) : (
+                    <ul className="space-y-2">
+                      {closed.map((position) => (
+                        <li
+                          key={position.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{position.symbol}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {formatNumber(position.quantity, 2)} adet ·{' '}
+                              {formatDate(position.buyDate)} → {formatDate(position.sellDate)} ·{' '}
+                              {position.holdingDays} gün
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Money
+                              value={position.profit}
+                              signed
+                              className={cn('text-sm font-semibold', valuesHidden && 'blur-sm')}
+                            />
+                            <Percent value={position.profitPercent} className="block text-xs" />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Toplam Deger</p>
-                <p className="text-2xl md:text-3xl font-bold text-white number-ticker">
-                  <CountUp end={portfolio?.totalValue ?? 0} prefix="₺" separator="." decimals={2} decimal="," duration={1.2} />
-                </p>
-              </div>
-            </GlassCard>
+              </CardContent>
+            </Card>
 
-            {/* Total Cost */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-blue">
-              <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <div className="mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center ring-1 ring-secondary/20">
-                    <PiggyBank className="w-6 h-6 text-secondary" />
-                  </div>
-                </div>
-                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Toplam Maliyet</p>
-                <p className="text-2xl md:text-3xl font-bold text-white number-ticker">
-                  <CountUp end={portfolio?.totalCost ?? 0} prefix="₺" separator="." decimals={2} decimal="," duration={1.2} />
-                </p>
-              </div>
-            </GlassCard>
+            <Card>
+              <CardHeader>
+                <CardTitle>Dağılım</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {allocation.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Dağılım için pozisyon ekleyin.
+                  </p>
+                ) : (
+                  <>
+                    <div className="h-52 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={allocation}
+                            dataKey="value"
+                            nameKey="symbol"
+                            innerRadius="58%"
+                            outerRadius="88%"
+                            paddingAngle={2}
+                            stroke="none"
+                            isAnimationActive={false}
+                          >
+                            {allocation.map((entry, index) => (
+                              <Cell
+                                key={entry.symbol}
+                                fill={palette.series[index % palette.series.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            contentStyle={{
+                              background: palette.tooltipBg,
+                              border: `1px solid ${palette.tooltipBorder}`,
+                              borderRadius: 12,
+                              color: palette.text,
+                              fontSize: 12,
+                            }}
+                            formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
 
-            {/* Total Profit */}
-            <GlassCard className={cn(
-              'p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300',
-              (portfolio?.totalProfit ?? 0) >= 0 ? 'card-glow-green' : 'card-glow-red',
-            )}>
-              <div className={cn(
-                'absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500',
-                (portfolio?.totalProfit ?? 0) >= 0 ? 'from-success/10' : 'from-danger/10',
-              )} />
-              <div className="relative">
-                <div className="mb-4">
-                  <div className={cn(
-                    'w-12 h-12 rounded-xl flex items-center justify-center ring-1',
-                    (portfolio?.totalProfit ?? 0) >= 0 ? 'bg-success/20 ring-success/20' : 'bg-danger/20 ring-danger/20',
-                  )}>
-                    {(portfolio?.totalProfit ?? 0) >= 0
-                      ? <TrendingUp className="w-6 h-6 text-success" />
-                      : <TrendingDown className="w-6 h-6 text-danger" />
-                    }
-                  </div>
-                </div>
-                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Toplam Kar/Zarar</p>
-                <p className={cn('text-2xl md:text-3xl font-bold number-ticker', getChangeColor(portfolio?.totalProfit ?? 0))}>
-                  {(portfolio?.totalProfit ?? 0) >= 0 ? '+' : '-'}₺
-                  <CountUp end={Math.abs(portfolio?.totalProfit ?? 0)} separator="." decimals={2} decimal="," duration={1.2} />
-                </p>
-              </div>
-            </GlassCard>
-
-            {/* Performance */}
-            <GlassCard className="p-6 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 card-glow-gold">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <div className="mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center ring-1 ring-purple-500/20">
-                    <Target className="w-6 h-6 text-purple-500" />
-                  </div>
-                </div>
-                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Performans</p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <ArrowUpRight className="w-4 h-4 text-success" />
-                    <span className="text-success font-bold">{gainers}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <ArrowDownRight className="w-4 h-4 text-danger" />
-                    <span className="text-danger font-bold">{losers}</span>
-                  </div>
-                </div>
-                <p className="text-white/30 text-xs mt-2">{portfolio?.openInvestments ?? 0} acik yatirim</p>
-              </div>
-            </GlassCard>
-          </motion.div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Holdings Table */}
-            <motion.div variants={fadeInUp} className="lg:col-span-2">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-primary" />
-                    Varliklar
-                  </CardTitle>
-                  <span className="text-white/35 text-xs font-mono">{holdings.length} hisse</span>
-                </CardHeader>
-                <CardContent>
-                  <HoldingsTable
-                    holdings={holdings}
-                    deletingId={deleteInvestment.isPending ? (deleteInvestment.variables ?? null) : null}
-                    onDelete={handleDelete}
-                    onAddClick={() => setShowForm(true)}
-                  />
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Portfolio Allocation */}
-            <motion.div variants={fadeInUp}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-primary" />
-                    Portfoy Dagilimi
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <AllocationPanel holdings={holdings} totalValue={portfolio?.totalValue ?? 0} />
-                </CardContent>
-              </Card>
-            </motion.div>
+                    <ul className="mt-3 space-y-1.5">
+                      {allocation.slice(0, 6).map((entry, index) => {
+                        const share =
+                          (data?.totalValue ?? 0) > 0 ? (entry.value / (data?.totalValue ?? 1)) * 100 : 0;
+                        return (
+                          <li key={entry.symbol} className="flex items-center gap-2 text-sm">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: palette.series[index % palette.series.length] }}
+                              aria-hidden="true"
+                            />
+                            <span className="min-w-0 flex-1 truncate">{entry.symbol}</span>
+                            <span className="text-muted-foreground" data-numeric="">
+                              %{formatNumber(share, 1)}
+                            </span>
+                          </li>
+                        );
+                      })}
+                      {allocation.length > 6 && (
+                        <li className="text-xs text-muted-foreground">
+                          +{allocation.length - 6} pozisyon daha
+                        </li>
+                      )}
+                    </ul>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </>
       )}
-    </motion.div>
+
+      <AddInvestmentDialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open && searchParams.get('add')) {
+            searchParams.delete('add');
+            setSearchParams(searchParams, { replace: true });
+          }
+        }}
+        initialSymbol={searchParams.get('add') ?? ''}
+      />
+
+      <EditInvestmentDialog holding={editing} onClose={() => setEditing(null)} />
+      <SellInvestmentDialog holding={selling} onClose={() => setSelling(null)} />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Pozisyon silinsin mi?"
+        description={
+          pendingDelete ? (
+            <>
+              <span className="font-medium text-foreground">{pendingDelete.symbol}</span> pozisyonu
+              kalıcı olarak silinecek. Sattığınız bir pozisyonu kayıt altında tutmak istiyorsanız
+              silmek yerine <span className="font-medium text-foreground">Sat</span> işlemini
+              kullanın.
+            </>
+          ) : (
+            ''
+          )
+        }
+        confirmLabel="Sil"
+        destructive
+        loading={deleteInvestment.isPending}
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
+}
+
+// ── Row ─────────────────────────────────────────────────────────────────────
+
+function HoldingRow({
+  holding,
+  masked,
+  onOpen,
+  onEdit,
+  onSell,
+  onDelete,
+}: {
+  holding: Investment;
+  masked: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onSell: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="rounded-xl border border-border p-3 transition-colors hover:border-primary/40">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">{holding.symbol}</span>
+            {holding.currency !== 'TRY' && (
+              <Badge variant="outline" size="sm">
+                {holding.currency}
+              </Badge>
+            )}
+            {holding.stale && (
+              <Badge variant="warning" size="sm">
+                Fiyat alınamadı
+              </Badge>
+            )}
+          </div>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{holding.symbolName}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatNumber(holding.quantity, holding.quantity < 10 ? 4 : 2)} adet ·{' '}
+            <Money value={holding.buyPrice} currency={holding.currency} price /> ·{' '}
+            {formatDate(holding.buyDate)}
+          </p>
+        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            {holding.stale ? (
+              <UnavailableValue />
+            ) : (
+              <>
+                <Money
+                  value={holding.currentValue}
+                  className={cn('block text-sm font-semibold', masked && 'blur-sm')}
+                />
+                <span className={cn('block', masked && 'blur-sm')}>
+                  <Money value={holding.profit} signed className="text-xs" />
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="text-right">
+            <ChangeBadge value={holding.profitPercent} size="sm" />
+            <p className="mt-1 text-[11px] text-muted-foreground" data-numeric="">
+              ağırlık %{formatNumber(holding.weight, 1)}
+            </p>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label={`${holding.symbol} işlemleri`}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onOpen}>Detayı Aç</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onEdit}>
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Düzenle
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onSell}>
+                <Banknote className="h-4 w-4" aria-hidden="true" />
+                Sat / Kapat
+              </DropdownMenuItem>
+              <DropdownMenuItem destructive onSelect={onDelete}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                Sil
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// ── Dialogs ─────────────────────────────────────────────────────────────────
+
+function AddInvestmentDialog({
+  open,
+  onOpenChange,
+  initialSymbol,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialSymbol: string;
+}) {
+  const addInvestment = useAddInvestment();
+
+  const [symbol, setSymbol] = useState(initialSymbol);
+  const [symbolName, setSymbolName] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [buyPrice, setBuyPrice] = useState('');
+  const [buyDate, setBuyDate] = useState(TODAY_ISO());
+  const [commission, setCommission] = useState('');
+  const [notes, setNotes] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { data: quote } = useStockQuote(open && symbol ? symbol : undefined);
+
+  useEffect(() => {
+    if (open) setSymbol(initialSymbol);
+  }, [open, initialSymbol]);
+
+  const reset = () => {
+    setSymbol('');
+    setSymbolName('');
+    setQuantity('');
+    setBuyPrice('');
+    setBuyDate(TODAY_ISO());
+    setCommission('');
+    setNotes('');
+    setErrors({});
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const next: Record<string, string> = {};
+    if (!symbol) next.symbol = 'Bir hisse seçin';
+
+    const quantityValue = Number(quantity.replace(',', '.'));
+    if (!Number.isFinite(quantityValue) || quantityValue <= 0) next.quantity = 'Adet pozitif olmalı';
+
+    const priceValue = Number(buyPrice.replace(',', '.'));
+    if (!Number.isFinite(priceValue) || priceValue <= 0) next.buyPrice = 'Alış fiyatı pozitif olmalı';
+
+    const commissionValue = commission ? Number(commission.replace(',', '.')) : 0;
+    if (!Number.isFinite(commissionValue) || commissionValue < 0) {
+      next.commission = 'Komisyon negatif olamaz';
+    }
+
+    if (!buyDate) next.buyDate = 'Alış tarihi gerekli';
+    else if (buyDate > TODAY_ISO()) next.buyDate = 'Alış tarihi gelecekte olamaz';
+
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+
+    try {
+      await addInvestment.mutateAsync({
+        symbol,
+        symbolName: symbolName || undefined,
+        quantity: quantityValue,
+        buyPrice: priceValue,
+        buyDate,
+        buyCommission: commissionValue,
+        notes: notes || undefined,
+      });
+      toast.success(`${symbol} portföye eklendi`);
+      reset();
+      onOpenChange(false);
+    } catch (err) {
+      setErrors({ form: getApiErrorMessage(err) });
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) reset();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Yatırım Ekle</DialogTitle>
+          <DialogDescription>
+            Hisseyi listeden seçin; sembol doğrulanmadan kayıt yapılmaz.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <SymbolSearch
+            label="Hisse"
+            value={symbol}
+            error={errors.symbol}
+            onSelect={(item) => {
+              setSymbol(item.symbol);
+              setSymbolName(item.name);
+              setErrors((prev) => ({ ...prev, symbol: '' }));
+            }}
+            onClear={() => {
+              setSymbol('');
+              setSymbolName('');
+            }}
+          />
+
+          {quote && quote.price > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">
+                Güncel fiyat:{' '}
+                <Money
+                  value={quote.price}
+                  currency={quote.currency}
+                  price
+                  className="font-medium text-foreground"
+                />
+              </span>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => setBuyPrice(String(quote.price))}
+              >
+                Alış fiyatı olarak kullan
+              </Button>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="add-quantity">Adet</Label>
+              <Input
+                id="add-quantity"
+                inputMode="decimal"
+                placeholder="Örn. 12,5"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                error={errors.quantity}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-price">
+                Alış Fiyatı{quote?.currency && quote.currency !== 'TRY' ? ` (${quote.currency})` : ''}
+              </Label>
+              <Input
+                id="add-price"
+                inputMode="decimal"
+                placeholder="Örn. 285,50"
+                value={buyPrice}
+                onChange={(event) => setBuyPrice(event.target.value)}
+                error={errors.buyPrice}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-date">Alış Tarihi</Label>
+              <Input
+                id="add-date"
+                type="date"
+                max={TODAY_ISO()}
+                value={buyDate}
+                onChange={(event) => setBuyDate(event.target.value)}
+                error={errors.buyDate}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-commission">Komisyon (İsteğe Bağlı)</Label>
+              <Input
+                id="add-commission"
+                inputMode="decimal"
+                placeholder="0"
+                value={commission}
+                onChange={(event) => setCommission(event.target.value)}
+                error={errors.commission}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="add-notes">Not (İsteğe Bağlı)</Label>
+            <Input
+              id="add-notes"
+              value={notes}
+              maxLength={280}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Neden aldınız?"
+              className="mt-1.5"
+            />
+          </div>
+
+          {errors.form && (
+            <p role="alert" className="text-sm text-danger">
+              {errors.form}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Vazgeç
+            </Button>
+            <Button type="submit" loading={addInvestment.isPending}>
+              Ekle
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditInvestmentDialog({
+  holding,
+  onClose,
+}: {
+  holding: Investment | null;
+  onClose: () => void;
+}) {
+  const updateInvestment = useUpdateInvestment();
+  const [quantity, setQuantity] = useState('');
+  const [buyPrice, setBuyPrice] = useState('');
+  const [buyDate, setBuyDate] = useState('');
+  const [commission, setCommission] = useState('');
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!holding) return;
+    setQuantity(String(holding.quantity));
+    setBuyPrice(String(holding.buyPrice));
+    setBuyDate(holding.buyDate);
+    setCommission(String(holding.buyCommission ?? 0));
+    setNotes(holding.notes ?? '');
+    setFormError('');
+  }, [holding]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!holding) return;
+
+    try {
+      await updateInvestment.mutateAsync({
+        id: holding.id,
+        data: {
+          quantity: Number(quantity.replace(',', '.')),
+          buyPrice: Number(buyPrice.replace(',', '.')),
+          buyDate,
+          buyCommission: Number(commission.replace(',', '.')) || 0,
+          notes,
+        },
+      });
+      toast.success('Pozisyon güncellendi');
+      onClose();
+    } catch (err) {
+      setFormError(getApiErrorMessage(err));
+    }
+  };
+
+  return (
+    <Dialog open={holding !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{holding?.symbol} Pozisyonunu Düzenle</DialogTitle>
+          <DialogDescription>Yanlış girilen adet, fiyat veya tarihi düzeltin.</DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="edit-quantity">Adet</Label>
+              <Input
+                id="edit-quantity"
+                inputMode="decimal"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-price">Alış Fiyatı</Label>
+              <Input
+                id="edit-price"
+                inputMode="decimal"
+                value={buyPrice}
+                onChange={(event) => setBuyPrice(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-date">Alış Tarihi</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                max={TODAY_ISO()}
+                value={buyDate}
+                onChange={(event) => setBuyDate(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-commission">Komisyon</Label>
+              <Input
+                id="edit-commission"
+                inputMode="decimal"
+                value={commission}
+                onChange={(event) => setCommission(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-notes">Not</Label>
+            <Input
+              id="edit-notes"
+              value={notes}
+              maxLength={280}
+              onChange={(event) => setNotes(event.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+
+          {formError && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Vazgeç
+            </Button>
+            <Button type="submit" loading={updateInvestment.isPending}>
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SellInvestmentDialog({
+  holding,
+  onClose,
+}: {
+  holding: Investment | null;
+  onClose: () => void;
+}) {
+  const sellInvestment = useSellInvestment();
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellDate, setSellDate] = useState(TODAY_ISO());
+  const [quantity, setQuantity] = useState('');
+  const [commission, setCommission] = useState('');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!holding) return;
+    setSellPrice(holding.stale ? '' : String(holding.currentPrice));
+    setSellDate(TODAY_ISO());
+    setQuantity(String(holding.quantity));
+    setCommission('');
+    setFormError('');
+  }, [holding]);
+
+  const soldQuantity = Number(quantity.replace(',', '.'));
+  const priceValue = Number(sellPrice.replace(',', '.'));
+  const partial = holding ? soldQuantity > 0 && soldQuantity < holding.quantity : false;
+
+  const estimatedProfit =
+    holding && Number.isFinite(priceValue) && Number.isFinite(soldQuantity)
+      ? (priceValue - holding.buyPrice) * soldQuantity - (Number(commission.replace(',', '.')) || 0)
+      : 0;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!holding) return;
+
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      setFormError('Geçerli bir satış fiyatı girin');
+      return;
+    }
+    if (!Number.isFinite(soldQuantity) || soldQuantity <= 0 || soldQuantity > holding.quantity) {
+      setFormError(`Adet 0 ile ${formatNumber(holding.quantity, 4)} arasında olmalı`);
+      return;
+    }
+
+    try {
+      const response = await sellInvestment.mutateAsync({
+        id: holding.id,
+        data: {
+          sellPrice: priceValue,
+          sellDate,
+          quantity: soldQuantity,
+          sellCommission: Number(commission.replace(',', '.')) || 0,
+        },
+      });
+      toast.success(
+        response.partial
+          ? `${holding.symbol} kısmen satıldı`
+          : `${holding.symbol} pozisyonu kapatıldı`
+      );
+      onClose();
+    } catch (err) {
+      setFormError(getApiErrorMessage(err));
+    }
+  };
+
+  return (
+    <Dialog open={holding !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{holding?.symbol} Pozisyonunu Sat</DialogTitle>
+          <DialogDescription>
+            Tamamını ya da bir kısmını satabilirsiniz. Kısmi satışta kalan pozisyon açık kalır.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="sell-quantity">
+                Satılacak Adet (en fazla {holding ? formatNumber(holding.quantity, 4) : '0'})
+              </Label>
+              <Input
+                id="sell-quantity"
+                inputMode="decimal"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sell-price">
+                Satış Fiyatı{holding && holding.currency !== 'TRY' ? ` (${holding.currency})` : ''}
+              </Label>
+              <Input
+                id="sell-price"
+                inputMode="decimal"
+                value={sellPrice}
+                onChange={(event) => setSellPrice(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sell-date">Satış Tarihi</Label>
+              <Input
+                id="sell-date"
+                type="date"
+                min={holding?.buyDate}
+                max={TODAY_ISO()}
+                value={sellDate}
+                onChange={(event) => setSellDate(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sell-commission">Komisyon (İsteğe Bağlı)</Label>
+              <Input
+                id="sell-commission"
+                inputMode="decimal"
+                placeholder="0"
+                value={commission}
+                onChange={(event) => setCommission(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+
+          {holding && Number.isFinite(estimatedProfit) && priceValue > 0 && (
+            <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Tahmini kâr/zarar: </span>
+              <Money value={estimatedProfit} currency={holding.currency} signed className="font-medium" />
+              {partial && <span className="ml-1 text-xs text-muted-foreground">(kısmi satış)</span>}
+            </p>
+          )}
+
+          {formError && (
+            <p role="alert" className="text-sm text-danger">
+              {formError}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Vazgeç
+            </Button>
+            <Button type="submit" loading={sellInvestment.isPending}>
+              Satışı Kaydet
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,44 +1,56 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard,
-  GitCompare,
-  Wallet,
-  Star,
   BarChart3,
-  Settings,
   Bell,
-  Search,
   ChevronLeft,
   ChevronRight,
+  GitCompare,
+  LayoutDashboard,
   LogOut,
+  Monitor,
   Moon,
+  PanelLeft,
+  Settings,
+  Star,
   Sun,
   User,
-  PanelLeft,
-  Sparkles,
+  Wallet,
   X,
-  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BrandLogo } from '@/components/BrandLogo';
+import { SymbolSearch } from '@/components/SymbolSearch';
+import { PageTransition } from '@/components/Motion';
 import { useAuthStore } from '@/stores/authStore';
-import { useThemeStore } from '@/stores/themeStore';
-import { stockService } from '@/services/stockService';
+import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { authService } from '@/services/authService';
-import { userService } from '@/services/userService';
-import type { StockSearchResult } from '@/types';
-import { cn } from '@/lib/utils';
+import { useUserProfile } from '@/hooks/useQueries';
+import { cn, initialsOf } from '@/lib/utils';
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+const NAVIGATION = [
+  { name: 'Panel', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Karşılaştır', href: '/compare', icon: GitCompare },
   { name: 'Portföyüm', href: '/portfolio', icon: Wallet },
-  { name: 'Favorilerim', href: '/watchlist', icon: Star },
+  { name: 'İzleme Listem', href: '/watchlist', icon: Star },
   { name: 'Piyasa', href: '/market', icon: BarChart3 },
-  { name: 'Ayarlar', href: '/settings', icon: Settings },
+  { name: 'Fiyat Alarmları', href: '/alerts', icon: Bell },
+] as const;
+
+const THEME_OPTIONS: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
+  { value: 'light', label: 'Açık', icon: Sun },
+  { value: 'dark', label: 'Koyu', icon: Moon },
+  { value: 'system', label: 'Sistem', icon: Monitor },
 ];
 
 interface DashboardLayoutProps {
@@ -49,338 +61,348 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, refreshToken } = useAuthStore();
-  const { theme, setTheme } = useThemeStore();
+  const { theme, resolvedTheme, setTheme } = useThemeStore();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLDivElement>(null);
 
-  const compactMode = Boolean(user?.settings?.compactMode);
-  const unreadCount = user?.unreadNotifications ?? 0;
-
-  useEffect(() => {
-    let ignore = false;
-    userService
-      .getMe()
-      .then((profile) => {
-        if (!ignore) {
-          useAuthStore.getState().updateUser(profile);
-        }
-      })
-      .catch(() => {
-        // Non-blocking background refresh
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  // Keeps the shell's name/avatar/badge in step with the server.
+  const { data: profile } = useUserProfile();
+  const currentUser = profile ?? user;
+  const unreadCount = currentUser?.unreadNotifications ?? 0;
+  const compactMode = Boolean(currentUser?.settings?.compactMode);
 
   useEffect(() => {
-    setMobileSidebarOpen(false);
+    setMobileOpen(false);
   }, [location.pathname]);
 
+  // The drawer is off-canvas rather than unmounted, so without this its links
+  // stay in the tab order and keyboard users tab into an invisible menu.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!searchRef.current) return;
-      if (!searchRef.current.contains(event.target as Node)) {
-        setSearchOpen(false);
+    if (!mobileOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    drawerRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMobileOpen(false);
+        menuButtonRef.current?.focus();
+        return;
       }
-    };
+      if (event.key !== 'Tab' || !drawerRef.current) return;
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+      const focusable = drawerRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
 
-  useEffect(() => {
-    const query = searchQuery.trim();
-    if (query.length < 2) {
-      setSearchResults([]);
-      setSearchLoading(false);
-      return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
 
-    let active = true;
-    setSearchLoading(true);
-
-    const timer = setTimeout(async () => {
-      try {
-        const results = await stockService.search(query);
-        if (!active) return;
-        setSearchResults(results.slice(0, 6));
-        setSearchOpen(true);
-      } catch {
-        if (!active) return;
-        setSearchResults([]);
-      } finally {
-        if (active) setSearchLoading(false);
-      }
-    }, 280);
-
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      active = false;
-      clearTimeout(timer);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+      previouslyFocused?.focus?.();
     };
-  }, [searchQuery]);
+  }, [mobileOpen]);
+
+  // ⌘K / Ctrl+K focuses the symbol search, the way every other market app works.
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.querySelector('input')?.focus();
+      }
+    }
+    document.addEventListener('keydown', handleShortcut);
+    return () => document.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
       if (refreshToken) {
         await authService.logout(refreshToken);
       }
     } catch {
-      // Local logout should still complete even if revoke fails.
+      // A failed revoke must not trap the user in a signed-in shell.
     } finally {
       logout();
-      window.location.href = '/';
+      window.location.replace('/');
     }
   };
 
-  const handleSearchSelect = (item: StockSearchResult) => {
-    navigate(`/compare?symbol=${encodeURIComponent(item.symbol)}`);
-    setSearchQuery('');
-    setSearchResults([]);
-    setSearchOpen(false);
-  };
+  const isActiveRoute = (href: string) =>
+    location.pathname === href || location.pathname.startsWith(`${href}/`);
 
-  const SidebarContent = (
+  const activePage = NAVIGATION.find((item) => isActiveRoute(item.href));
+
+  const renderNav = (collapsed: boolean) => (
+    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Ana gezinme">
+      {NAVIGATION.map((item) => {
+        const active = isActiveRoute(item.href);
+        const link = (
+          <Link
+            key={item.href}
+            to={item.href}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'group flex items-center rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors',
+              collapsed && 'justify-center',
+              active
+                ? 'border-primary/25 bg-primary/12 text-primary'
+                : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
+            )}
+          >
+            <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            {!collapsed && <span className="ml-3 truncate">{item.name}</span>}
+            {collapsed && <span className="sr-only">{item.name}</span>}
+          </Link>
+        );
+
+        if (!collapsed) return link;
+
+        return (
+          <Tooltip key={item.href}>
+            <TooltipTrigger asChild>{link}</TooltipTrigger>
+            <TooltipContent side="right">{item.name}</TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </nav>
+  );
+
+  const renderSidebarBody = (collapsed: boolean, showCloseButton: boolean) => (
     <>
-      <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
-        <Link to="/dashboard" className="flex items-center space-x-3">
-          <BrandLogo showText={!sidebarCollapsed} />
+      <div className="flex h-16 items-center justify-between gap-2 border-b border-border px-4">
+        <Link to="/dashboard" className="flex items-center gap-3" aria-label="Panele git">
+          <BrandLogo showText={!collapsed} />
         </Link>
-
-        <button
-          onClick={() => setMobileSidebarOpen(false)}
-          className="md:hidden w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/70"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {showCloseButton && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Menüyü kapat"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={cn(
-                'relative flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 group',
-                isActive
-                  ? 'bg-primary/15 text-primary border border-primary/25 shadow-[0_0_12px_-3px_rgba(16,185,129,0.3)]'
-                  : 'text-white/60 hover:bg-white/[0.04] hover:text-white border border-transparent'
-              )}
-            >
-              <item.icon className={cn('w-5 h-5 flex-shrink-0 transition-transform duration-200', !isActive && 'group-hover:scale-110')} />
-              {!sidebarCollapsed && <span className="ml-3 font-medium whitespace-nowrap">{item.name}</span>}
-              {isActive && (
-                <motion.div
-                  layoutId="activeNav"
-                  className="absolute inset-0 rounded-xl border border-primary/30 pointer-events-none"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+      {renderNav(collapsed)}
 
-      <div className="p-3 border-t border-white/10">
-        <div
+      <div className="border-t border-border p-3">
+        <Link
+          to="/settings"
           className={cn(
-            'flex items-center rounded-xl p-2 bg-white/5 border border-white/10 transition-all',
-            sidebarCollapsed ? 'justify-center' : 'space-x-3'
+            'flex items-center rounded-xl border p-2 transition-colors',
+            collapsed ? 'justify-center' : 'gap-3',
+            isActiveRoute('/settings')
+              ? 'border-primary/25 bg-primary/12'
+              : 'border-transparent hover:bg-accent'
           )}
         >
-          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 text-primary" />
-          </div>
-          {!sidebarCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-              <p className="text-xs text-white/45 truncate">{user?.email}</p>
-            </div>
+          <Avatar size="sm">
+            {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt="" />}
+            <AvatarFallback>{initialsOf(currentUser?.name)}</AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-foreground">
+                {currentUser?.name ?? 'Hesabım'}
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {currentUser?.email}
+              </span>
+            </span>
           )}
-        </div>
+          {collapsed && <span className="sr-only">Ayarlar</span>}
+        </Link>
       </div>
     </>
   );
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden bg-surface-dark">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-primary/12 blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute top-32 right-[-8rem] h-80 w-80 rounded-full bg-secondary/15 blur-[120px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
-        <div className="absolute bottom-[-10rem] left-1/3 h-96 w-96 rounded-full bg-emerald-300/8 blur-[140px] animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
+    <div className="min-h-dvh bg-background">
+      <a
+        href="#main-content"
+        className="sr-only-focusable fixed left-4 top-4 z-[60] rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+      >
+        İçeriğe atla
+      </a>
+
+      {/* Backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-surface transition-[width] md:flex',
+          sidebarCollapsed ? 'w-[84px]' : 'w-64'
+        )}
+      >
+        {renderSidebarBody(sidebarCollapsed, false)}
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((prev) => !prev)}
+          aria-label={sidebarCollapsed ? 'Menüyü genişlet' : 'Menüyü daralt'}
+          className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {sidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
+      </aside>
+
+      {/* Mobile drawer */}
+      <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Gezinme menüsü"
+        // `hidden` (not just translate) keeps the links out of the tab order.
+        hidden={!mobileOpen}
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-surface md:hidden'
+        )}
+      >
+        {renderSidebarBody(false, true)}
       </div>
 
-      <div className="relative z-10 flex min-h-screen">
-        <AnimatePresence>
-          {mobileSidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileSidebarOpen(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
-            />
-          )}
-        </AnimatePresence>
-
-        <motion.aside
-          initial={false}
-          animate={{ width: sidebarCollapsed ? 88 : 288 }}
-          className={cn(
-            'hidden md:flex fixed left-0 top-0 h-full bg-surface/95 border-r border-white/10 z-50 flex-col',
-            sidebarCollapsed ? 'w-[88px]' : 'w-72'
-          )}
-        >
-          {SidebarContent}
-
-          <button
-            onClick={() => setSidebarCollapsed((prev) => !prev)}
-            className="hidden md:flex absolute -right-3 top-20 w-7 h-7 rounded-full bg-surface border border-white/15 items-center justify-center text-white/60 hover:text-white transition-colors"
+      <div className={cn('flex min-h-dvh flex-col transition-[padding]', sidebarCollapsed ? 'md:pl-[84px]' : 'md:pl-64')}>
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur-xl md:px-6">
+          <Button
+            ref={menuButtonRef}
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Menüyü aç"
+            aria-expanded={mobileOpen}
           >
-            {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
-          </button>
-        </motion.aside>
+            <PanelLeft className="h-5 w-5" />
+          </Button>
 
-        <aside
-          className={cn(
-            'md:hidden fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] bg-surface/95 border-r border-white/10 flex flex-col transition-transform duration-300',
-            mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          )}
-        >
-          {SidebarContent}
-        </aside>
+          <h2 className="hidden shrink-0 text-sm font-medium text-muted-foreground lg:block">
+            {activePage?.name ?? (isActiveRoute('/settings') ? 'Ayarlar' : '')}
+          </h2>
 
-        <div
-          className={cn(
-            'flex-1 min-w-0 transition-all duration-300',
-            sidebarCollapsed ? 'md:ml-[88px]' : 'md:ml-72'
-          )}
-        >
-          <header className="h-16 border-b border-white/[0.06] bg-surface/80 backdrop-blur-xl px-3 md:px-6 flex items-center justify-between sticky top-0 z-30">
-            <div className="flex items-center gap-2 md:gap-3 w-full max-w-xl" ref={searchRef}>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMobileSidebarOpen(true)}
-                className="md:hidden text-white/70"
-              >
-                <PanelLeft className="w-5 h-5" />
-              </Button>
+          <div ref={searchInputRef} className="ml-auto w-full max-w-sm md:mx-4">
+            <SymbolSearch
+              label="Hisse ara"
+              hideLabel
+              placeholder="Hisse ara  (⌘K)"
+              onSelect={(result) => navigate(`/stocks/${encodeURIComponent(result.symbol)}`)}
+            />
+          </div>
 
-              <div className="relative w-full">
-                <Input
-                  placeholder="Hisse ara ve karşılaştırma başlat..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value.toUpperCase())}
-                  onFocus={() => {
-                    if (searchResults.length > 0) setSearchOpen(true);
-                  }}
-                  className="bg-white/8 border-white/15 pl-10"
-                  icon={<Search className="w-4 h-4" />}
-                />
-
-                <AnimatePresence>
-                  {searchOpen && (searchLoading || searchResults.length > 0 || searchQuery.trim().length >= 2) && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      className="absolute top-12 left-0 right-0 rounded-xl border border-white/10 bg-surface/95 backdrop-blur-xl shadow-2xl overflow-hidden z-50"
-                    >
-                      {searchLoading ? (
-                        <div className="px-4 py-3 text-sm text-white/60 flex items-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Aranıyor...
-                        </div>
-                      ) : searchResults.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-white/50">Sonuç bulunamadı</div>
-                      ) : (
-                        <div className="py-1">
-                          {searchResults.map((item) => (
-                            <button
-                              key={`${item.symbol}-${item.exchange}`}
-                              onClick={() => handleSearchSelect(item)}
-                              className="w-full px-4 py-3 text-left hover:bg-white/5 transition-colors"
-                            >
-                              <div className="flex items-center justify-between gap-4">
-                                <div>
-                                  <p className="text-white font-medium text-sm">{item.symbol.replace('.IS', '')}</p>
-                                  <p className="text-white/45 text-xs truncate">{item.name}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs text-white/50">{item.exchange}</p>
-                                  <p className="text-[11px] text-primary/80">Karşılaştır</p>
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 md:gap-2 ml-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="text-white/70 hover:text-white"
-                title="Tema değiştir"
-              >
-                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/settings')}
-                className="text-white/70 hover:text-white relative"
-                title="Bildirimler"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-danger text-[10px] font-semibold text-white px-1 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={handleLogout}
-                className="text-white/70 hover:text-white"
-              >
-                <LogOut className="w-5 h-5 md:mr-2" />
-                <span className="hidden md:inline">Çıkış</span>
-              </Button>
-            </div>
-          </header>
-
-          <main className={cn('flex-1', compactMode ? 'p-4 md:p-5' : 'p-4 md:p-6')}>
-            <div
-              className={cn(compactMode ? 'space-y-4' : 'space-y-6')}
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              onClick={() => navigate('/notifications')}
+              aria-label={
+                unreadCount > 0 ? `Bildirimler, ${unreadCount} okunmamış` : 'Bildirimler'
+              }
             >
-              <div className="md:hidden flex items-center gap-2 text-white/50 text-xs mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                Gerçek zamanlı veri akışı aktif
-              </div>
-              {children}
-            </div>
-          </main>
-        </div>
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-danger-foreground">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Hesap menüsü">
+                  <Avatar size="sm">
+                    {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt="" />}
+                    <AvatarFallback>{initialsOf(currentUser?.name)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel>
+                  <span className="block truncate text-sm font-medium text-foreground">
+                    {currentUser?.name}
+                  </span>
+                  <span className="block truncate text-xs font-normal text-muted-foreground">
+                    {currentUser?.email}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                <DropdownMenuLabel>Görünüm</DropdownMenuLabel>
+                {THEME_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onSelect={() => setTheme(option.value)}
+                    className={cn(theme === option.value && 'bg-accent text-accent-foreground')}
+                  >
+                    <option.icon className="h-4 w-4" aria-hidden="true" />
+                    {option.label}
+                    {option.value === 'system' && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {resolvedTheme === 'dark' ? 'Koyu' : 'Açık'}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => navigate('/settings')}>
+                  <Settings className="h-4 w-4" aria-hidden="true" />
+                  Ayarlar
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate('/settings#hesap')}>
+                  <User className="h-4 w-4" aria-hidden="true" />
+                  Hesap Bilgilerim
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem destructive disabled={loggingOut} onSelect={() => void handleLogout()}>
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                  Çıkış Yap
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={cn('flex-1 focus:outline-none', compactMode ? 'p-3 md:p-4' : 'p-4 md:p-6')}
+        >
+          <PageTransition
+            key={location.pathname}
+            className={cn('mx-auto w-full max-w-7xl', compactMode ? 'space-y-4' : 'space-y-6')}
+          >
+            {children}
+          </PageTransition>
+        </main>
       </div>
     </div>
   );

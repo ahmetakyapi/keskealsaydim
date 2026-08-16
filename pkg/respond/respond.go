@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -26,13 +27,18 @@ func LogError(handler string, msg string, err error) {
 // CORS sets permissive CORS headers and handles preflight OPTIONS requests.
 // Returns true if the request was a preflight (caller should return immediately).
 func CORS(w http.ResponseWriter, r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	allowed := allowedOrigin(origin)
-	w.Header().Set("Access-Control-Allow-Origin", allowed)
+	// Responses vary by Origin, so any shared cache in front of the API must
+	// key on it or one caller's CORS headers get served to another.
+	w.Header().Add("Vary", "Origin")
+
+	if allowed := allowedOrigin(r.Header.Get("Origin")); allowed != "" {
+		w.Header().Set("Access-Control-Allow-Origin", allowed)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Max-Age", "3600")
+
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return true
@@ -41,15 +47,30 @@ func CORS(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func allowedOrigin(origin string) string {
+	if origin == "" {
+		return ""
+	}
+
 	permitted := []string{
 		"http://localhost:3000",
 		"http://localhost:5173",
 		"http://127.0.0.1:3000",
 		"http://127.0.0.1:5173",
 	}
-	if env := os.Getenv("FRONTEND_URL"); env != "" {
-		permitted = append(permitted, env)
+	// FRONTEND_URL accepts a comma-separated list so preview deployments and
+	// a custom domain can both be allowed.
+	for _, entry := range strings.Split(os.Getenv("FRONTEND_URL"), ",") {
+		if trimmed := strings.TrimRight(strings.TrimSpace(entry), "/"); trimmed != "" {
+			permitted = append(permitted, trimmed)
+		}
 	}
+	// Vercel injects the deployment's own URL; same-origin calls never send an
+	// Origin header, but preview aliases do.
+	if vercelURL := strings.TrimSpace(os.Getenv("VERCEL_URL")); vercelURL != "" {
+		permitted = append(permitted, "https://"+vercelURL)
+	}
+
+	origin = strings.TrimRight(origin, "/")
 	for _, p := range permitted {
 		if origin == p {
 			return origin

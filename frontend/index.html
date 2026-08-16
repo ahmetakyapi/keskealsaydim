@@ -2,27 +2,81 @@
 <html lang="tr" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Keşke Alsaydım — Yatırım Karşılaştırma ve Portföy Takibi</title>
     <meta
       name="description"
-      content="Keşke Alsaydım ile hisse senetlerini karşılaştır, geçmiş yatırım senaryolarını gör ve portföyünü daha net takip et."
+      content="Hisse senetlerini geçmişe dönük karşılaştırın, kaçırdığınız fırsatı rakamla görün ve portföyünüzü tek ekrandan takip edin."
     />
-    <meta name="theme-color" content="#081217" />
+    <link rel="canonical" href="https://keskealsaydim.vercel.app/" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph / Twitter: shared links previewed blank without these. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Keşke Alsaydım" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:title" content="Keşke Alsaydım — Yatırım Karşılaştırma" />
+    <meta
+      property="og:description"
+      content="Hisse senetlerini geçmişe dönük karşılaştırın, kaçırdığınız fırsatı rakamla görün."
+    />
+    <meta property="og:url" content="https://keskealsaydim.vercel.app/" />
+    <meta property="og:image" content="https://keskealsaydim.vercel.app/logo-1024x1024-rounded.png" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Keşke Alsaydım — Yatırım Karşılaştırma" />
+    <meta
+      name="twitter:description"
+      content="Hisse senetlerini geçmişe dönük karşılaştırın, kaçırdığınız fırsatı rakamla görün."
+    />
+    <meta name="twitter:image" content="https://keskealsaydim.vercel.app/logo-1024x1024-rounded.png" />
+
+    <meta name="theme-color" content="#0a1419" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f7fafc" media="(prefers-color-scheme: light)" />
     <meta name="apple-mobile-web-app-title" content="Keşke Alsaydım" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="icon" type="image/png" href="/favicon-32x32.png" />
     <link rel="shortcut icon" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- The two families the design system actually uses. Loading them here
+         (rather than via an @import in CSS) avoids a second, serialised
+         request chain. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <title>Keşke Alsaydım - Yatırım Karşılaştırma</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Apply the stored theme before first paint so a light-mode user does
+      // not get a dark flash on every load.
+      (function () {
+        try {
+          var stored = localStorage.getItem('yoa-theme');
+          var theme = stored ? JSON.parse(stored)?.state?.theme : 'dark';
+          if (theme === 'system' || !theme) {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(theme);
+        } catch (_) {
+          /* keep the server-rendered default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      Keşke Alsaydım'ı kullanmak için tarayıcınızda JavaScript'i etkinleştirin.
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

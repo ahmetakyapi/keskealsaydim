@@ -4,66 +4,47 @@ interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg';
   showText?: boolean;
   className?: string;
-  markClassName?: string;
-  textClassName?: string;
 }
 
-const markSizeClass = {
+const MARK_SIZE = {
   sm: 'h-8 w-8 rounded-[10px] text-sm',
-  md: 'h-10 w-10 rounded-[13px] text-[1.05rem]',
-  lg: 'h-[62px] w-[62px] rounded-[20px] text-[1.55rem]',
-};
+  md: 'h-10 w-10 rounded-xl text-base',
+  lg: 'h-14 w-14 rounded-2xl text-2xl',
+} as const;
 
-const textSizeClass = {
-  sm: 'text-[0.92rem]',
-  md: 'text-[1.08rem]',
+const TEXT_SIZE = {
+  sm: 'text-sm',
+  md: 'text-base',
   lg: 'text-xl',
-};
+} as const;
 
-const GRADIENT_LETTER: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #10b981 0%, #38bdf8 100%)',
-  WebkitBackgroundClip: 'text',
-  backgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-};
-
-export function BrandLogo({
-  size = 'md',
-  showText = true,
-  className,
-  markClassName,
-  textClassName,
-}: Readonly<BrandLogoProps>) {
+/**
+ * Word mark. The letter is solid, not gradient-filled: the previous version
+ * used `-webkit-text-fill-color: transparent`, which renders invisible where
+ * background-clip is unsupported and is a house rule violation besides.
+ */
+export function BrandLogo({ size = 'md', showText = true, className }: Readonly<BrandLogoProps>) {
   const mark = (
     <span
+      aria-hidden="true"
       className={cn(
-        'flex shrink-0 items-center justify-center font-black',
-        markSizeClass[size],
-        markClassName
+        'flex shrink-0 items-center justify-center border border-primary/35 bg-primary/15 font-bold text-primary',
+        MARK_SIZE[size]
       )}
-      style={{
-        background:
-          'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(56, 189, 248, 0.22) 100%)',
-        border: '1.5px solid rgba(16, 185, 129, 0.40)',
-        boxShadow:
-          '0 0 32px rgba(16, 185, 129, 0.22), 0 4px 18px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.08)',
-      }}
     >
-      <span style={GRADIENT_LETTER}>K</span>
+      K
     </span>
   );
 
-  if (!showText) {
-    return <div className={cn('flex items-center', className)}>{mark}</div>;
-  }
-
   return (
-    <div className={cn('flex items-center gap-2.5', className)}>
+    <span className={cn('flex items-center gap-2.5', className)}>
       {mark}
-      <span className={cn('tracking-tight', textSizeClass[size], textClassName)}>
-        <span className="font-medium text-slate-300">Keşke </span>
-        <span className="label-brand font-bold">Alsaydım</span>
-      </span>
-    </div>
+      {showText && (
+        <span className={cn('font-semibold tracking-tight text-foreground', TEXT_SIZE[size])}>
+          Keşke <span className="text-primary">Alsaydım</span>
+        </span>
+      )}
+      {!showText && <span className="sr-only">Keşke Alsaydım</span>}
+    </span>
   );
 }

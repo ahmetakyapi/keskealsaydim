@@ -1,101 +1,72 @@
-import { motion } from "framer-motion";
-import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
-import { cn, formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
-import CountUp from "react-countup";
+import * as React from 'react';
+import { LucideIcon } from 'lucide-react';
+import { Money, Percent } from './value';
+import { ShimmerBlock } from './skeleton';
+import { cn } from '@/lib/utils';
 
 interface StatCardProps {
   title: string;
   value: number;
-  change?: number;
-  changeLabel?: string;
+  format?: 'currency' | 'percent' | 'number';
+  currency?: string;
+  /** Renders the value with an explicit sign and directional colour. */
+  signed?: boolean;
   icon?: LucideIcon;
-  prefix?: string;
-  suffix?: string;
-  format?: "currency" | "percent" | "number";
-  variant?: "default" | "success" | "danger" | "primary" | "gradient";
-  delay?: number;
+  hint?: string;
+  footer?: React.ReactNode;
+  loading?: boolean;
+  className?: string;
+  /** Blurs the figure when the user has hidden portfolio values. */
+  masked?: boolean;
 }
 
 export function StatCard({
   title,
   value,
-  change,
-  changeLabel,
+  format = 'number',
+  currency,
+  signed = false,
   icon: Icon,
-  prefix = "",
-  suffix = "",
-  format = "number",
-  variant = "default",
-  delay = 0,
+  hint,
+  footer,
+  loading = false,
+  className,
+  masked = false,
 }: StatCardProps) {
-  const variantClasses = {
-    default: "bg-white/5 border-white/10",
-    success: "bg-success/10 border-success/20",
-    danger: "bg-danger/10 border-danger/20",
-    primary: "bg-primary/10 border-primary/20",
-    gradient: "bg-gradient-to-br from-primary/20 to-secondary/20 border-white/10",
-  };
-
-  const iconBgClasses = {
-    default: "bg-white/10",
-    success: "bg-success/20",
-    danger: "bg-danger/20",
-    primary: "bg-primary/20",
-    gradient: "bg-white/10",
-  };
-
-  const formatValue = () => {
+  const body = (() => {
     switch (format) {
-      case "currency":
-        return formatCurrency(value).replace("₺", "");
-      case "percent":
-        return formatPercent(value).replace("%", "");
+      case 'currency':
+        return <Money value={value} currency={currency} signed={signed} />;
+      case 'percent':
+        return <Percent value={value} colored={signed} />;
       default:
-        return value.toLocaleString("tr-TR");
+        return (
+          <span data-numeric="">{new Intl.NumberFormat('tr-TR').format(value)}</span>
+        );
     }
-  };
+  })();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className={cn(
-        "rounded-2xl border p-6 backdrop-blur-sm transition-all hover:scale-[1.02] hover:shadow-lg",
-        variantClasses[variant]
-      )}
-    >
-      <div className="flex items-start justify-between mb-4">
+    <div className={cn('rounded-2xl border border-border bg-card p-5', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{title}</p>
         {Icon && (
-          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", iconBgClasses[variant])}>
-            <Icon className="w-6 h-6 text-white" />
-          </div>
-        )}
-        {change !== undefined && (
-          <div className={cn("flex items-center gap-1 text-sm font-medium", getChangeColor(change))}>
-            {change > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-            <span>{formatPercent(Math.abs(change))}</span>
-          </div>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
+            <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          </span>
         )}
       </div>
 
-      <p className="text-white/60 text-sm mb-1">{title}</p>
-      <p className="text-3xl font-bold text-white">
-        {prefix}
-        <CountUp
-          end={parseFloat(formatValue().replace(/\./g, "").replace(",", "."))}
-          separator="."
-          decimals={format === "currency" ? 2 : 0}
-          decimal=","
-          duration={1.5}
-        />
-        {suffix}
+      <p className="mt-3 text-2xl font-semibold tracking-tight sm:text-[26px]">
+        {loading ? (
+          <ShimmerBlock className="h-8 w-32" />
+        ) : (
+          <span className={cn(masked && 'select-none blur-sm')}>{body}</span>
+        )}
       </p>
-      {changeLabel && (
-        <p className={cn("text-sm mt-1", getChangeColor(change || 0))}>
-          {changeLabel}
-        </p>
-      )}
-    </motion.div>
+
+      {hint && !loading && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      {footer && !loading && <div className="mt-3">{footer}</div>}
+    </div>
   );
 }

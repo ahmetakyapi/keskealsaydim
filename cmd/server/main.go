@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	alertsHandler "keskealsaydim/api/alerts"
 	authHandler "keskealsaydim/api/auth"
 	compareHandler "keskealsaydim/api/compare"
 	compareHistHandler "keskealsaydim/api/compare/history"
@@ -77,6 +78,11 @@ func main() {
 		setQueryValues(r, map[string]string{"token": token})
 		compareSharedHandler.Handler(w, r)
 	})
+	mux.HandleFunc("/api/compare/scenarios/", func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/api/compare/scenarios/")
+		setQueryValues(r, map[string]string{"id": id})
+		compareHistHandler.Handler(w, r)
+	})
 	mux.HandleFunc("/api/compare/history", func(w http.ResponseWriter, r *http.Request) {
 		compareHistHandler.Handler(w, r)
 	})
@@ -103,8 +109,40 @@ func main() {
 	})
 	mux.HandleFunc("/api/watchlist", watchlistHandler.Handler)
 
-	// Users route
+	// Users routes
 	mux.HandleFunc("/api/users/me", usersHandler.Handler)
+	mux.HandleFunc("/api/users/password", func(w http.ResponseWriter, r *http.Request) {
+		setQueryValues(r, map[string]string{"action": "password"})
+		usersHandler.Handler(w, r)
+	})
+
+	// Alerts & notifications share one handler, matching the Vercel rewrites.
+	mux.HandleFunc("/api/notifications", func(w http.ResponseWriter, r *http.Request) {
+		setQueryValues(r, map[string]string{"resource": "notifications"})
+		alertsHandler.Handler(w, r)
+	})
+	mux.HandleFunc("/api/notifications/", func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/api/notifications/")
+		setQueryValues(r, map[string]string{"resource": "notifications", "id": id})
+		alertsHandler.Handler(w, r)
+	})
+	mux.HandleFunc("/api/alerts", func(w http.ResponseWriter, r *http.Request) {
+		setQueryValues(r, map[string]string{"resource": "alerts"})
+		alertsHandler.Handler(w, r)
+	})
+	mux.HandleFunc("/api/alerts/", func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/api/alerts/")
+		setQueryValues(r, map[string]string{"resource": "alerts", "id": id})
+		alertsHandler.Handler(w, r)
+	})
+
+	// Local-only health check for smoke tests. Not deployed: the project is at
+	// Vercel Hobby's 12-function ceiling, so this does not get its own handler.
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
 
 	log.Printf("Local dev server running on http://localhost:%s", *port)
 	log.Fatal(http.ListenAndServe(":"+*port, mux))

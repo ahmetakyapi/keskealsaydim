@@ -1,0 +1,24 @@
+import { useEffect, useState } from 'react';
+
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const handleChange = (event: MediaQueryListEvent) => setMatches(event.matches);
+
+    setMatches(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [query]);
+
+  return matches;
+}
+
+/** True when the visitor asked the OS to minimise animation. */
+export function usePrefersReducedMotion(): boolean {
+  return useMediaQuery('(prefers-reduced-motion: reduce)');
+}

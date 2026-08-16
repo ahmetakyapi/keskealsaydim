@@ -2,7 +2,8 @@ import api from './api';
 import { normalizeMarketOverview } from '@/lib/api-normalizers';
 import type { MarketOverview } from '@/types';
 
-const MARKET_OVERVIEW_TIMEOUT_MS = 20000;
+// The overview fans out to ~35 symbols server-side.
+const MARKET_OVERVIEW_TIMEOUT_MS = 25000;
 
 export const marketService = {
   async getOverview(): Promise<MarketOverview> {

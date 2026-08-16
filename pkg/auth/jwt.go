@@ -12,7 +12,11 @@ import (
 )
 
 const (
-	AccessTokenTTL  = 24 * time.Hour
+	// Access tokens are not checked against the database on every request, so
+	// logging out cannot revoke one that is already issued. Keeping the window
+	// short is what bounds that exposure; the refresh token (which *is*
+	// revocable) carries the long-lived session.
+	AccessTokenTTL  = 30 * time.Minute
 	RefreshTokenTTL = 7 * 24 * time.Hour
 )
 

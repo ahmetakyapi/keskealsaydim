@@ -5,146 +5,93 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-function normalizeFiniteNumber(value: unknown, fallback = 0): number {
-  const numeric = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
+// Formatting lives in `format.ts`; re-exported so existing imports of
+// `@/lib/utils` keep working.
+export * from './format';
+
+/** Motion curve shared by every Framer Motion transition in the app. */
+export const EASE_BRAND = [0.22, 1, 0.36, 1] as const;
+
+export const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: EASE_BRAND },
+  },
+} as const;
+
+export const staggerChildren = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+} as const;
+
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(email.trim());
 }
 
-// Format currency in Turkish Lira
-export function formatCurrency(value: number, currency = 'TRY'): string {
-  const safeValue = normalizeFiniteNumber(value);
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(safeValue);
+export function truncate(text: string, length: number): string {
+  return text.length <= length ? text : `${text.slice(0, length)}…`;
 }
 
-// Format number with Turkish locale
-export function formatNumber(value: number, decimals = 2): string {
-  const safeValue = normalizeFiniteNumber(value);
-  return new Intl.NumberFormat('tr-TR', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(safeValue);
+/**
+ * Turkish-aware fold for client-side search: lowercase plus diacritic
+ * stripping, so "iş" matches "İŞ" and "sise" matches "Şişe".
+ */
+export function foldTurkish(value: string): string {
+  const map: Record<string, string> = {
+    ı: 'i', I: 'i', İ: 'i', i: 'i',
+    ş: 's', Ş: 's',
+    ğ: 'g', Ğ: 'g',
+    ü: 'u', Ü: 'u',
+    ö: 'o', Ö: 'o',
+    ç: 'c', Ç: 'c',
+  };
+  return Array.from(value.trim())
+    .map((char) => map[char] ?? char.toLowerCase())
+    .join('');
 }
 
-// Format percentage
-export function formatPercent(value: number): string {
-  const safeValue = normalizeFiniteNumber(value);
-  const sign = safeValue >= 0 ? '+' : '';
-  return `${sign}${formatNumber(safeValue)}%`;
+/** Case-folded "does the haystack contain the needle" for Turkish text. */
+export function matchesQuery(haystack: string, needle: string): boolean {
+  if (!needle) return true;
+  return foldTurkish(haystack).includes(foldTurkish(needle));
 }
 
-// Format large numbers (K, M, B)
-export function formatCompact(value: number): string {
-  const safeValue = normalizeFiniteNumber(value);
-
-  try {
-    return new Intl.NumberFormat('tr-TR', {
-      notation: 'compact',
-      compactDisplay: 'short',
-      maximumFractionDigits: 1,
-    }).format(safeValue);
-  } catch {
-    const absoluteValue = Math.abs(safeValue);
-    const units = [
-      { threshold: 1e12, suffix: 'Tn' },
-      { threshold: 1e9, suffix: 'Mr' },
-      { threshold: 1e6, suffix: 'Mn' },
-      { threshold: 1e3, suffix: 'Bin' },
-    ];
-
-    for (const unit of units) {
-      if (absoluteValue >= unit.threshold) {
-        const compactValue = safeValue / unit.threshold;
-        return `${formatNumber(compactValue, 1)} ${unit.suffix}`;
-      }
-    }
-
-    return formatNumber(safeValue, 0);
-  }
+/**
+ * Normalises user-typed symbols: upper-cases with the Turkish-safe rule
+ * (`i → I`, never `İ`) and keeps the dot in `BRK-B` / `USDTRY=X` style tickers.
+ */
+export function normalizeSymbolInput(value: string): string {
+  return value
+    .replace(/[ıi]/g, 'I')
+    .toUpperCase()
+    .replace(/[^A-Z0-9.\-=^]/g, '');
 }
 
-// Format date in Turkish locale
-export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('tr-TR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(date));
-}
-
-// Format date with time
-export function formatDateTime(date: string | Date): string {
-  return new Intl.DateTimeFormat('tr-TR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date));
-}
-
-// Format relative time
-export function formatRelativeTime(date: string | Date): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffInSeconds = Math.floor((now.getTime() - then.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'Az önce';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} dakika önce`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} saat önce`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} gün önce`;
-
-  return formatDate(date);
-}
-
-// Get change color class
-export function getChangeColor(value: number): string {
-  if (value > 0) return 'text-success';
-  if (value < 0) return 'text-danger';
-  return 'text-muted-foreground';
-}
-
-// Get change background class
-export function getChangeBgColor(value: number): string {
-  if (value > 0) return 'bg-success/10 text-success';
-  if (value < 0) return 'bg-danger/10 text-danger';
-  return 'bg-muted text-muted-foreground';
-}
-
-// Debounce function
-export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
+export function debounce<T extends (...args: never[]) => void>(
   func: T,
   waitFor: number
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>): void => {
-    clearTimeout(timeout);
+): ((...args: Parameters<T>) => void) & { cancel: () => void } {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const debounced = (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), waitFor);
   };
+  debounced.cancel = () => {
+    if (timeout) clearTimeout(timeout);
+  };
+  return debounced;
 }
 
-// Sleep function
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Generate random string
-export function generateId(length = 8): string {
-  return Math.random().toString(36).substring(2, length + 2);
-}
-
-// Validate email
-export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-// Truncate text
-export function truncate(text: string, length: number): string {
-  if (text.length <= length) return text;
-  return `${text.substring(0, length)}...`;
+/** Derives up to two initials from a display name, for avatar fallbacks. */
+export function initialsOf(name?: string | null): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  // Turkish casing: "irem" must initial as "İ", not "I".
+  return parts.map((part) => part.charAt(0).toLocaleUpperCase('tr-TR')).join('') || '?';
 }

@@ -1,32 +1,23 @@
-import * as React from "react";
-import * as AvatarPrimitive from "@radix-ui/react-avatar";
-import { cn } from "@/lib/utils";
+import * as React from 'react';
+import * as AvatarPrimitive from '@radix-ui/react-avatar';
+import { cn } from '@/lib/utils';
+
+const SIZES = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-12 w-12 text-base', xl: 'h-16 w-16 text-lg' } as const;
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & {
-    size?: "sm" | "md" | "lg" | "xl";
-  }
->(({ className, size = "md", ...props }, ref) => {
-  const sizeClasses = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-12 w-12",
-    xl: "h-16 w-16",
-  };
-
-  return (
-    <AvatarPrimitive.Root
-      ref={ref}
-      className={cn(
-        "relative flex shrink-0 overflow-hidden rounded-full ring-2 ring-white/10",
-        sizeClasses[size],
-        className
-      )}
-      {...props}
-    />
-  );
-});
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & { size?: keyof typeof SIZES }
+>(({ className, size = 'md', ...props }, ref) => (
+  <AvatarPrimitive.Root
+    ref={ref}
+    className={cn(
+      'relative flex shrink-0 overflow-hidden rounded-full ring-1 ring-border',
+      SIZES[size],
+      className
+    )}
+    {...props}
+  />
+));
 Avatar.displayName = AvatarPrimitive.Root.displayName;
 
 const AvatarImage = React.forwardRef<
@@ -35,7 +26,7 @@ const AvatarImage = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
-    className={cn("aspect-square h-full w-full object-cover", className)}
+    className={cn('aspect-square h-full w-full object-cover', className)}
     {...props}
   />
 ));
@@ -48,7 +39,7 @@ const AvatarFallback = React.forwardRef<
   <AvatarPrimitive.Fallback
     ref={ref}
     className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-white font-semibold",
+      'flex h-full w-full items-center justify-center rounded-full bg-primary/15 font-semibold text-primary',
       className
     )}
     {...props}

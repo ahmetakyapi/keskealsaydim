@@ -2,7 +2,8 @@
 
 > "X tarihinde şu hisseyi almak yerine bunu alsaydım ne olurdu?"
 
-İki hisse senedini belirli bir tarih aralığında karşılaştıran, kaçırılan fırsatları ve alternatif getiri senaryolarını görselleştiren bir yatırım analiz uygulaması.
+İki hisse senedini belirli bir tarih aralığında karşılaştıran, kaçırılan fırsatları
+rakamla gösteren ve portföyünüzü takip eden bir yatırım analiz uygulaması.
 
 **[Demo →](https://keskealsaydim.vercel.app)**
 
@@ -12,11 +13,19 @@
 
 | Özellik | Açıklama |
 | --- | --- |
-| **Karşılaştırma** | İki hisseyi seç, tarih ve yatırım tutarı gir — kim kazanırdı, ne kadar fark ederdi anında gör |
-| **Portföy Takibi** | Alış fiyatı ve miktarına göre anlık kar/zarar, günlük değişim |
-| **Watchlist** | Takip listene eklediğin hisselerin canlı fiyat ve 52H yüksek/düşük bandı |
-| **Piyasa** | BIST 100, USD/TRY, EUR/TRY, GBP/TRY, Altın ve önde gelen BIST hisseleri |
-| **Paylaşım** | Karşılaştırma senaryolarını link ile paylaş |
+| **Karşılaştırma** | İki hisse, bir tarih aralığı ve bir tutar; gün gün değer gelişimi, oynaklık, korelasyon ve en sert düşüş |
+| **Portföy** | Komisyonlu alış kaydı, düzenleme, kısmi/tam satış, gerçekleşen kâr, dağılım grafiği, CSV dışa aktarma |
+| **İzleme Listesi** | Canlı fiyat, 52 haftalık bant, not alma, tek tıkla karşılaştırma/alarm/portföye ekleme |
+| **Fiyat Alarmları** | Hedef fiyata ulaşıldığında bildirim; ekran her açıldığında güncel fiyatla değerlendirilir |
+| **Bildirimler** | Okundu/okunmadı takibi, sayfalama, tekil ve toplu silme |
+| **Hisse Detayı** | Fiyat grafiği (1A–5Y), gün içi ve 52 haftalık istatistikler |
+| **Paylaşım** | Kayıtlı senaryolara `/s/:token` ile giriş gerektirmeyen genel bağlantı |
+
+### Para birimi
+
+Tüm toplamlar **Türk lirası** cinsindendir. ABD hisseleri gibi yabancı para
+biriminde işlem gören enstrümanlar, **her işlem gününün kuruyla** çevrilir —
+bugünkü kurla değil. Böylece hem hisse hareketi hem kur hareketi sonuca yansır.
 
 ---
 
@@ -25,198 +34,123 @@
 ### Frontend — `frontend/`
 
 - **React 18** + TypeScript + Vite
-- **TailwindCSS** — dark glassmorphism tasarım sistemi
-- **Framer Motion** — sayfa geçişleri ve stagger animasyonları
-- **Recharts** — normalize edilmiş karşılaştırma grafikleri
-- **Zustand** — auth state (localStorage persist)
-- **Axios** — JWT interceptor + otomatik token refresh
+- **TailwindCSS** — HSL token tabanlı, açık/koyu tema tam destekli tasarım sistemi
+- **Radix UI** — dialog, select, tabs, tooltip, dropdown, separator primitifleri
+- **TanStack React Query** — sunucu durumu, otomatik yenileme, iyimser güncellemeler
+- **Zustand** — oturum ve tema durumu (localStorage'a kalıcı)
+- **Recharts** — tema token'larından beslenen grafikler
+- **Framer Motion** — yalnızca giriş animasyonları, `prefers-reduced-motion` destekli
 
-### Backend — `api/` + `internal/`
+### Backend — `api/` + `pkg/`
 
-- **Go 1.22** serverless functions (Vercel)
-- Her `api/**/*.go` dosyası bağımsız bir HTTP handler
-- **pgx/v5** — Neon PostgreSQL bağlantısı (pgbouncer, simple protocol)
-- **golang-jwt/v5** — Access + Refresh token çifti, otomatik rotasyon
-- **Upstash Redis** — HTTP REST API üzerinden cache (fiyat: 1dk, tarih: 24s, piyasa: 2dk)
-- **Yahoo Finance v8** — Anlık fiyat ve tarihsel veri
+- **Go 1.22** — Vercel serverless fonksiyonları
+- **pgx/v5** — Neon PostgreSQL (pgbouncer uyumlu, prepared statement kapalı)
+- **Upstash Redis (REST)** — fiyat/arama önbelleği ve hız sınırı sayaçları
+- **Yahoo Finance** — fiyat, geçmiş veri ve kur kaynağı (crumb/cookie oturumuyla)
 
-### Altyapı
+---
 
-- **Vercel** — frontend (static) + Go serverless functions tek projede
-- **Neon** — PostgreSQL (serverless, pgbouncer pooler)
-- **Upstash** — Redis (serverless HTTP)
+## Geliştirme
+
+### Gereksinimler
+
+- Go 1.22+
+- Node.js 20+
+- PostgreSQL 14+ (yerel) veya bir Neon bağlantı dizesi
+
+### Kurulum
+
+```bash
+cp .env.example .env.local     # değerleri doldurun (en azından DATABASE_URL ve JWT_SECRET)
+cd frontend && npm install && cd ..
+```
+
+Migration'ları sırayla uygulayın:
+
+```bash
+for f in db/migration/V*.sql; do psql "$DATABASE_URL" -f "$f"; done
+```
+
+### Çalıştırma
+
+```bash
+npm start      # Go API (:3000) + Vite (:5173) birlikte
+```
+
+Ayrı ayrı:
+
+```bash
+source .env.local && go run ./cmd/server/ --port 3000
+cd frontend && npm run dev
+```
+
+### Doğrulama
+
+```bash
+go vet ./... && go test ./...
+cd frontend && npm run lint && npm run build
+```
 
 ---
 
 ## Proje Yapısı
 
-```text
-keskealsaydim/
-├── api/                        # Vercel Go serverless functions
-│   ├── auth/
-│   │   └── index.go            # POST /api/auth?action=login|register|refresh|logout
-│   ├── stocks/
-│   │   └── index.go            # GET /api/stocks?action=search|price|history
-│   ├── compare/
-│   │   ├── index.go            # POST /api/compare
-│   │   ├── history/
-│   │   │   └── index.go        # GET  /api/compare/history
-│   │   └── shared/
-│   │       └── index.go        # GET  /api/compare/shared?token=
-│   ├── market/
-│   │   └── overview.go         # GET  /api/market/overview
-│   ├── portfolio/
-│   │   ├── index.go            # GET + POST /api/portfolio
-│   │   └── item/
-│   │       └── index.go        # DELETE /api/portfolio/item?id=
-│   ├── watchlist/
-│   │   ├── index.go            # GET + POST /api/watchlist
-│   │   └── item/
-│   │       └── index.go        # DELETE /api/watchlist/item?id=
-│   └── users/
-│       └── me.go               # GET + PUT /api/users/me
-│
-├── pkg/                        # Shared Go packages
-│   ├── auth/jwt.go             # JWT üret / doğrula / request'ten çıkar
-│   ├── cache/cache.go          # Upstash Redis HTTP client
-│   ├── db/db.go                # pgxpool lazy singleton (MaxConns=3)
-│   ├── finance/yahoo.go        # Yahoo Finance v8 API client
-│   └── respond/respond.go      # CORS + JSON/Error yardımcıları
-│
-├── frontend/                   # React uygulaması
-│   └── src/
-│       ├── pages/              # Dashboard, Portfolio, Watchlist, Compare, Market, Settings
-│       ├── services/           # API katmanı (portfolioService, watchlistService, ...)
-│       ├── stores/             # Zustand stores (authStore, themeStore)
-│       ├── components/         # UI bileşenleri (shadcn tabanlı)
-│       └── types/index.ts      # Go backend response'larıyla eşleşen TypeScript tipleri
-│
-├── go.mod
-├── go.sum
-└── vercel.json                 # Build + routing + Go runtime konfigürasyonu
+```
+api/                      Vercel serverless handler'ları (dizin başına tek Handler)
+  alerts/                 Fiyat alarmları + bildirim gelen kutusu (resource parametresiyle)
+  auth/                   Giriş, kayıt, token yenileme, çıkış (action parametresiyle)
+  compare/                Karşılaştırma hesabı
+    history/              Kayıtlı senaryolar: listeleme, favori, silme
+    shared/               Genel paylaşım bağlantısı (kimlik doğrulaması gerektirmez)
+  market/                 Piyasa genel görünümü
+  portfolio/              Portföy özeti ve yatırım ekleme
+    item/                 Düzenleme, satış/kapatma, silme
+  stocks/                 Arama, anlık fiyat, geçmiş veri
+  users/                  Profil, ayarlar, şifre değiştirme, hesap silme
+  watchlist/              İzleme listesi
+    item/                 Not, sıra, silme
+pkg/
+  auth/                   JWT üretimi ve doğrulama
+  cache/                  Upstash Redis REST istemcisi + sayaç
+  db/                     pgx havuzu, sağlık kontrolü, bağlantı dizesi çözümleme
+  finance/                Yahoo istemcisi, sembol normalizasyonu, kur dönüşümü
+  respond/                JSON yanıtları, CORS, hız sınırı
+cmd/server/               Yerel geliştirme sunucusu (vercel.json rewrite'larını taklit eder)
+db/migration/             Flyway biçiminde SQL migration'ları (V1__, V2__, …)
+frontend/src/
+  pages/                  Ekranlar
+  components/ui/          Tasarım sistemi primitifleri
+  components/compare/     Karşılaştırma sonucu görünümü (sayfa ve paylaşım ortak kullanır)
+  hooks/                  React Query hook'ları ve yardımcı hook'lar
+  services/               Axios servis katmanı
+  stores/                 Zustand store'ları
+  lib/                    Biçimlendirme, grafik teması, hata çevirisi
 ```
 
 ---
 
-## API Referansı
+## Mimari Notlar
 
-### Auth
+**Serverless fonksiyon sayısı.** Vercel Hobby planı dağıtım başına 12 fonksiyonla
+sınırlıdır. Bu yüzden ilişkili uçlar tek handler'da toplanır ve `vercel.json`
+rewrite'larıyla ayrıştırılır: `/api/notifications` → `/api/alerts?resource=notifications`,
+`/api/users/password` → `/api/users/me?action=password` gibi.
 
-| Method | Endpoint | Auth | Açıklama |
-| --- | --- | --- | --- |
-| POST | `/api/auth/register` | — | Kayıt |
-| POST | `/api/auth/login` | — | Giriş, token çifti döner |
-| POST | `/api/auth/refresh` | — | Refresh token ile yeni access token |
-| POST | `/api/auth/logout` | ✓ | Refresh token'ı iptal et |
+**SPA yönlendirmesi.** `vercel.json` içindeki `/((?!api/).*)` → `/index.html`
+kuralı olmadan `/dashboard` gibi bir adrese doğrudan girildiğinde 404 alınır.
 
-### Hisseler
+**Erişim ve yenileme jetonları.** Erişim jetonu 30 dakika, yenileme jetonu 7 gün
+geçerlidir ve her yenilemede döndürülür. Erişim jetonu her istekte veritabanına
+sorulmadığı için çıkış anında iptal edilemez; kısa ömür bu açığı sınırlar.
 
-| Method | Endpoint | Auth | Cache |
-| --- | --- | --- | --- |
-| GET | `/api/stocks/search?q=` | — | — |
-| GET | `/api/stocks/{symbol}/price` | — | 1 dakika |
-| GET | `/api/stocks/{symbol}/history?from=&to=&interval=` | — | 24 saat |
-
-### Karşılaştırma
-
-| Method | Endpoint | Auth | Açıklama |
-| --- | --- | --- | --- |
-| POST | `/api/compare` | opsiyonel | `saveScenario: true` ile DB'ye kaydeder |
-| GET | `/api/compare/history?page=&size=` | ✓ | Geçmiş senaryolar |
-| GET | `/api/compare/shared/{token}` | — | Paylaşılan senaryo |
-
-### Portföy & Watchlist
-
-| Method | Endpoint | Auth |
-| --- | --- | --- |
-| GET/POST | `/api/portfolio` | ✓ |
-| DELETE | `/api/portfolio/{id}` | ✓ |
-| GET/POST | `/api/watchlist` | ✓ |
-| DELETE | `/api/watchlist/{id}` | ✓ |
-| GET/PUT | `/api/users/me` | ✓ |
-
-### Piyasa
-
-| Method | Endpoint | Cache |
-| --- | --- | --- |
-| GET | `/api/market/overview` | 2 dakika |
+**Alarm değerlendirmesi.** Arka plan işçisi yoktur; aktif alarmlar `/api/alerts`
+her okunduğunda güncel fiyata karşı değerlendirilir ve tetiklenenler bildirim
+üretir.
 
 ---
 
-## Yerel Geliştirme
+## Sorumluluk Reddi
 
-### Gereksinimler
-
-- **Node.js** 20+
-- **Go** 1.22+
-- Neon veya yerel PostgreSQL
-- Upstash Redis veya yerel Redis
-
-### Kurulum
-
-```bash
-# Repoyu klonla
-git clone https://github.com/kullanici/keskealsaydim.git
-cd keskealsaydim
-
-# Frontend bağımlılıklarını yükle
-cd frontend && npm install && cd ..
-
-# Go bağımlılıklarını indir
-go mod download
-
-# Environment değişkenlerini ayarla
-export DATABASE_URL="postgresql://..."
-export JWT_SECRET="en-az-32-karakter-rastgele-string"
-export UPSTASH_REDIS_REST_URL="https://..."
-export UPSTASH_REDIS_REST_TOKEN="..."
-export FRONTEND_URL="http://localhost:5173"
-
-# Tek komutla frontend + backend
-npm start
-```
-
-`npm start` komutu frontend'i `http://localhost:5173`, backend'i `http://localhost:3000` üzerinde başlatır.
-
-Backend artık `DATABASE_URL` dışında `POSTGRES_URL` veya standart `PGHOST` / `PGDATABASE` / `PGUSER` / `PGPASSWORD` değişkenlerinden de bağlantı kurabilir. Uzak veritabanlarında `sslmode=require`, yerelde ise `sslmode=disable` otomatik tamamlanır.
-
-> **Not:** İstersen backend'i ayrı da çalıştırabilirsin: `vercel dev`
-
-### Veritabanı
-
-`db/migration/` dizinindeki SQL dosyalarını sırayla çalıştır:
-
-```text
-V1__create_users_table.sql
-V2__create_investments_table.sql
-V3__create_watchlist_table.sql
-V4__create_comparison_scenarios_table.sql
-V5__create_notifications_and_settings.sql
-V6__normalize_bist_symbols.sql
-```
-
-İstersen yalnızca altyapı servislerini ayağa kaldırmak için `docker compose up -d postgres redis data-service` kullanabilirsin.
-
----
-
-## Deploy
-
-Proje Vercel'e tek seferde deploy olur. Gerekli ortam değişkenleri:
-
-```env
-DATABASE_URL=postgresql://...@pooler.neon.tech/neondb?sslmode=require
-# veya Vercel Postgres/Neon entegrasyonunda POSTGRES_URL otomatik gelebilir
-JWT_SECRET=<openssl rand -hex 32>
-UPSTASH_REDIS_REST_URL=https://...upstash.io
-UPSTASH_REDIS_REST_TOKEN=...
-FRONTEND_URL=https://senin-proje.vercel.app
-VITE_API_URL=
-```
-
-`vercel.json` build komutunu ve Go runtime'ı otomatik olarak yapılandırır.
-
----
-
-## Lisans
-
-MIT
+Bu uygulama yatırım tavsiyesi vermez. Veriler Yahoo Finance üzerinden alınır,
+15 dakikaya kadar gecikmeli olabilir ve yalnızca bilgilendirme amaçlıdır.
+Geçmiş performans gelecekteki getirinin göstergesi değildir.

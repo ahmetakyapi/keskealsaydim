@@ -303,23 +303,13 @@
   }
 
   /*
-   * Marketing surfaces get a layered ground: a faint engineering grid that
-   * fades out toward the edges, sitting under the ambient gradients. Both
-   * layers are token-driven, so the light theme gets ink instead of light.
+   * Soft coloured bloom behind a hero or feature block.
+   *
+   * This is the only ambient layer. A tiled hairline grid was tried here and
+   * removed: a decorative grid field belongs on a canvas, map or measurement
+   * surface, and on a marketing hero it is just a generated-UI signature. The
+   * depth comes from the blooms, the elevated card and the display type.
    */
-  .grid-backdrop {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(to right, rgb(var(--hairline) / 0.055) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(var(--hairline) / 0.055) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
-    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
-  }
-
-  /* Soft coloured bloom behind a hero or feature block. */
   .bloom {
     position: absolute;
     border-radius: 9999px;

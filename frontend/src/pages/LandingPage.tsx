@@ -258,9 +258,12 @@ export default function LandingPage() {
       <main>
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <section className="relative">
-          <div className="grid-backdrop" aria-hidden="true" />
-          <div className="bloom -top-24 left-[8%] h-72 w-72 bg-primary/25" aria-hidden="true" />
-          <div className="bloom -top-16 right-[6%] h-80 w-80 bg-secondary/25" aria-hidden="true" />
+          <div className="bloom -top-24 left-[6%] h-80 w-80 bg-primary/30" aria-hidden="true" />
+          <div className="bloom -top-20 right-[4%] h-96 w-96 bg-secondary/25" aria-hidden="true" />
+          <div
+            className="bloom left-1/2 top-40 h-56 w-[32rem] -translate-x-1/2 bg-primary/10"
+            aria-hidden="true"
+          />
 
           <div className="relative mx-auto w-full max-w-6xl px-4 pb-10 pt-14 sm:pt-20">
             <FadeIn className="text-center">

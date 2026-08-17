@@ -23,7 +23,8 @@ interface HeroCompareChartProps {
   symbolB: string;
   /** Starting capital, drawn as the break-even reference line. */
   amount: number;
-  height?: number;
+  /** Wrapper class for the plot area; use `.hero-chart` for the fluid height. */
+  chartClassName?: string;
   className?: string;
 }
 
@@ -40,7 +41,7 @@ export function HeroCompareChart({
   symbolA,
   symbolB,
   amount,
-  height = 300,
+  chartClassName = 'h-[300px]',
   className,
 }: HeroCompareChartProps) {
   const palette = useChartPalette();
@@ -71,8 +72,11 @@ export function HeroCompareChart({
   if (data.length < 2) {
     return (
       <div
-        className={cn('flex items-center justify-center text-sm text-muted-foreground', className)}
-        style={{ height }}
+        className={cn(
+          'flex items-center justify-center text-sm text-muted-foreground',
+          chartClassName,
+          className
+        )}
       >
         Grafik için yeterli veri yok.
       </div>
@@ -127,7 +131,7 @@ export function HeroCompareChart({
         </div>
       </div>
 
-      <div style={{ height }}>
+      <div className={chartClassName}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>

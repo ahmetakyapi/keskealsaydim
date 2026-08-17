@@ -40,7 +40,14 @@ export function BrandLogo({ size = 'md', showText = true, className }: Readonly<
     <span className={cn('flex items-center gap-2.5', className)}>
       {mark}
       {showText && (
-        <span className={cn('font-semibold tracking-tight text-foreground', TEXT_SIZE[size])}>
+        // `whitespace-nowrap`: at 390px the header is tight enough that the
+        // word mark broke across two lines.
+        <span
+          className={cn(
+            'whitespace-nowrap font-semibold tracking-tight text-foreground',
+            TEXT_SIZE[size]
+          )}
+        >
           Keşke <span className="text-primary">Alsaydım</span>
         </span>
       )}

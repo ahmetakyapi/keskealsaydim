@@ -60,6 +60,10 @@
 
     --radius: 1rem;
 
+    /* Sticky header + market ticker. The hero subtracts this so it fills
+       exactly one screen instead of guessing at a fixed height. */
+    --chrome-h: 107px;
+
     /* The house easing curve. Wired to Tailwind + the default transition
        timing so every transition inherits it without being restated. */
     --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
@@ -299,7 +303,61 @@
 
   /* Anchored sections must clear the sticky header when jumped to. */
   .scroll-anchor {
-    scroll-margin-top: 6rem;
+    scroll-margin-top: 7rem;
+  }
+
+  /*
+   * Hero that fills exactly one screen below the chrome, from a 1280×720
+   * laptop up to a 27" display — without ever clipping its own content.
+   * `min-height` (not `height`) so a short viewport scrolls instead of
+   * cutting off, and only from `lg` up, where the two-column layout applies.
+   */
+  @media (min-width: 1024px) {
+    .hero-fit {
+      min-height: calc(100dvh - var(--chrome-h));
+    }
+  }
+
+  /*
+   * Fluid type for the hero lockup. `clamp` rather than breakpoint jumps so
+   * the headline never lands mid-word at an awkward width, and never grows
+   * past what the column can hold.
+   */
+  .hero-title {
+    font-size: clamp(2.5rem, 4.6vw + 0.5rem, 4.5rem);
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1.125rem, 1.4vw + 0.5rem, 1.75rem);
+  }
+
+  .hero-lede {
+    font-size: clamp(0.9375rem, 0.4vw + 0.8rem, 1.0625rem);
+  }
+
+  /* The hero chart shrinks with the viewport so the panel stays on screen. */
+  .hero-chart {
+    height: clamp(150px, 20vh, 260px);
+  }
+
+  /*
+   * Short laptops (1280×720 and the like) are the tight case: the panel
+   * overshot by ~10px there. Trim the chart and the section padding just for
+   * that band rather than shrinking everything everywhere.
+   */
+  @media (min-width: 1024px) and (max-height: 780px) {
+    .hero-fit {
+      padding-top: 1.25rem;
+      padding-bottom: 1.25rem;
+    }
+
+    .hero-chart {
+      height: clamp(120px, 16vh, 160px);
+    }
+
+    .hero-title {
+      font-size: clamp(2.25rem, 3.4vw + 0.5rem, 3.25rem);
+    }
   }
 
   /*

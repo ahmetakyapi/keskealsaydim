@@ -63,28 +63,28 @@ const FEATURES = [
     title: 'Gerçek Fiyatlarla Karşılaştırma',
     description:
       'İki hisseyi seçtiğiniz aralıkta gün gün karşılaştırın. Oynaklık, korelasyon ve en sert düşüş dahil.',
-    points: ['Günlük kurla TL çevrimi', 'Zaman serisi grafiği', 'Risk göstergeleri'],
+    points: ['Günlük Kurla TL Çevrimi', 'Zaman Serisi Grafiği', 'Risk Göstergeleri'],
   },
   {
     icon: Wallet,
     title: 'Portföy Takibi',
     description:
       'Komisyonuyla birlikte alış kaydedin; güncel değer, ağırlık ve satış sonrası gerçekleşen kâr tek ekranda.',
-    points: ['Kısmi ve tam satış', 'Dağılım grafiği', 'CSV dışa aktarma'],
+    points: ['Kısmi ve Tam Satış', 'Dağılım Grafiği', 'CSV Dışa Aktarma'],
   },
   {
     icon: BellRing,
     title: 'Fiyat Alarmları',
     description:
       'Bir hisse belirlediğiniz seviyeye ulaştığında bildirim listenize düşsün. Takip etmeyi bırakın.',
-    points: ['Üst ve alt sınır', 'Bildirim gelen kutusu', 'Süreli alarm'],
+    points: ['Üst ve Alt Sınır', 'Bildirim Gelen Kutusu', 'Süreli Alarm'],
   },
   {
     icon: Share2,
     title: 'Paylaşılabilir Senaryolar',
     description:
       'Hesapladığınız senaryoyu kaydedin, bağlantısını paylaşın. Karşı taraf hesap açmadan sonucu görür.',
-    points: ['Genel bağlantı', 'Görüntülenme sayısı', 'Favorilere ekleme'],
+    points: ['Genel Bağlantı', 'Görüntülenme Sayısı', 'Favorilere Ekleme'],
   },
 ] as const;
 
@@ -108,11 +108,11 @@ const STEPS = [
 
 const FAQ = [
   {
-    q: 'Veriler nereden geliyor?',
+    q: 'Veriler Nereden Geliyor?',
     a: 'Fiyat ve geçmiş veriler Yahoo Finance üzerinden alınır. Veriler 15 dakikaya kadar gecikmeli olabilir ve yalnızca bilgilendirme amaçlıdır.',
   },
   {
-    q: 'Yabancı hisseler nasıl hesaplanıyor?',
+    q: 'Yabancı Hisseler Nasıl Hesaplanıyor?',
     a: 'ABD hisseleri dolar cinsinden işlem görür. Karşılaştırma ve portföy toplamları her işlem gününün kuruyla Türk lirasına çevrilir; böylece kur hareketi de sonuca yansır. Bugünkü kurla toptan çevirmek yanlış sonuç verirdi.',
   },
   {
@@ -120,7 +120,7 @@ const FAQ = [
     a: 'Hayır. Karşılaştırma, portföy takibi, izleme listesi ve fiyat alarmları ücretsizdir. Kredi kartı istemiyoruz.',
   },
   {
-    q: 'Yatırım tavsiyesi veriyor musunuz?',
+    q: 'Yatırım Tavsiyesi Veriyor musunuz?',
     a: 'Hayır. Uygulama yalnızca geçmiş fiyatlara dayalı hesaplama yapar. Geçmiş performans gelecekteki getirinin göstergesi değildir.',
   },
 ] as const;
@@ -256,37 +256,40 @@ export default function LandingPage() {
       <MarketTicker />
 
       <main>
-        {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <section className="relative">
-          <div className="bloom -top-24 left-[6%] h-80 w-80 bg-primary/30" aria-hidden="true" />
-          <div className="bloom -top-20 right-[4%] h-96 w-96 bg-secondary/25" aria-hidden="true" />
+        {/*
+          ── Hero + live demo ─────────────────────────────────────────────
+          One section, two columns: the pitch on the left, the working
+          product on the right. `hero-fit` makes it occupy exactly one
+          screen below the chrome from lg up; below that the columns stack
+          and the section grows naturally.
+        */}
+        <section id="demo" className="scroll-anchor relative">
+          <div className="bloom -top-24 left-[4%] h-80 w-80 bg-primary/30" aria-hidden="true" />
+          <div className="bloom -top-16 right-[2%] h-96 w-96 bg-secondary/25" aria-hidden="true" />
           <div
-            className="bloom left-1/2 top-40 h-56 w-[32rem] -translate-x-1/2 bg-primary/10"
+            className="bloom bottom-0 left-1/3 h-56 w-[30rem] bg-primary/10"
             aria-hidden="true"
           />
 
-          <div className="relative mx-auto w-full max-w-6xl px-4 pb-10 pt-14 sm:pt-20">
-            <FadeIn className="text-center">
-              <Badge variant="default" className="mb-6">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                </span>
-                Gerçek piyasa verisiyle çalışır
+          <div className="hero-fit relative mx-auto grid w-full max-w-7xl items-center gap-8 px-4 py-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10 lg:py-8 xl:gap-14">
+            {/* Left: the pitch */}
+            <FadeIn className="text-center lg:text-left">
+              <Badge variant="default" className="mb-5">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                Gerçek Piyasa Verisiyle Çalışır
               </Badge>
 
-              <h1 className="display mx-auto max-w-4xl text-[2.5rem] sm:text-6xl lg:text-7xl">
-                Keşke onu alsaydım
-              </h1>
-              <p className="display-sm mx-auto mt-3 max-w-3xl text-xl text-muted-foreground sm:text-2xl">
-                demeden önce rakamı görün.
+              <h1 className="display hero-title">Keşke Onu Alsaydım</h1>
+              <p className="display-sm hero-subtitle mt-2 text-muted-foreground">
+                Demeden Önce Rakamı Görün
               </p>
 
-              <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
+              <p className="hero-lede mx-auto mt-5 max-w-xl text-muted-foreground lg:mx-0">
                 Aynı parayı başka bir hisseye koysaydınız bugün elinizde ne olurdu? Geçmiş
                 fiyatlarla hesaplayın, portföyünüzü takip edin, sonucu paylaşın.
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                 <Button size="lg" asChild>
                   <Link to={isAuthenticated ? '/compare' : '/register'}>
                     {isAuthenticated ? 'Karşılaştırma Yap' : 'Ücretsiz Hesap Oluştur'}
@@ -294,30 +297,25 @@ export default function LandingPage() {
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <a href="#demo">Önce Deneyin</a>
+                  <a href="#ozellikler">Özellikleri İncele</a>
                 </Button>
               </div>
 
-              <p className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                {['Kayıt olmadan deneyin', 'Kredi kartı yok', 'Türk lirası bazlı'].map((item) => (
-                  <span key={item} className="flex items-center gap-1">
+              <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground lg:justify-start">
+                {['Kayıt Olmadan Deneyin', 'Kredi Kartı Yok', 'Türk Lirası Bazlı'].map((item) => (
+                  <li key={item} className="flex items-center gap-1">
                     <Check className="h-3 w-3 text-success" aria-hidden="true" />
                     {item}
-                  </span>
+                  </li>
                 ))}
-              </p>
+              </ul>
             </FadeIn>
-          </div>
-        </section>
 
-        {/* ── Interactive demo ─────────────────────────────────────────── */}
-        <section id="demo" className="scroll-anchor relative pb-16">
-          <div className="mx-auto w-full max-w-5xl px-4">
-            <FadeIn delay={0.08}>
+            {/* Right: the product, running */}
+            <FadeIn delay={0.08} className="min-w-0">
               <Card className="lit-edge overflow-hidden border-primary/20 shadow-2xl">
-                {/* Controls */}
-                <div className="border-b border-border bg-surface-raised/50 p-4 sm:p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="border-b border-border bg-surface-raised/50 p-3.5 sm:p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="eyebrow text-muted-foreground">CANLI HESAP</p>
                     <div className="flex flex-wrap gap-1.5">
                       {PRESETS.map((preset) => {
@@ -327,7 +325,7 @@ export default function LandingPage() {
                             key={preset.label}
                             variant={active ? 'secondary' : 'outline'}
                             size="sm"
-                            className="h-7 px-2.5 text-xs"
+                            className="h-7 px-2 text-[11px]"
                             aria-pressed={active}
                             onClick={() => {
                               setSymbolA(preset.a);
@@ -341,7 +339,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <SymbolSearch
                       label="Aldığınız Hisse"
                       value={symbolA}
@@ -354,18 +352,16 @@ export default function LandingPage() {
                     />
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
+                  <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
                     <fieldset>
-                      <legend className="mb-1.5 text-xs text-muted-foreground">
-                        Yatırım tutarı
-                      </legend>
+                      <legend className="mb-1 text-xs text-muted-foreground">Yatırım Tutarı</legend>
                       <div className="flex gap-1.5">
                         {AMOUNTS.map((value) => (
                           <Button
                             key={value}
                             variant={amount === value ? 'secondary' : 'outline'}
                             size="sm"
-                            className="h-8"
+                            className="h-7 px-2.5 text-xs"
                             aria-pressed={amount === value}
                             onClick={() => setAmount(value)}
                           >
@@ -376,14 +372,14 @@ export default function LandingPage() {
                     </fieldset>
 
                     <fieldset>
-                      <legend className="mb-1.5 text-xs text-muted-foreground">Dönem</legend>
+                      <legend className="mb-1 text-xs text-muted-foreground">Dönem</legend>
                       <div className="flex gap-1.5">
                         {RANGES.map((range) => (
                           <Button
                             key={range.label}
                             variant={years === range.years ? 'secondary' : 'outline'}
                             size="sm"
-                            className="h-8"
+                            className="h-7 px-2.5 text-xs"
                             aria-pressed={years === range.years}
                             onClick={() => setYears(range.years)}
                           >
@@ -395,12 +391,11 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Result */}
-                <CardContent className="p-4 sm:p-6">
+                <CardContent className="p-3.5 sm:p-4">
                   {demo.isPending ? (
-                    <div className="space-y-4">
-                      <ShimmerBlock className="h-32 w-full rounded-xl" />
-                      <ShimmerBlock className="h-[300px] w-full rounded-xl" />
+                    <div className="space-y-3">
+                      <ShimmerBlock className="h-24 w-full rounded-xl" />
+                      <ShimmerBlock className="hero-chart w-full rounded-xl" />
                     </div>
                   ) : demo.isError ? (
                     <ErrorState
@@ -414,7 +409,7 @@ export default function LandingPage() {
                     <>
                       <div
                         className={cn(
-                          'rounded-xl border p-4 sm:p-5',
+                          'rounded-xl border p-3.5',
                           winnerIsB
                             ? 'border-danger/25 bg-danger/[0.05]'
                             : 'border-success/25 bg-success/[0.05]'
@@ -423,11 +418,11 @@ export default function LandingPage() {
                         role="status"
                         aria-live="polite"
                       >
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {formatLongDate(result.startDate)} tarihinde{' '}
                           {formatCurrency(result.amount)} ile
                         </p>
-                        <p className="display-sm mt-1.5 text-2xl leading-snug sm:text-3xl">
+                        <p className="display-sm mt-1 text-lg leading-snug sm:text-xl">
                           <span className={winnerIsB ? 'text-danger' : 'text-success'}>
                             {winnerSymbol}
                           </span>{' '}
@@ -440,7 +435,7 @@ export default function LandingPage() {
                           daha fazlanız olurdu.
                         </p>
 
-                        <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                           {[
                             {
                               label: result.symbolA,
@@ -454,11 +449,11 @@ export default function LandingPage() {
                             },
                           ].map((leg) => (
                             <div key={leg.label}>
-                              <dt className="text-xs text-muted-foreground">{leg.label}</dt>
-                              <dd className="mt-0.5 text-lg font-semibold">
+                              <dt className="text-[11px] text-muted-foreground">{leg.label}</dt>
+                              <dd className="text-base font-semibold">
                                 <AnimatedNumber value={leg.value} format="currency" />
                               </dd>
-                              <dd className="text-xs">
+                              <dd className="text-[11px]">
                                 <AnimatedNumber
                                   value={leg.percent}
                                   format="percent"
@@ -469,28 +464,31 @@ export default function LandingPage() {
                           ))}
 
                           <div>
-                            <dt className="text-xs text-muted-foreground">Fark</dt>
-                            <dd className="mt-0.5 text-lg font-semibold" data-numeric="">
+                            <dt className="text-[11px] text-muted-foreground">Fark</dt>
+                            <dd className="text-base font-semibold" data-numeric="">
                               {formatNumber(Math.abs(result.result.difference.percentagePoints))}{' '}
                               puan
                             </dd>
-                            <dd className="text-xs text-muted-foreground">
+                            <dd className="text-[11px] text-muted-foreground">
                               {result.result.metrics.tradingDays} işlem günü
                             </dd>
                           </div>
 
                           <div>
-                            <dt className="text-xs text-muted-foreground">En sert düşüş</dt>
-                            <dd className="mt-0.5 text-lg font-semibold" data-numeric="">
+                            <dt className="text-[11px] text-muted-foreground">En Sert Düşüş</dt>
+                            <dd className="text-base font-semibold" data-numeric="">
                               %{formatNumber(winnerLeg.maxDrawdown)}
                             </dd>
-                            <dd className="text-xs text-muted-foreground">{winnerSymbol} için</dd>
+                            <dd className="text-[11px] text-muted-foreground">
+                              {winnerSymbol} için
+                            </dd>
                           </div>
                         </dl>
                       </div>
 
                       <HeroCompareChart
-                        className="mt-5"
+                        className="mt-4"
+                        chartClassName="hero-chart"
                         series={result.result.series}
                         symbolA={result.symbolA}
                         symbolB={result.symbolB}
@@ -499,13 +497,13 @@ export default function LandingPage() {
 
                       {(result.result.symbolA.currency !== 'TRY' ||
                         result.result.symbolB.currency !== 'TRY') && (
-                        <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <p className="mt-2.5 flex items-start gap-1.5 text-[11px] text-muted-foreground">
                           <ShieldCheck
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                            className="mt-0.5 h-3 w-3 shrink-0 text-primary"
                             aria-hidden="true"
                           />
                           Yabancı para birimindeki hisse, her işlem gününün kuruyla Türk lirasına
-                          çevrildi — kur hareketi de sonuca dahil.
+                          çevrildi.
                         </p>
                       )}
                     </>
@@ -513,15 +511,6 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
             </FadeIn>
-
-            <div className="mt-6 text-center">
-              <Button asChild>
-                <Link to={isAuthenticated ? '/compare' : '/register'}>
-                  Kendi Senaryonuzu Kaydedin
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            </div>
           </div>
         </section>
 
@@ -535,7 +524,7 @@ export default function LandingPage() {
           <div className="relative mx-auto w-full max-w-6xl px-4 py-16">
             <FadeIn className="mb-10 text-center">
               <p className="eyebrow text-primary">ÖZELLİKLER</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Neler yapabilirsiniz</h2>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Neler Yapabilirsiniz</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
                 Dört temel iş, hepsi gerçek veriyle çalışıyor.
               </p>
@@ -571,7 +560,7 @@ export default function LandingPage() {
           <div className="mx-auto w-full max-w-5xl px-4 py-16">
             <FadeIn className="mb-10 text-center">
               <p className="eyebrow text-primary">NASIL ÇALIŞIR</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Üç adımda sonuç</h2>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Üç Adımda Sonuç</h2>
             </FadeIn>
 
             <ol className="grid gap-4 md:grid-cols-3">
@@ -598,7 +587,7 @@ export default function LandingPage() {
           <div className="mx-auto w-full max-w-3xl px-4 py-16">
             <FadeIn className="mb-8 text-center">
               <p className="eyebrow text-primary">SIK SORULANLAR</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Merak edilenler</h2>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Merak Edilenler</h2>
             </FadeIn>
 
             <dl className="space-y-3">
@@ -624,7 +613,7 @@ export default function LandingPage() {
           <div className="relative mx-auto w-full max-w-3xl px-4 py-16 text-center">
             <FadeIn>
               <h2 className="display text-3xl sm:text-4xl">
-                Bir sonraki “keşke”yi yaşamadan hesaplayın.
+                Bir Sonraki Keşkeyi Yaşamadan Hesaplayın
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground">
                 Hesap oluşturun, portföyünüzü ekleyin, senaryolarınızı kaydedin ve paylaşın.

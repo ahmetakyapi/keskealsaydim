@@ -11,6 +11,10 @@ interface AnimatedNumberProps {
   decimals?: number;
   durationMs?: number;
   className?: string;
+  /** Hold at zero until the element scrolls into view, then count up. */
+  startOnView?: boolean;
+  /** Appended after the formatted number, e.g. a unit. */
+  suffix?: string;
 }
 
 /**
@@ -31,13 +35,40 @@ export function AnimatedNumber({
   decimals = 2,
   durationMs = 900,
   className,
+  startOnView = false,
+  suffix,
 }: AnimatedNumberProps) {
   const reduced = usePrefersReducedMotion();
-  const [displayed, setDisplayed] = useState(value);
-  const fromRef = useRef(value);
+  const [displayed, setDisplayed] = useState(startOnView ? 0 : value);
+  const [armed, setArmed] = useState(!startOnView);
+  const fromRef = useRef(startOnView ? 0 : value);
   const frameRef = useRef<number>();
+  const elementRef = useRef<HTMLSpanElement>(null);
+
+  // Counting up while off-screen wastes the effect entirely; wait for the
+  // figure to actually be looked at.
+  useEffect(() => {
+    if (!startOnView || armed || typeof IntersectionObserver === 'undefined') return;
+
+    const node = elementRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setArmed(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [startOnView, armed]);
 
   useEffect(() => {
+    if (!armed) return;
+
     if (reduced) {
       setDisplayed(value);
       fromRef.current = value;
@@ -67,7 +98,7 @@ export function AnimatedNumber({
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
       fromRef.current = value;
     };
-  }, [value, durationMs, reduced]);
+  }, [value, durationMs, reduced, armed]);
 
   const text = (() => {
     switch (format) {
@@ -83,8 +114,9 @@ export function AnimatedNumber({
   })();
 
   return (
-    <span data-numeric="" className={cn('tabular-nums', className)}>
+    <span ref={elementRef} data-numeric="" className={cn('tabular-nums', className)}>
       {text}
+      {suffix}
     </span>
   );
 }

@@ -3,16 +3,12 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowUpRight,
-  BellRing,
   Check,
-  GitCompare,
   LayoutDashboard,
   Menu,
   Moon,
-  Share2,
   ShieldCheck,
   Sun,
-  Wallet,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,8 +21,13 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { MarketTicker } from '@/components/MarketTicker';
 import { SymbolSearch } from '@/components/SymbolSearch';
 import { HeroCompareChart } from '@/components/compare/HeroCompareChart';
-import { FadeIn } from '@/components/Motion';
-import { useDemoComparison } from '@/hooks/useQueries';
+import { FadeIn, Reveal, RevealGroup, RevealItem, ScrollProgress } from '@/components/Motion';
+import { FeatureShowcase } from '@/components/landing/FeatureShowcase';
+import { StepsShowcase } from '@/components/landing/StepsShowcase';
+import { TodayMovers } from '@/components/landing/TodayMovers';
+import { PopularComparisons } from '@/components/landing/PopularComparisons';
+import { FaqAccordion } from '@/components/landing/FaqAccordion';
+import { useDemoComparison, useMarketOverview } from '@/hooks/useQueries';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -57,52 +58,31 @@ const RANGES = [
   { label: '5 Yıl', years: 5 },
 ] as const;
 
-const FEATURES = [
+const COMPARISON_ROWS = [
   {
-    icon: GitCompare,
-    title: 'Gerçek Fiyatlarla Karşılaştırma',
-    description:
-      'İki hisseyi seçtiğiniz aralıkta gün gün karşılaştırın. Oynaklık, korelasyon ve en sert düşüş dahil.',
-    points: ['Günlük Kurla TL Çevrimi', 'Zaman Serisi Grafiği', 'Risk Göstergeleri'],
+    step: 'Geçmiş Fiyat Bulma',
+    manual: 'Her hisse için ayrı ayrı tarihsel kapanış aramak',
+    app: 'İki sembol yazın, veri otomatik gelsin',
   },
   {
-    icon: Wallet,
-    title: 'Portföy Takibi',
-    description:
-      'Komisyonuyla birlikte alış kaydedin; güncel değer, ağırlık ve satış sonrası gerçekleşen kâr tek ekranda.',
-    points: ['Kısmi ve Tam Satış', 'Dağılım Grafiği', 'CSV Dışa Aktarma'],
+    step: 'Kur Çevrimi',
+    manual: 'ABD hisseleri için her günün kurunu elle bulmak',
+    app: 'Her işlem gününün kuruyla otomatik çevrim',
   },
   {
-    icon: BellRing,
-    title: 'Fiyat Alarmları',
-    description:
-      'Bir hisse belirlediğiniz seviyeye ulaştığında bildirim listenize düşsün. Takip etmeyi bırakın.',
-    points: ['Üst ve Alt Sınır', 'Bildirim Gelen Kutusu', 'Süreli Alarm'],
+    step: 'Temettü ve Bölünme',
+    manual: 'Düzeltilmiş fiyatı ayrıca hesaplamak',
+    app: 'Düzeltilmiş kapanış varsayılan olarak kullanılır',
   },
   {
-    icon: Share2,
-    title: 'Paylaşılabilir Senaryolar',
-    description:
-      'Hesapladığınız senaryoyu kaydedin, bağlantısını paylaşın. Karşı taraf hesap açmadan sonucu görür.',
-    points: ['Genel Bağlantı', 'Görüntülenme Sayısı', 'Favorilere Ekleme'],
-  },
-] as const;
-
-const STEPS = [
-  {
-    title: 'İki Hisse Seçin',
-    description:
-      'Aldığınız hisseyi ve merak ettiğiniz alternatifi yazın. BIST ve ABD borsaları desteklenir.',
+    step: 'Risk Ölçümü',
+    manual: 'Oynaklık ve korelasyon için formül kurmak',
+    app: 'Oynaklık, korelasyon ve en sert düşüş hazır',
   },
   {
-    title: 'Tarih ve Tutar Girin',
-    description:
-      'Ne zaman, ne kadarla girdiğinizi belirtin. Geçmiş fiyatlar ve o günün kuru kullanılır.',
-  },
-  {
-    title: 'Farkı Görün',
-    description:
-      'Gün gün değer gelişimi, kaçırdığınız tutar ve risk göstergeleri karşınıza çıkar.',
+    step: 'Paylaşma',
+    manual: 'Ekran görüntüsü almak',
+    app: 'Canlı bağlantı, alıcı hesap açmadan görür',
   },
 ] as const;
 
@@ -148,6 +128,8 @@ export default function LandingPage() {
   // revisiting a combination is instant.
   const demo = useDemoComparison(symbolA, symbolB, years, amount);
   const result = demo.data ?? null;
+  // Only for the live stat band; the ticker fetches the same cached query.
+  const market = useMarketOverview();
 
   const winnerIsB = result?.result.difference.winnerSymbol === 'B';
   const winnerSymbol = result ? (winnerIsB ? result.symbolB : result.symbolA) : '';
@@ -166,6 +148,7 @@ export default function LandingPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur-xl">
+        <ScrollProgress />
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4">
           <Link to="/" aria-label="Keşke Alsaydım ana sayfa">
             <BrandLogo size="sm" />
@@ -514,128 +497,299 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Features ─────────────────────────────────────────────────── */}
-        <section id="ozellikler" className="scroll-anchor relative border-t border-border">
-          <div
-            className="bloom left-1/2 top-20 h-64 w-[36rem] -translate-x-1/2 bg-primary/12"
-            aria-hidden="true"
-          />
-
-          <div className="relative mx-auto w-full max-w-6xl px-4 py-16">
-            <FadeIn className="mb-10 text-center">
-              <p className="eyebrow text-primary">ÖZELLİKLER</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Neler Yapabilirsiniz</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-                Dört temel iş, hepsi gerçek veriyle çalışıyor.
-              </p>
-            </FadeIn>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {FEATURES.map((feature, index) => (
-                <FadeIn key={feature.title} delay={0.05 * index}>
-                  <Card className="group h-full p-5 transition-all hover:border-primary/35 hover:shadow-lg sm:p-6">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 transition-colors group-hover:bg-primary/20">
-                      <feature.icon className="h-5 w-5 text-primary" aria-hidden="true" />
-                    </span>
-                    <h3 className="display-sm mt-4 text-lg">{feature.title}</h3>
-                    <p className="mt-1.5 text-sm text-muted-foreground">{feature.description}</p>
-
-                    <ul className="mt-4 space-y-1.5">
-                      {feature.points.map((point) => (
-                        <li key={point} className="flex items-center gap-2 text-sm">
-                          <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
-                          <span className="text-muted-foreground">{point}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </FadeIn>
+        {/* ── Live stats ───────────────────────────────────────────────── */}
+        <section className="border-y border-border bg-surface/40">
+          <div className="mx-auto w-full max-w-6xl px-4 py-10">
+            <RevealGroup className="grid grid-cols-2 gap-6 lg:grid-cols-4" stagger={0.07}>
+              {[
+                {
+                  value: market.data?.requestedSymbols ?? 43,
+                  suffix: ' sembol',
+                  label: 'Canlı Takip Edilen',
+                  hint: 'BIST, ABD, döviz ve emtia',
+                },
+                {
+                  value: result?.result.metrics.tradingDays ?? 750,
+                  suffix: ' gün',
+                  label: 'Hesaplanan İşlem Günü',
+                  hint: 'Yandaki örnek için',
+                },
+                {
+                  value: 10,
+                  suffix: ' para birimi',
+                  label: 'TL\'ye Çevrilen',
+                  hint: 'Her işlem gününün kuruyla',
+                },
+                {
+                  // A year, counted up, would render as "1.990" through the
+                  // tr-TR thousands separator — so this is stated as a span.
+                  value: new Date().getFullYear() - 1990,
+                  suffix: ' yıl',
+                  label: 'Geriye Dönük Veri',
+                  hint: "1990'a kadar geçmiş fiyat",
+                },
+              ].map((stat) => (
+                <RevealItem key={stat.label}>
+                  <p className="display text-3xl text-primary sm:text-4xl">
+                    <AnimatedNumber
+                      value={stat.value}
+                      decimals={0}
+                      startOnView
+                      suffix={stat.suffix}
+                    />
+                  </p>
+                  <p className="mt-1.5 text-sm font-medium">{stat.label}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{stat.hint}</p>
+                </RevealItem>
               ))}
-            </div>
+            </RevealGroup>
           </div>
         </section>
 
-        {/* ── How it works ─────────────────────────────────────────────── */}
-        <section id="nasil" className="scroll-anchor border-t border-border bg-surface/40">
-          <div className="mx-auto w-full max-w-5xl px-4 py-16">
-            <FadeIn className="mb-10 text-center">
+        {/* ── Feature showcase ─────────────────────────────────────────── */}
+        <section id="ozellikler" className="scroll-anchor relative border-b border-border">
+          <div
+            className="bloom left-1/2 top-16 h-64 w-[36rem] -translate-x-1/2 bg-primary/12"
+            aria-hidden="true"
+          />
+
+          <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
+            <Reveal className="mb-10 text-center">
+              <p className="eyebrow text-primary">ÖZELLİKLER</p>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Neler Yapabilirsiniz</h2>
+              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+                Bir özelliği seçin, o ekranı olduğu gibi görün.
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.06}>
+              <FeatureShowcase />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ── Sticky walkthrough ───────────────────────────────────────── */}
+        <section id="nasil" className="scroll-anchor relative overflow-hidden bg-surface/40">
+          <div className="bloom right-0 top-1/3 h-72 w-72 bg-secondary/15" aria-hidden="true" />
+
+          <div className="relative mx-auto w-full max-w-6xl px-4 pt-16 sm:pt-20">
+            <Reveal className="text-center">
               <p className="eyebrow text-primary">NASIL ÇALIŞIR</p>
               <h2 className="display mt-2 text-3xl sm:text-4xl">Üç Adımda Sonuç</h2>
-            </FadeIn>
+            </Reveal>
+          </div>
 
-            <ol className="grid gap-4 md:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <FadeIn key={step.title} delay={0.06 * index}>
-                  <li className="relative h-full rounded-2xl border border-border bg-card p-5">
-                    <span
-                      className="display absolute right-4 top-3 text-4xl text-primary/15"
-                      aria-hidden="true"
-                    >
-                      {index + 1}
-                    </span>
-                    <h3 className="display-sm pr-10 text-base">{step.title}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">{step.description}</p>
-                  </li>
-                </FadeIn>
-              ))}
-            </ol>
+          <div className="relative mx-auto w-full max-w-6xl px-4">
+            <StepsShowcase />
+          </div>
+        </section>
+
+        {/* ── Live movers ──────────────────────────────────────────────── */}
+        <section className="relative border-y border-border">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
+            <Reveal className="mb-8 text-center">
+              <p className="eyebrow text-primary">CANLI PİYASA</p>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Bugün Piyasada Ne Oluyor</h2>
+              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+                Aşağıdaki liste şu anki fiyatlardan hesaplanıyor. Bir hisseye tıklayarak
+                detayını açabilirsiniz.
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.06}>
+              <TodayMovers />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ── Popular comparisons ──────────────────────────────────────── */}
+        <section className="relative">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
+            <Reveal className="mb-8 text-center">
+              <p className="eyebrow text-primary">HAZIR SENARYOLAR</p>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Sık Merak Edilen Karşılaştırmalar</h2>
+              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+                Birine tıklayın, hesap anında sizin için çalışsın.
+              </p>
+            </Reveal>
+
+            <PopularComparisons />
+          </div>
+        </section>
+
+        {/* ── Manual vs product ────────────────────────────────────────── */}
+        <section className="relative border-y border-border bg-surface/40">
+          <div className="mx-auto w-full max-w-4xl px-4 py-16 sm:py-20">
+            <Reveal className="mb-8 text-center">
+              <p className="eyebrow text-primary">KARŞILAŞTIRMA</p>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Elle Hesaplamakla Arasındaki Fark</h2>
+            </Reveal>
+
+            <Reveal delay={0.06}>
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">
+                    Elle hesaplama ile Keşke Alsaydım karşılaştırması
+                  </caption>
+                  <thead>
+                    <tr className="border-b border-border bg-surface-raised/60 text-left">
+                      <th scope="col" className="p-4 font-medium">
+                        Adım
+                      </th>
+                      <th scope="col" className="p-4 font-medium text-muted-foreground">
+                        Elle / Excel
+                      </th>
+                      <th scope="col" className="p-4 font-medium text-primary">
+                        Keşke Alsaydım
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {COMPARISON_ROWS.map((row) => (
+                      <tr key={row.step}>
+                        <th scope="row" className="p-4 text-left font-medium">
+                          {row.step}
+                        </th>
+                        <td className="p-4 text-muted-foreground">{row.manual}</td>
+                        <td className="p-4">
+                          <span className="flex items-start gap-1.5">
+                            <Check
+                              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success"
+                              aria-hidden="true"
+                            />
+                            {row.app}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Reveal>
           </div>
         </section>
 
         {/* ── FAQ ──────────────────────────────────────────────────────── */}
-        <section id="sss" className="scroll-anchor border-t border-border">
-          <div className="mx-auto w-full max-w-3xl px-4 py-16">
-            <FadeIn className="mb-8 text-center">
+        <section id="sss" className="scroll-anchor relative">
+          <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-20">
+            <Reveal className="mb-8 text-center">
               <p className="eyebrow text-primary">SIK SORULANLAR</p>
               <h2 className="display mt-2 text-3xl sm:text-4xl">Merak Edilenler</h2>
-            </FadeIn>
+            </Reveal>
 
-            <dl className="space-y-3">
-              {FAQ.map((item, index) => (
-                <FadeIn key={item.q} delay={0.04 * index}>
-                  <Card className="p-5">
-                    <dt className="display-sm text-base">{item.q}</dt>
-                    <dd className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.a}</dd>
-                  </Card>
-                </FadeIn>
-              ))}
-            </dl>
+            <Reveal delay={0.06}>
+              <FaqAccordion items={FAQ} />
+            </Reveal>
           </div>
         </section>
 
         {/* ── CTA ──────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden border-t border-border">
           <div
-            className="bloom left-1/2 top-0 h-56 w-[40rem] -translate-x-1/2 bg-secondary/20"
+            className="bloom left-1/2 top-0 h-64 w-[44rem] -translate-x-1/2 bg-secondary/20"
             aria-hidden="true"
           />
+          <div className="bloom bottom-0 left-1/4 h-56 w-96 bg-primary/15" aria-hidden="true" />
 
-          <div className="relative mx-auto w-full max-w-3xl px-4 py-16 text-center">
-            <FadeIn>
-              <h2 className="display text-3xl sm:text-4xl">
+          <div className="relative mx-auto w-full max-w-3xl px-4 py-20 text-center">
+            <Reveal>
+              <h2 className="display text-3xl sm:text-4xl lg:text-5xl">
                 Bir Sonraki Keşkeyi Yaşamadan Hesaplayın
               </h2>
-              <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground">
+              <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground sm:text-base">
                 Hesap oluşturun, portföyünüzü ekleyin, senaryolarınızı kaydedin ve paylaşın.
+                Tamamı ücretsiz.
               </p>
-              <Button size="lg" className="mt-7" asChild>
-                <Link to={isAuthenticated ? '/dashboard' : '/register'}>
-                  {isAuthenticated ? 'Panele Git' : 'Ücretsiz Başla'}
-                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            </FadeIn>
+
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <Button size="lg" asChild>
+                  <Link to={isAuthenticated ? '/dashboard' : '/register'}>
+                    {isAuthenticated ? 'Panele Git' : 'Ücretsiz Başla'}
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <a href="#demo">Önce Deneyin</a>
+                </Button>
+              </div>
+            </Reveal>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-4 px-4 py-8 text-center sm:flex-row sm:justify-between sm:text-left">
-          <BrandLogo size="sm" />
-          <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
-            Yatırım tavsiyesi değildir. Veriler Yahoo Finance kaynaklıdır ve gecikmeli olabilir.
-            Geçmiş performans gelecekteki getirinin göstergesi değildir.
-          </p>
+      <footer className="border-t border-border bg-surface/40">
+        <div className="mx-auto w-full max-w-6xl px-4 py-12">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="lg:col-span-2">
+              <BrandLogo size="sm" />
+              <p className="mt-3 max-w-sm text-sm text-muted-foreground">
+                Geçmişe dönük yatırım senaryolarını gerçek fiyatlarla hesaplayan, portföyünüzü
+                Türk lirası bazında takip eden açık bir araç.
+              </p>
+            </div>
+
+            <nav aria-labelledby="footer-product">
+              <h2 id="footer-product" className="display-sm text-sm">
+                Ürün
+              </h2>
+              <ul className="mt-3 space-y-2">
+                {[
+                  { href: '#demo', label: 'Canlı Deneyin' },
+                  { href: '#ozellikler', label: 'Özellikler' },
+                  { href: '#nasil', label: 'Nasıl Çalışır' },
+                  { href: '#sss', label: 'Sık Sorulanlar' },
+                ].map((item) => (
+                  <li key={item.href}>
+                    <a
+                      href={item.href}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <nav aria-labelledby="footer-account">
+              <h2 id="footer-account" className="display-sm text-sm">
+                Hesap
+              </h2>
+              <ul className="mt-3 space-y-2">
+                {(isAuthenticated
+                  ? [
+                      { to: '/dashboard', label: 'Panel' },
+                      { to: '/compare', label: 'Karşılaştır' },
+                      { to: '/portfolio', label: 'Portföyüm' },
+                      { to: '/settings', label: 'Ayarlar' },
+                    ]
+                  : [
+                      { to: '/register', label: 'Ücretsiz Kayıt' },
+                      { to: '/login', label: 'Giriş Yap' },
+                    ]
+                ).map((item) => (
+                  <li key={item.to}>
+                    <Link
+                      to={item.to}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
+
+          <div className="mt-10 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Veriler Yahoo Finance kaynaklıdır ve 15 dakikaya kadar gecikmeli olabilir.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Yatırım tavsiyesi değildir. Geçmiş performans gelecekteki getirinin göstergesi
+              değildir.
+            </p>
+          </div>
         </div>
       </footer>
     </div>

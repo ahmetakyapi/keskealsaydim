@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
 import { cn, formatCurrency, formatNumber, formatPercent, formatSignedCurrency } from '@/lib/utils';
 
-type NumberFormat = 'currency' | 'signed-currency' | 'percent' | 'number';
+type NumberFormat = 'currency' | 'signed-currency' | 'percent' | 'number' | 'integer';
 
 interface AnimatedNumberProps {
   value: number;
@@ -15,6 +15,8 @@ interface AnimatedNumberProps {
   startOnView?: boolean;
   /** Appended after the formatted number, e.g. a unit. */
   suffix?: string;
+  /** Prepended before the formatted number, e.g. a currency symbol. */
+  prefix?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export function AnimatedNumber({
   className,
   startOnView = false,
   suffix,
+  prefix,
 }: AnimatedNumberProps) {
   const reduced = usePrefersReducedMotion();
   const [displayed, setDisplayed] = useState(startOnView ? 0 : value);
@@ -108,6 +111,9 @@ export function AnimatedNumber({
         return formatSignedCurrency(displayed, currency);
       case 'percent':
         return formatPercent(displayed, decimals);
+      case 'integer':
+        // No grouping separator: a year must read "1990", not "1.990".
+        return String(Math.round(displayed));
       default:
         return formatNumber(displayed, decimals);
     }
@@ -115,6 +121,7 @@ export function AnimatedNumber({
 
   return (
     <span ref={elementRef} data-numeric="" className={cn('tabular-nums', className)}>
+      {prefix}
       {text}
       {suffix}
     </span>

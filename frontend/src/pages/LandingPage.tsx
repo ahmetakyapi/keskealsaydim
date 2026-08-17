@@ -497,49 +497,37 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Live stats ───────────────────────────────────────────────── */}
+        {/*
+          ── Facts ──────────────────────────────────────────────────────────
+          Four short, checkable claims. The earlier version padded this band
+          with derived trivia ("752 gün · Hesaplanan İşlem Günü · Yandaki
+          örnek için") that referred to a panel no longer beside it and told
+          the visitor nothing about whether to sign up.
+        */}
         <section className="border-y border-border bg-surface/40">
-          <div className="mx-auto w-full max-w-6xl px-4 py-10">
-            <RevealGroup className="grid grid-cols-2 gap-6 lg:grid-cols-4" stagger={0.07}>
+          <div className="mx-auto w-full max-w-6xl px-4 py-9">
+            <RevealGroup className="grid grid-cols-2 gap-x-6 gap-y-7 lg:grid-cols-4" stagger={0.07}>
               {[
                 {
                   value: market.data?.requestedSymbols ?? 43,
-                  suffix: ' sembol',
-                  label: 'Canlı Takip Edilen',
-                  hint: 'BIST, ABD, döviz ve emtia',
+                  format: 'integer' as const,
+                  label: 'Canlı Sembol',
                 },
-                {
-                  value: result?.result.metrics.tradingDays ?? 750,
-                  suffix: ' gün',
-                  label: 'Hesaplanan İşlem Günü',
-                  hint: 'Yandaki örnek için',
-                },
-                {
-                  value: 10,
-                  suffix: ' para birimi',
-                  label: 'TL\'ye Çevrilen',
-                  hint: 'Her işlem gününün kuruyla',
-                },
-                {
-                  // A year, counted up, would render as "1.990" through the
-                  // tr-TR thousands separator — so this is stated as a span.
-                  value: new Date().getFullYear() - 1990,
-                  suffix: ' yıl',
-                  label: 'Geriye Dönük Veri',
-                  hint: "1990'a kadar geçmiş fiyat",
-                },
+                { value: 10, format: 'integer' as const, label: 'Para Birimi' },
+                { value: 1990, format: 'integer' as const, label: 'Veri Başlangıcı' },
+                { value: 0, format: 'integer' as const, prefix: '₺', label: 'Aylık Ücret' },
               ].map((stat) => (
                 <RevealItem key={stat.label}>
                   <p className="display text-3xl text-primary sm:text-4xl">
                     <AnimatedNumber
                       value={stat.value}
+                      format={stat.format}
+                      prefix={'prefix' in stat ? stat.prefix : undefined}
                       decimals={0}
                       startOnView
-                      suffix={stat.suffix}
                     />
                   </p>
-                  <p className="mt-1.5 text-sm font-medium">{stat.label}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{stat.hint}</p>
+                  <p className="mt-1.5 text-sm text-muted-foreground">{stat.label}</p>
                 </RevealItem>
               ))}
             </RevealGroup>
@@ -568,19 +556,22 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Sticky walkthrough ───────────────────────────────────────── */}
+        {/* ── Walkthrough ──────────────────────────────────────────────── */}
         <section id="nasil" className="scroll-anchor relative overflow-hidden bg-surface/40">
-          <div className="bloom right-0 top-1/3 h-72 w-72 bg-secondary/15" aria-hidden="true" />
+          <div className="bloom right-0 top-1/4 h-72 w-72 bg-secondary/15" aria-hidden="true" />
 
-          <div className="relative mx-auto w-full max-w-6xl px-4 pt-16 sm:pt-20">
-            <Reveal className="text-center">
+          <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
+            <Reveal className="mb-8 text-center">
               <p className="eyebrow text-primary">NASIL ÇALIŞIR</p>
               <h2 className="display mt-2 text-3xl sm:text-4xl">Üç Adımda Sonuç</h2>
+              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+                Adımlar kendiliğinden ilerler; istediğiniz adıma tıklayarak durdurabilirsiniz.
+              </p>
             </Reveal>
-          </div>
 
-          <div className="relative mx-auto w-full max-w-6xl px-4">
-            <StepsShowcase />
+            <Reveal delay={0.06}>
+              <StepsShowcase />
+            </Reveal>
           </div>
         </section>
 

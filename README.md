@@ -88,8 +88,14 @@ cd frontend && npm run dev
 
 ```bash
 go vet ./... && go test ./...
-cd frontend && npm run lint && npm run build
+cd frontend && npm run lint && npm run test && npm run build
 ```
+
+Frontend testleri Vitest ile çalışır ve saf mantık katmanını kapsar:
+biçimlendirme (`lib/format.ts`), normalleştiriciler, grafik matematiği,
+Türkçe katlama ve hata çevirisi. Bu projedeki gerçek kusurlar tam olarak
+orada yaşadı — kaybolan eksi işareti, yok sayılan para birimi, `i → I`
+dönüşümü — bu yüzden kapsam oraya yoğunlaştı. DOM gerekmez.
 
 ---
 

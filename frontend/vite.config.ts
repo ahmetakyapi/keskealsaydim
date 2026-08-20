@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -26,6 +27,13 @@ export default defineConfig({
   preview: {
     port: 4173,
     proxy: { '/api': API_PROXY },
+  },
+  // The suite covers the pure logic layer (formatting, normalisers, chart
+  // maths). Those are where this project's real defects lived — a lost minus
+  // sign, a currency ignored, Turkish casing — and they need no DOM.
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
   build: {
     outDir: 'dist',

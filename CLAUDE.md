@@ -29,7 +29,7 @@ npm start                          # Go API on :3000 + Vite on :5173
 ### Verify
 ```bash
 go vet ./... && go test ./...
-cd frontend && npm run lint && npm run build
+cd frontend && npm run lint && npm run test && npm run build
 ```
 
 ## Project Structure
@@ -92,6 +92,9 @@ db/migration/     SQL migration files (Flyway-style V1__, V2__, ...)
   Showing an empty state on error tells the user the wrong thing.
 - Motion: only the primitives in `components/Motion.tsx`. They respect
   `prefers-reduced-motion`. No infinite ambient animation.
+- Pure logic in `lib/` carries a Vitest suite (`src/lib/*.test.ts`). Anything
+  touching a sign, a currency, a date boundary or Turkish casing belongs there
+  — those are the four ways this app has actually been wrong before.
 - Turkish text is written with its diacritics (`Canlı`, not `Canli`). Titles,
   buttons and menu items use Title Case; body copy uses sentence case.
   Never use `text-transform: capitalize` — it produces `i → I` instead of `İ`.

@@ -160,9 +160,13 @@ export default function AlertsPage() {
                           {statusMeta.label}
                         </Badge>
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {alert.symbolName}
-                      </p>
+                      {/* The API falls back to the symbol when no name was
+                          supplied; repeating it reads as a rendering bug. */}
+                      {alert.symbolName !== alert.symbol && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {alert.symbolName}
+                        </p>
+                      )}
 
                       <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
                         <DirectionIcon

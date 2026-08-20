@@ -365,7 +365,9 @@ function WatchRow({
               </Badge>
             )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.symbolName}</p>
+          {item.symbolName !== item.symbol && (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.symbolName}</p>
+          )}
           {item.notes && (
             <p className="mt-1 truncate text-xs italic text-muted-foreground">“{item.notes}”</p>
           )}

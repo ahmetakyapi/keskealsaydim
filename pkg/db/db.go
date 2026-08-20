@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -90,16 +91,7 @@ func openPool() (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	cfg.MaxConns = int32(readIntEnv("DB_MAX_CONNS", 4))
-	cfg.MinConns = 0
-	cfg.MaxConnIdleTime = 5 * time.Minute
-	cfg.MaxConnLifetime = 30 * time.Minute
-	cfg.MaxConnLifetimeJitter = 5 * time.Minute
-	cfg.HealthCheckPeriod = 30 * time.Second
-	cfg.ConnConfig.ConnectTimeout = connectTimeoutSeconds * time.Second
-	cfg.ConnConfig.RuntimeParams["application_name"] = "keskealsaydim-api"
-	// Disable prepared statements for pgbouncer compatibility.
-	cfg.ConnConfig.DefaultQueryExecMode = 3 // pgx.QueryExecModeSimpleProtocol
+	applyPoolTuning(cfg)
 
 	p, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
@@ -112,6 +104,33 @@ func openPool() (*pgxpool.Pool, error) {
 	}
 
 	return p, nil
+}
+
+// applyPoolTuning holds every connection setting in one place so it can be
+// asserted in a test; the query exec mode in particular must not drift.
+func applyPoolTuning(cfg *pgxpool.Config) {
+	cfg.MaxConns = int32(readIntEnv("DB_MAX_CONNS", 4))
+	cfg.MinConns = 0
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.MaxConnLifetimeJitter = 5 * time.Minute
+	cfg.HealthCheckPeriod = 30 * time.Second
+	cfg.ConnConfig.ConnectTimeout = connectTimeoutSeconds * time.Second
+	cfg.ConnConfig.RuntimeParams["application_name"] = "keskealsaydim-api"
+
+	// Neon fronts Postgres with pgbouncer in transaction pooling mode, which
+	// can hand consecutive protocol round trips to different backends. Only
+	// the simple protocol is safe there: it sends one self-contained message
+	// per query and never depends on a prepared statement surviving.
+	//
+	// This was previously the literal `3`, with a comment claiming it meant
+	// QueryExecModeSimpleProtocol. It does not: pgx's iota block opens with a
+	// blank identifier, so 3 is QueryExecModeDescribeExec, which carries an
+	// unnamed prepared statement across two round trips. Under concurrent
+	// requests that produced "bind message has N result formats but query has
+	// M columns" and "unnamed prepared statement does not exist", and the
+	// dashboard's parallel calls failed at random.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 }
 
 func pingPool(p *pgxpool.Pool) error {

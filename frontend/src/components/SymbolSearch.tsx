@@ -271,7 +271,7 @@ export function SymbolSearch({
                       <span className="block font-medium">{result.symbol.replace(/\.IS$/, '')}</span>
                       <span className="block truncate text-xs text-muted-foreground">{result.name}</span>
                     </span>
-                    <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                    <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                       {result.exchange || result.type}
                     </span>
                   </li>

@@ -21,7 +21,7 @@ function Chrome({ title, children }: { title: string; children: React.ReactNode 
           <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
           <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
         </span>
-        <span className="text-[11px] font-medium text-muted-foreground">{title}</span>
+        <span className="text-xs font-medium text-muted-foreground">{title}</span>
       </div>
       <div className="p-3">{children}</div>
     </div>
@@ -44,7 +44,7 @@ function Row({
     <li className="flex items-center justify-between gap-3 py-2">
       <span className="min-w-0">
         <span className="block text-xs font-semibold">{symbol}</span>
-        <span className="block truncate text-[10px] text-muted-foreground">{name}</span>
+        <span className="block truncate text-xs text-muted-foreground">{name}</span>
       </span>
       <span className="text-right">
         <span className="block text-xs font-semibold" data-numeric="">
@@ -52,7 +52,7 @@ function Row({
         </span>
         <span
           className={cn(
-            'flex items-center justify-end gap-0.5 text-[10px] font-medium',
+            'flex items-center justify-end gap-0.5 text-xs font-medium',
             up ? 'text-success' : 'text-danger'
           )}
           data-numeric=""
@@ -74,13 +74,13 @@ export function PortfolioPreview() {
     <Chrome title="Portföyüm">
       <div className="mb-3 grid grid-cols-2 gap-2">
         <div className="rounded-lg bg-muted p-2">
-          <p className="text-[10px] text-muted-foreground">Toplam Değer</p>
+          <p className="text-xs text-muted-foreground">Toplam Değer</p>
           <p className="mt-0.5 text-sm font-semibold" data-numeric="">
             {formatCurrency(76249.46)}
           </p>
         </div>
         <div className="rounded-lg bg-success/10 p-2">
-          <p className="text-[10px] text-muted-foreground">Kâr / Zarar</p>
+          <p className="text-xs text-muted-foreground">Kâr / Zarar</p>
           <p className="mt-0.5 text-sm font-semibold text-success" data-numeric="">
             +{formatCurrency(30670.07)}
           </p>
@@ -91,7 +91,7 @@ export function PortfolioPreview() {
         <Row symbol="THYAO" name="Türk Hava Yolları" value={3052.5} percent={-1.2} />
         <Row symbol="ASELS" name="Aselsan" value={18740.0} percent={8.9} />
       </ul>
-      <p className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+      <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
         <Wallet className="h-2.5 w-2.5" aria-hidden="true" />
         Yabancı hisseler günlük kurla TL'ye çevrilir
       </p>
@@ -120,7 +120,7 @@ export function AlertPreview() {
                 {alert.status}
               </Badge>
             </div>
-            <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
               <BellRing className="h-2.5 w-2.5" aria-hidden="true" />
               Hedef {formatNumber(alert.target)} · Güncel {formatNumber(alert.current)}
             </p>
@@ -128,8 +128,8 @@ export function AlertPreview() {
         ))}
       </ul>
       <div className="mt-2 rounded-lg bg-muted p-2">
-        <p className="text-[10px] font-medium">ASELS Fiyat Alarmı</p>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">
+        <p className="text-xs font-medium">ASELS Fiyat Alarmı</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Aselsan belirlediğiniz üst sınıra ulaştı.
         </p>
       </div>
@@ -141,7 +141,7 @@ export function ComparePreview() {
   return (
     <Chrome title="Karşılaştır">
       <div className="rounded-lg border border-danger/25 bg-danger/[0.06] p-2.5">
-        <p className="text-[10px] text-muted-foreground">3 yıl önce {formatCurrency(10000)} ile</p>
+        <p className="text-xs text-muted-foreground">3 yıl önce {formatCurrency(10000)} ile</p>
         <p className="mt-1 text-sm font-semibold leading-snug">
           <span className="text-danger">ASELS</span> alsaydınız{' '}
           <span data-numeric="">{formatCurrency(93169.4)}</span> daha fazlanız olurdu.
@@ -154,8 +154,8 @@ export function ComparePreview() {
           { label: 'En Sert Düşüş', value: '%22,5' },
         ].map((metric) => (
           <div key={metric.label} className="rounded-lg bg-muted p-1.5">
-            <p className="text-[9px] text-muted-foreground">{metric.label}</p>
-            <p className="text-[11px] font-semibold" data-numeric="">
+            <p className="text-xs text-muted-foreground">{metric.label}</p>
+            <p className="text-xs font-semibold" data-numeric="">
               {metric.value}
             </p>
           </div>
@@ -185,7 +185,7 @@ export function SharePreview() {
     <Chrome title="Paylaşılan Senaryo">
       <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2 py-1.5">
         <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <code className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
+        <code className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           keskealsaydim.vercel.app/s/8f3a…
         </code>
         <Copy className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -193,20 +193,20 @@ export function SharePreview() {
 
       <div className="mt-2.5 rounded-lg border border-border p-2.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold">THYAO - ASELS</p>
+          <p className="text-xs font-semibold">THYAO - ASELS</p>
           <Badge variant="neutral" size="sm">
             <Eye className="h-2.5 w-2.5" aria-hidden="true" />
             142
           </Badge>
         </div>
-        <p className="mt-1 text-[10px] text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground">
           Alıcı hesap açmadan sonucu görebilir.
         </p>
       </div>
 
       <ul className="mt-2 space-y-1">
         {['Genel bağlantı', 'Görüntülenme sayısı', 'İstediğinizde silme'].map((item) => (
-          <li key={item} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <li key={item} className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Check className="h-2.5 w-2.5 text-success" aria-hidden="true" />
             {item}
           </li>

@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ErrorState } from '@/components/ui/error-state';
 import { ShimmerBlock } from '@/components/ui/skeleton';
 import { AnimatedNumber } from '@/components/ui/animated-number';
@@ -336,13 +335,6 @@ export default function LandingPage() {
               className="text-center lg:text-left"
               style={reduced ? undefined : { y: pitchY, opacity: pitchOpacity }}
             >
-              <HeroIn play={introDone}>
-                <Badge variant="default" className="mb-5">
-                  <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-primary before:bg-primary" aria-hidden="true" />
-                  Gerçek Piyasa Verisiyle Çalışır
-                </Badge>
-              </HeroIn>
-
               <h1 className="display hero-title">
                 <SplitText
                   text="Keşke Onu Alsaydım"
@@ -409,8 +401,7 @@ export default function LandingPage() {
               >
               <Card className="lit-edge overflow-hidden border-primary/20 shadow-[0_40px_120px_-40px_hsl(var(--primary)/0.45)]">
                 <div className="border-b border-border bg-surface-raised/50 p-3.5 sm:p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="eyebrow text-muted-foreground">CANLI HESAP</p>
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="flex flex-wrap gap-1.5">
                       {PRESETS.map((preset) => {
                         const active = symbolA === preset.a && symbolB === preset.b;
@@ -419,7 +410,7 @@ export default function LandingPage() {
                             key={preset.label}
                             variant={active ? 'secondary' : 'outline'}
                             size="sm"
-                            className="h-7 px-2 text-[11px]"
+                            className="h-7 px-2 text-xs"
                             aria-pressed={active}
                             onClick={() => {
                               setSymbolA(preset.a);
@@ -543,11 +534,11 @@ export default function LandingPage() {
                             },
                           ].map((leg) => (
                             <div key={leg.label}>
-                              <dt className="text-[11px] text-muted-foreground">{leg.label}</dt>
+                              <dt className="text-xs text-muted-foreground">{leg.label}</dt>
                               <dd className="text-base font-semibold">
                                 <AnimatedNumber value={leg.value} format="currency" />
                               </dd>
-                              <dd className="text-[11px]">
+                              <dd className="text-xs">
                                 <AnimatedNumber
                                   value={leg.percent}
                                   format="percent"
@@ -558,22 +549,22 @@ export default function LandingPage() {
                           ))}
 
                           <div>
-                            <dt className="text-[11px] text-muted-foreground">Fark</dt>
+                            <dt className="text-xs text-muted-foreground">Fark</dt>
                             <dd className="text-base font-semibold" data-numeric="">
                               {formatNumber(Math.abs(result.result.difference.percentagePoints))}{' '}
                               puan
                             </dd>
-                            <dd className="text-[11px] text-muted-foreground">
+                            <dd className="text-xs text-muted-foreground">
                               {result.result.metrics.tradingDays} işlem günü
                             </dd>
                           </div>
 
                           <div>
-                            <dt className="text-[11px] text-muted-foreground">En Sert Düşüş</dt>
+                            <dt className="text-xs text-muted-foreground">En Sert Düşüş</dt>
                             <dd className="text-base font-semibold" data-numeric="">
                               %{formatNumber(winnerLeg.maxDrawdown)}
                             </dd>
-                            <dd className="text-[11px] text-muted-foreground">
+                            <dd className="text-xs text-muted-foreground">
                               {winnerSymbol} için
                             </dd>
                           </div>
@@ -591,7 +582,7 @@ export default function LandingPage() {
 
                       {(result.result.symbolA.currency !== 'TRY' ||
                         result.result.symbolB.currency !== 'TRY') && (
-                        <p className="mt-2.5 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                        <p className="mt-2.5 flex items-start gap-1.5 text-xs text-muted-foreground">
                           <ShieldCheck
                             className="mt-0.5 h-3 w-3 shrink-0 text-primary"
                             aria-hidden="true"
@@ -614,7 +605,7 @@ export default function LandingPage() {
             delay={1.1}
             className="pointer-events-none absolute inset-x-0 bottom-4 hidden justify-center lg:flex"
           >
-            <span className="flex flex-col items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
               Kaydırın
               <span className="relative h-9 w-px overflow-hidden bg-border">
                 <span className="scroll-cue absolute inset-x-0 top-0 h-1/2 bg-primary" />
@@ -667,11 +658,6 @@ export default function LandingPage() {
             scroll pace. */}
         <section className="relative">
           <div className="mx-auto w-full max-w-5xl px-4 py-24 sm:py-32">
-            <p className="eyebrow mb-8 flex items-center gap-3 text-primary">
-              <span className="font-mono text-muted-foreground">00</span>
-              <span className="h-px w-12 bg-primary/60" aria-hidden="true" />
-              NEDEN VAR
-            </p>
             <ScrollHighlight
               text={MANIFESTO}
               highlight={['keşkesi', 'hesaplayın:', 'rakama']}
@@ -689,8 +675,6 @@ export default function LandingPage() {
 
           <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
             <SectionHeading
-              index="01"
-              eyebrow="ÖZELLİKLER"
               title="Neler Yapabilirsiniz"
               description="Bir özelliği seçin, o ekranı olduğu gibi görün."
             />
@@ -707,8 +691,6 @@ export default function LandingPage() {
 
           <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
             <SectionHeading
-              index="02"
-              eyebrow="NASIL ÇALIŞIR"
               title="Üç Adımda Sonuç"
               description="Adımlar kendiliğinden ilerler; istediğiniz adıma tıklayarak durdurabilirsiniz."
             />
@@ -723,8 +705,6 @@ export default function LandingPage() {
         <section className="relative border-y border-border">
           <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
             <SectionHeading
-              index="03"
-              eyebrow="CANLI PİYASA"
               title="Bugün Piyasada Ne Oluyor"
               description="Aşağıdaki liste şu anki fiyatlardan hesaplanıyor. Bir hisseye tıklayarak detayını açabilirsiniz."
             />
@@ -741,7 +721,7 @@ export default function LandingPage() {
         {/* ── Manual vs product ────────────────────────────────────────── */}
         <section className="relative border-y border-border bg-surface/40">
           <div className="mx-auto w-full max-w-4xl px-4 py-16 sm:py-20">
-            <SectionHeading index="05" eyebrow="KARŞILAŞTIRMA" title="Elle Hesaplamakla Arasındaki Fark" />
+            <SectionHeading title="Elle Hesaplamakla Arasındaki Fark" />
 
             <Reveal delay={0.06}>
               <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -797,7 +777,7 @@ export default function LandingPage() {
         {/* ── FAQ ──────────────────────────────────────────────────────── */}
         <section id="sss" className="scroll-anchor relative">
           <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-20">
-            <SectionHeading index="06" eyebrow="SIK SORULANLAR" title="Merak Edilenler" />
+            <SectionHeading title="Merak Edilenler" />
 
             <Reveal delay={0.06}>
               <FaqAccordion items={FAQ} />
@@ -813,12 +793,7 @@ export default function LandingPage() {
 
           <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-24 sm:py-32 lg:grid-cols-[minmax(0,1fr)_auto]">
             <div className="text-center lg:text-left">
-              <p className="eyebrow flex items-center justify-center gap-3 text-primary lg:justify-start">
-                <span className="font-mono text-muted-foreground">07</span>
-                <span className="h-px w-12 bg-primary/60" aria-hidden="true" />
-                BAŞLAYIN
-              </p>
-              <h2 className="display mt-4 text-[clamp(2.5rem,6vw,5.5rem)]">
+              <h2 className="display text-[clamp(2.5rem,6vw,5.5rem)]">
                 <SplitText
                   text="Bir Sonraki Keşkeyi Yaşamadan Hesaplayın"
                   trigger="view"

@@ -105,7 +105,7 @@ export function CursorFollower() {
             {label && (
               <motion.span
                 key={label}
-                className="text-[11px] font-semibold"
+                className="text-xs font-semibold"
                 initial={{ opacity: 0, scale: 0.6 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.6 }}

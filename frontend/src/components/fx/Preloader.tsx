@@ -73,20 +73,20 @@ export function Preloader() {
 
           <div className="relative flex items-start justify-between">
             <motion.p
-              className="eyebrow text-muted-foreground"
+              className="text-xs font-medium text-muted-foreground"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              PİYASA VERİLERİ HAZIRLANIYOR
+              Piyasa Verileri Hazırlanıyor
             </motion.p>
             <motion.p
-              className="eyebrow text-muted-foreground"
+              className="text-xs font-medium text-muted-foreground"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              BIST · NASDAQ · DÖVİZ
+              BIST · NASDAQ · Döviz
             </motion.p>
           </div>
 

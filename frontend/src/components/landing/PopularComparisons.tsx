@@ -53,7 +53,7 @@ export function PopularComparisons() {
     return (
       <section className="relative">
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
-          <SectionHeading index="04" eyebrow="HAZIR SENARYOLAR" title={TITLE} description={DESCRIPTION} />
+          <SectionHeading title={TITLE} description={DESCRIPTION} />
           <PairGrid />
         </div>
       </section>
@@ -64,12 +64,7 @@ export function PopularComparisons() {
     <HorizontalScroll overlay={(progress) => <Rail progress={progress} />}>
       {/* Lead panel: the heading travels with the cards. */}
       <div className="flex w-[34rem] shrink-0 flex-col justify-center pr-8">
-        <p className="eyebrow flex items-center gap-3 text-primary">
-          <span className="font-mono text-muted-foreground">04</span>
-          <span className="h-px w-12 bg-primary/60" aria-hidden="true" />
-          HAZIR SENARYOLAR
-        </p>
-        <h2 className="display mt-4 text-[clamp(2.75rem,4.6vw,4.5rem)]">
+        <h2 className="display text-[clamp(2.75rem,4.6vw,4.5rem)]">
           <SplitText text={TITLE} trigger="view" />
         </h2>
         <p className="mt-5 max-w-sm text-muted-foreground">{DESCRIPTION}</p>

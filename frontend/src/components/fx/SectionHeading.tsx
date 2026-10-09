@@ -4,9 +4,6 @@ import { cn, EASE_BRAND } from '@/lib/utils';
 import { SplitText } from './SplitText';
 
 interface SectionHeadingProps {
-  index: string;
-  /** Written already-uppercase (see `.eyebrow`); never transformed. */
-  eyebrow: string;
   title: string;
   description?: string;
   align?: 'center' | 'left';
@@ -14,12 +11,10 @@ interface SectionHeadingProps {
 }
 
 /**
- * Numbered section opener: "01 ——— ÖZELLİKLER", then the title rising in
- * word by word as it scrolls into view.
+ * Section opener: the title rising in word by word as it scrolls into view.
+ * No kicker line above it — the owner asked for those to go (unreadable).
  */
 export function SectionHeading({
-  index,
-  eyebrow,
   title,
   description,
   align = 'center',
@@ -30,24 +25,7 @@ export function SectionHeading({
 
   return (
     <div className={cn(centered ? 'text-center' : 'text-left', 'mb-10', className)}>
-      <p
-        className={cn(
-          'eyebrow flex items-center gap-3 text-primary',
-          centered ? 'justify-center' : 'justify-start'
-        )}
-      >
-        <span className="tabular font-mono text-muted-foreground">{index}</span>
-        <motion.span
-          aria-hidden="true"
-          className="h-px w-12 origin-left bg-primary/60"
-          initial={reduced ? false : { scaleX: 0 }}
-          whileInView={{ scaleX: 1 }}
-          viewport={{ once: true, amount: 1 }}
-          transition={{ duration: 0.9, ease: EASE_BRAND }}
-        />
-        {eyebrow}
-      </p>
-      <h2 className="display mt-4 text-[clamp(2rem,4.2vw,3.5rem)]">
+      <h2 className="display text-[clamp(2rem,4.2vw,3.5rem)]">
         <SplitText text={title} trigger="view" />
       </h2>
       {description && (

@@ -322,7 +322,7 @@ function LegCard({
       <CardContent className="pt-5 sm:pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <p className="mt-1 flex items-center gap-2 text-lg font-semibold">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"

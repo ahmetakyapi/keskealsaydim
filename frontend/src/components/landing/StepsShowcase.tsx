@@ -38,7 +38,6 @@ const AUTO_ADVANCE_MS = 7000;
 const STEPS = [
   {
     icon: Search,
-    label: 'Adım 01',
     title: 'İki Hisse Seçin',
     description:
       'Aldığınız hisseyi ve merak ettiğiniz alternatifi yazın. Arama Türkçe yazımı da anlar — "iş bankası" yazsanız da bulur.',
@@ -47,7 +46,6 @@ const STEPS = [
   },
   {
     icon: BarChart3,
-    label: 'Adım 02',
     title: 'Farkı Rakamla Görün',
     description:
       'Gün gün değer gelişimi, kaçırdığınız tutar ve risk göstergeleri. Yabancı hisseler o günün kuruyla Türk lirasına çevrilir.',
@@ -56,7 +54,6 @@ const STEPS = [
   },
   {
     icon: MousePointerClick,
-    label: 'Adım 03',
     title: 'Kaydedin ve Paylaşın',
     description:
       'Senaryoyu kaydedin, bağlantısını paylaşın. Karşı taraf hesap açmadan aynı sonucu görür.',
@@ -211,8 +208,6 @@ export function StepsShowcase() {
         className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2 lg:items-center lg:gap-10"
       >
         <div>
-          <p className="eyebrow text-primary">{step.label.toLocaleUpperCase('tr-TR')}</p>
-
           {/* Keyed so the copy crossfades with the step rather than snapping. */}
           <motion.div
             key={active}
@@ -220,7 +215,7 @@ export function StepsShowcase() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: EASE_BRAND }}
           >
-            <h3 className="display-sm mt-2 text-2xl sm:text-3xl">{step.title}</h3>
+            <h3 className="display-sm text-2xl sm:text-3xl">{step.title}</h3>
             <p className="mt-3 max-w-md text-sm text-muted-foreground sm:text-base">
               {step.description}
             </p>

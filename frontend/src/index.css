@@ -186,19 +186,6 @@
     text-wrap: balance;
   }
 
-  /*
-   * Eyebrow label above a section heading. Deliberately no
-   * `text-transform: uppercase`: even with lang="tr" that leans on
-   * language-sensitive casing to turn "i" into "İ". Labels are written
-   * already-uppercase in the markup instead, which cannot go wrong.
-   */
-  .eyebrow {
-    font-stretch: 112%;
-    letter-spacing: 0.14em;
-    font-weight: 600;
-    font-size: 0.6875rem;
-  }
-
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -469,24 +456,6 @@
     }
     100% {
       transform: translateX(100%);
-    }
-  }
-
-  .live-dot::before {
-    content: '';
-    @apply absolute inset-0 rounded-full;
-    animation: live-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-  }
-
-  @keyframes live-ping {
-    0% {
-      transform: scale(1);
-      opacity: 0.8;
-    }
-    75%,
-    100% {
-      transform: scale(2.2);
-      opacity: 0;
     }
   }
 

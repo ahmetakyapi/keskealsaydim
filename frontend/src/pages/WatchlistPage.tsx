@@ -383,7 +383,7 @@ function WatchRow({
                   price
                   className="block text-sm font-semibold"
                 />
-                <span className="text-[11px] text-muted-foreground" data-numeric="">
+                <span className="text-xs text-muted-foreground" data-numeric="">
                   hacim {item.volume > 0 ? formatCompact(item.volume) : '—'}
                 </span>
               </>
@@ -431,7 +431,7 @@ function WatchRow({
 
       {position !== null && (
         <div className="mt-3">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span data-numeric="">{formatNumber(item.week52Low)}</span>
             <span>52 haftalık aralık</span>
             <span data-numeric="">{formatNumber(item.week52High)}</span>

@@ -598,7 +598,7 @@ function HoldingRow({
 
           <div className="text-right">
             <ChangeBadge value={holding.profitPercent} size="sm" />
-            <p className="mt-1 text-[11px] text-muted-foreground" data-numeric="">
+            <p className="mt-1 text-xs text-muted-foreground" data-numeric="">
               ağırlık %{formatNumber(holding.weight, 1)}
             </p>
           </div>

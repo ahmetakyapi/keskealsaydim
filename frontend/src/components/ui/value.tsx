@@ -98,7 +98,7 @@ export function ChangeBadge({ value, amount, currency, size = 'md', className }:
       className={cn(
         'inline-flex items-center gap-1 rounded-full border font-medium tabular-nums',
         tone,
-        size === 'sm' ? 'px-1.5 py-0.5 text-[11px]' : 'px-2 py-0.5 text-xs',
+        size === 'sm' ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-0.5 text-xs',
         className
       )}
     >

@@ -43,10 +43,24 @@ export function SplitText({
   play = true,
 }: SplitTextProps) {
   const reduced = usePrefersReducedMotion();
-
-  if (reduced) return <span className={className}>{text}</span>;
-
   const words = text.split(' ');
+  const classFor = (item: string, index: number) =>
+    typeof wordClassName === 'function' ? wordClassName(item, index) : wordClassName;
+
+  // Static, but keeps per-word styling (e.g. the accent-coloured word).
+  if (reduced) {
+    return (
+      <span className={className}>
+        {words.map((item, index) => (
+          <span key={`${item}-${index}`}>
+            <span className={classFor(item, index)}>{item}</span>
+            {index < words.length - 1 && ' '}
+          </span>
+        ))}
+      </span>
+    );
+  }
+
   const playProps =
     trigger === 'view'
       ? { whileInView: play ? 'visible' : undefined, viewport: { once: true, amount: 0.5 } }
@@ -68,10 +82,7 @@ export function SplitText({
             <span className="-mb-[0.14em] inline-block overflow-hidden pb-[0.14em] align-bottom">
               <motion.span
                 variants={word}
-                className={cn(
-                  'inline-block origin-bottom-left will-change-transform',
-                  typeof wordClassName === 'function' ? wordClassName(item, index) : wordClassName
-                )}
+                className={cn('inline-block origin-bottom-left will-change-transform', classFor(item, index))}
               >
                 {item}
               </motion.span>

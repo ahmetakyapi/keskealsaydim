@@ -22,6 +22,63 @@ function applyTheme(theme: Theme): ResolvedTheme {
   return resolvedTheme;
 }
 
+/*
+ * Where the last click landed, so a theme switch can grow out of the button
+ * that triggered it. Captured globally because Radix menu items hand
+ * `onSelect` an event without coordinates.
+ */
+let lastPointer: { x: number; y: number } | null = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'pointerdown',
+    (event) => {
+      lastPointer = { x: event.clientX, y: event.clientY };
+    },
+    { passive: true, capture: true }
+  );
+}
+
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => { ready: Promise<void> };
+};
+
+/**
+ * Runs `commit` inside a View Transition that reveals the new theme as an
+ * expanding circle from the last click. Falls back to an instant switch
+ * where the API is missing or the visitor prefers reduced motion.
+ */
+function withThemeTransition(commit: () => void) {
+  const doc = typeof document === 'undefined' ? null : (document as ViewTransitionDocument);
+  const reduced =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!doc?.startViewTransition || reduced) {
+    commit();
+    return;
+  }
+
+  const x = lastPointer?.x ?? window.innerWidth / 2;
+  const y = lastPointer?.y ?? window.innerHeight / 2;
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+  const transition = doc.startViewTransition(commit);
+  transition.ready
+    .then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        {
+          duration: 700,
+          easing: 'cubic-bezier(0.76, 0, 0.24, 1)',
+          pseudoElement: '::view-transition-new(root)',
+        }
+      );
+    })
+    .catch(() => {
+      /* transition skipped (e.g. tab hidden); the theme is already applied */
+    });
+}
+
 interface ThemeState {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
@@ -41,7 +98,11 @@ export const useThemeStore = create<ThemeState>()(
       resolvedTheme: 'dark',
 
       setTheme: (theme) => {
-        set({ theme, resolvedTheme: applyTheme(theme) });
+        const commit = () => set({ theme, resolvedTheme: applyTheme(theme) });
+        const next = theme === 'system' ? getSystemTheme() : theme;
+        // Same colours either way (e.g. dark → system-on-dark): nothing to animate.
+        if (next === get().resolvedTheme) commit();
+        else withThemeTransition(commit);
       },
 
       syncTheme: () => {

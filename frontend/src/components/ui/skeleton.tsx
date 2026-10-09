@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { BrandLoader } from '@/components/fx/BrandLoader';
 
 function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('animate-pulse rounded-md bg-muted', className)} {...props} />;
@@ -71,8 +72,8 @@ function ShimmerStats({ count = 4 }: { count?: number }) {
 function PageLoadingState({ message = 'Veriler yükleniyor…' }: { message?: string }) {
   return (
     <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-4 py-20">
-      <div className="h-10 w-10 animate-spin rounded-full border-2 border-border border-t-primary" />
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <BrandLoader />
+      <p className="animate-fade-in text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }

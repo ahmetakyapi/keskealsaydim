@@ -7,9 +7,12 @@ const Card = React.forwardRef<
 >(({ className, interactive = false, ...props }, ref) => (
   <div
     ref={ref}
+    // Every card catches the pointer spotlight (see GlobalPointerFx).
+    data-spotlight=""
     className={cn(
-      'rounded-2xl border border-border bg-card text-card-foreground shadow-sm transition-colors',
-      interactive && 'hover:border-primary/40 hover:shadow-md',
+      'rounded-2xl border border-border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow,transform] duration-300',
+      interactive &&
+        'hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.55)]',
       className
     )}
     {...props}

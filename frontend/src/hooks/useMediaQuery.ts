@@ -22,3 +22,11 @@ export function useMediaQuery(query: string): boolean {
 export function usePrefersReducedMotion(): boolean {
   return useMediaQuery('(prefers-reduced-motion: reduce)');
 }
+
+/**
+ * True on a mouse or trackpad. Pointer-following effects (cursor, magnetic
+ * buttons, tilt) are meaningless on touch and only cost battery there.
+ */
+export function useFinePointer(): boolean {
+  return useMediaQuery('(hover: hover) and (pointer: fine)');
+}

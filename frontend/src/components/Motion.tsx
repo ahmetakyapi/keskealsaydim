@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { motion, useScroll, useSpring, type Variants } from 'framer-motion';
 import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
-import { EASE_BRAND } from '@/lib/utils';
+import { cn, EASE_BRAND } from '@/lib/utils';
 
 /**
  * Motion primitives.
@@ -43,6 +43,10 @@ export function FadeIn({ children, className, delay = 0, y = 8 }: MotionWrapperP
 /**
  * Wraps routed page content so navigating between screens reads as a change
  * of place rather than a repaint. Keyed by pathname at the call site.
+ *
+ * The wrapper itself lifts out of a slight blur, and `page-stagger` (CSS)
+ * then brings the page's own sections in one after another — every screen
+ * gets a choreographed entrance without touching the screen.
  */
 export function PageTransition({ children, className }: MotionWrapperProps) {
   const reduced = usePrefersReducedMotion();
@@ -51,10 +55,12 @@ export function PageTransition({ children, className }: MotionWrapperProps) {
 
   return (
     <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: DURATION, ease: EASE_BRAND }}
+      className={cn('page-stagger', className)}
+      initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
+      // A `filter` left at blur(0) would still make this a containing block
+      // for fixed descendants, so it is cleared once the entrance is over.
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
+      transition={{ duration: 0.55, ease: EASE_BRAND }}
     >
       {children}
     </motion.div>

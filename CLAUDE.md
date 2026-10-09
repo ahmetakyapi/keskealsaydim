@@ -90,8 +90,22 @@ db/migration/     SQL migration files (Flyway-style V1__, V2__, ...)
 - Destructive actions go through `<ConfirmDialog>`.
 - A failed query renders `<ErrorState>`; an empty result renders `<EmptyState>`.
   Showing an empty state on error tells the user the wrong thing.
-- Motion: only the primitives in `components/Motion.tsx`. They respect
-  `prefers-reduced-motion`. No infinite ambient animation.
+- Motion: use the primitives in `components/Motion.tsx` (entrances, reveals)
+  and `components/fx/` (SplitText, Magnetic, PointerAurora, VelocityMarquee,
+  ScrollHighlight, HorizontalScroll, RouteCurtain, Preloader, TopLoader…).
+  Every one of them renders plainly under `prefers-reduced-motion`; a new
+  effect must do the same. Pointer effects are gated on `useFinePointer()`.
+  - Page transitions: `App.tsx` keys routes by *world* (landing, auth, app).
+    Changing world plays the column curtain; navigation inside the app shell
+    only plays `PageTransition` + the CSS `page-stagger` entrance.
+  - Loops are allowed only where they carry meaning (loaders, the marquees,
+    the live dot) and must stop off-screen or under reduced motion.
+  - Smooth scroll (Lenis, `useSmoothScroll`) is for marketing pages only —
+    never the app shell, whose dialogs and tables own their own scroll.
+  - Anything left with a `transform`/`filter` after an entrance becomes a
+    containing block for `position: fixed` children: end on `none`.
+  - Surfaces get the pointer glow with `data-spotlight` (Card does by
+    default); the glow itself is CSS, fed by one global listener.
 - Pure logic in `lib/` carries a Vitest suite (`src/lib/*.test.ts`). Anything
   touching a sign, a currency, a date boundary or Turkish casing belongs there
   — those are the four ways this app has actually been wrong before.

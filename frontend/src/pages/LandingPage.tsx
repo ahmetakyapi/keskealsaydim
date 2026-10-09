@@ -1,5 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useScroll,
+  useTransform,
+} from 'framer-motion';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -8,6 +15,7 @@ import {
   Menu,
   Moon,
   ShieldCheck,
+  Sparkles,
   Sun,
   X,
 } from 'lucide-react';
@@ -21,7 +29,16 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { MarketTicker } from '@/components/MarketTicker';
 import { SymbolSearch } from '@/components/SymbolSearch';
 import { HeroCompareChart } from '@/components/compare/HeroCompareChart';
-import { FadeIn, Reveal, RevealGroup, RevealItem, ScrollProgress } from '@/components/Motion';
+import { Reveal, RevealGroup, RevealItem, ScrollProgress } from '@/components/Motion';
+import { SplitText } from '@/components/fx/SplitText';
+import { Magnetic } from '@/components/fx/Magnetic';
+import { PointerAurora } from '@/components/fx/PointerAurora';
+import { VelocityMarquee } from '@/components/fx/VelocityMarquee';
+import { ScrollHighlight } from '@/components/fx/ScrollHighlight';
+import { SectionHeading } from '@/components/fx/SectionHeading';
+import { GiantWordmark } from '@/components/fx/GiantWordmark';
+import { RollText } from '@/components/fx/RollText';
+import { useSmoothScroll } from '@/components/fx/SmoothScroll';
 import { FeatureShowcase } from '@/components/landing/FeatureShowcase';
 import { StepsShowcase } from '@/components/landing/StepsShowcase';
 import { TodayMovers } from '@/components/landing/TodayMovers';
@@ -31,7 +48,9 @@ import { useDemoComparison, useMarketOverview } from '@/hooks/useQueries';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { cn, formatCurrency, formatLongDate, formatNumber } from '@/lib/utils';
+import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
+import { useMotionStore } from '@/stores/motionStore';
+import { cn, EASE_BRAND, formatCurrency, formatLongDate, formatNumber } from '@/lib/utils';
 
 /**
  * The landing page runs the product, it does not mock it.
@@ -105,6 +124,13 @@ const FAQ = [
   },
 ] as const;
 
+const MANIFESTO =
+  'Herkesin bir keşkesi var. O gün almadığınız hisse bugün kaç lira ederdi? Tahmin etmek yerine hesaplayın: gerçek kapanış fiyatlarıyla, her günün kuruyla, temettüsüyle birlikte. Sonra bir sonraki kararınızı rakama bakarak verin.';
+
+/* Written already-uppercase with the dotted İ; never run through a transform. */
+const MARQUEE_WORDS = ['KEŞKE ALSAYDIM', 'KARŞILAŞTIR', 'HESAPLA', 'TAKİP ET', 'PAYLAŞ'] as const;
+const MARQUEE_TICKERS = ['THYAO', 'ASELS', 'GARAN', 'BIMAS', 'NVDA', 'EREGL', 'TUPRS', 'AAPL', 'SISE', 'KCHOL'] as const;
+
 const NAV_LINKS = [
   { href: '#demo', label: 'Deneyin' },
   { href: '#ozellikler', label: 'Özellikler' },
@@ -114,6 +140,9 @@ const NAV_LINKS = [
 
 export default function LandingPage() {
   useDocumentTitle();
+  useSmoothScroll();
+  const reduced = usePrefersReducedMotion();
+  const introDone = useMotionStore((state) => state.introDone);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { resolvedTheme, setTheme } = useThemeStore();
 
@@ -137,8 +166,34 @@ export default function LandingPage() {
   const loserLeg = result ? (winnerIsB ? result.result.symbolA : result.result.symbolB) : null;
   const gap = winnerLeg && loserLeg ? winnerLeg.endValue - loserLeg.endValue : 0;
 
+  // Header slides away while reading down and returns on the first scroll up.
+  const { scrollY } = useScroll();
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  useMotionValueEvent(scrollY, 'change', (latest) => {
+    const previous = scrollY.getPrevious() ?? 0;
+    setScrolled(latest > 12);
+    setHeaderHidden(latest > previous && latest > 320 && !menuOpen);
+  });
+
+  // Hero parallax: as the hero scrolls out, the pitch drifts up and fades
+  // while the product card tips back and settles — depth without a loop.
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress: heroProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const pitchY = useTransform(heroProgress, [0, 1], [0, 140]);
+  const pitchOpacity = useTransform(heroProgress, [0, 0.7], [1, 0]);
+  const cardRotate = useTransform(heroProgress, [0, 1], [0, 12]);
+  const cardScale = useTransform(heroProgress, [0, 1], [1, 0.9]);
+  const cardY = useTransform(heroProgress, [0, 1], [0, 80]);
+
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    // `overflow-x-clip`, not `hidden`: hidden turns this into a scroll
+    // container, which silently breaks every `position: sticky` inside it
+    // (the header, and the pinned horizontal section).
+    <div className="relative min-h-dvh overflow-x-clip">
       <a
         href="#demo"
         className="sr-only-focusable fixed left-4 top-4 z-[60] rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
@@ -147,10 +202,17 @@ export default function LandingPage() {
       </a>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur-xl">
+      <motion.header
+        className={cn(
+          'sticky top-0 z-30 border-b backdrop-blur-xl transition-[background-color,border-color] duration-500',
+          scrolled ? 'border-border bg-surface/85' : 'border-transparent bg-surface/40'
+        )}
+        animate={{ y: headerHidden && !reduced ? '-100%' : '0%' }}
+        transition={{ duration: 0.45, ease: EASE_BRAND }}
+      >
         <ScrollProgress />
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4">
-          <Link to="/" aria-label="Keşke Alsaydım ana sayfa">
+          <Link to="/" aria-label="Keşke Alsaydım ana sayfa" className="transition-transform duration-300 hover:scale-[1.03]">
             <BrandLogo size="sm" />
           </Link>
 
@@ -159,9 +221,9 @@ export default function LandingPage() {
               <a
                 key={item.href}
                 href={item.href}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="group text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                {item.label}
+                <RollText>{item.label}</RollText>
               </a>
             ))}
           </nav>
@@ -207,11 +269,24 @@ export default function LandingPage() {
           </div>
         </div>
 
+        <AnimatePresence initial={false}>
         {menuOpen && (
-          <nav className="border-t border-border px-4 py-3 md:hidden" aria-label="Bölümler">
-            <ul className="space-y-1">
-              {NAV_LINKS.map((item) => (
-                <li key={item.href}>
+          <motion.nav
+            className="overflow-hidden border-t border-border px-4 md:hidden"
+            aria-label="Bölümler"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.4, ease: EASE_BRAND }}
+          >
+            <ul className="space-y-1 py-3">
+              {NAV_LINKS.map((item, index) => (
+                <motion.li
+                  key={item.href}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, ease: EASE_BRAND, delay: 0.05 + index * 0.05 }}
+                >
                   <a
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
@@ -219,7 +294,7 @@ export default function LandingPage() {
                   >
                     {item.label}
                   </a>
-                </li>
+                </motion.li>
               ))}
               {!isAuthenticated && (
                 <li>
@@ -232,9 +307,10 @@ export default function LandingPage() {
                 </li>
               )}
             </ul>
-          </nav>
+          </motion.nav>
         )}
-      </header>
+        </AnimatePresence>
+      </motion.header>
 
       <MarketTicker />
 
@@ -246,57 +322,92 @@ export default function LandingPage() {
           screen below the chrome from lg up; below that the columns stack
           and the section grows naturally.
         */}
-        <section id="demo" className="scroll-anchor relative">
-          <div className="bloom -top-24 left-[4%] h-80 w-80 bg-primary/30" aria-hidden="true" />
-          <div className="bloom -top-16 right-[2%] h-96 w-96 bg-secondary/25" aria-hidden="true" />
-          <div
-            className="bloom bottom-0 left-1/3 h-56 w-[30rem] bg-primary/10"
-            aria-hidden="true"
-          />
+        <section ref={heroRef} id="demo" className="scroll-anchor relative">
+          {/* Clipped in its own layer so the blooms can't widen the page,
+              while the section itself stays unclipped for the symbol
+              search dropdown. */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <PointerAurora />
+          </div>
 
           <div className="hero-fit relative mx-auto grid w-full max-w-7xl items-center gap-8 px-4 py-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10 lg:py-8 xl:gap-14">
             {/* Left: the pitch */}
-            <FadeIn className="text-center lg:text-left">
-              <Badge variant="default" className="mb-5">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-                Gerçek Piyasa Verisiyle Çalışır
-              </Badge>
+            <motion.div
+              className="text-center lg:text-left"
+              style={reduced ? undefined : { y: pitchY, opacity: pitchOpacity }}
+            >
+              <HeroIn play={introDone}>
+                <Badge variant="default" className="mb-5">
+                  <span className="live-dot relative h-1.5 w-1.5 rounded-full bg-primary before:bg-primary" aria-hidden="true" />
+                  Gerçek Piyasa Verisiyle Çalışır
+                </Badge>
+              </HeroIn>
 
-              <h1 className="display hero-title">Keşke Onu Alsaydım</h1>
+              <h1 className="display hero-title">
+                <SplitText
+                  text="Keşke Onu Alsaydım"
+                  play={introDone}
+                  delay={0.1}
+                  wordClassName={(word) => (word === 'Alsaydım' ? 'text-primary' : undefined)}
+                />
+              </h1>
               <p className="display-sm hero-subtitle mt-2 text-muted-foreground">
-                Demeden Önce Rakamı Görün
+                <SplitText text="Demeden Önce Rakamı Görün" play={introDone} delay={0.4} stagger={0.05} />
               </p>
 
-              <p className="hero-lede mx-auto mt-5 max-w-xl text-muted-foreground lg:mx-0">
-                Aynı parayı başka bir hisseye koysaydınız bugün elinizde ne olurdu? Geçmiş
-                fiyatlarla hesaplayın, portföyünüzü takip edin, sonucu paylaşın.
-              </p>
+              <HeroIn play={introDone} delay={0.6}>
+                <p className="hero-lede mx-auto mt-5 max-w-xl text-muted-foreground lg:mx-0">
+                  Aynı parayı başka bir hisseye koysaydınız bugün elinizde ne olurdu? Geçmiş
+                  fiyatlarla hesaplayın, portföyünüzü takip edin, sonucu paylaşın.
+                </p>
+              </HeroIn>
 
-              <div className="mt-7 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-                <Button size="lg" asChild>
-                  <Link to={isAuthenticated ? '/compare' : '/register'}>
-                    {isAuthenticated ? 'Karşılaştırma Yap' : 'Ücretsiz Hesap Oluştur'}
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <a href="#ozellikler">Özellikleri İncele</a>
-                </Button>
-              </div>
+              <HeroIn play={introDone} delay={0.72}>
+                <div className="mt-7 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                  <Magnetic>
+                    <Button size="lg" asChild className="group">
+                      <Link
+                        to={isAuthenticated ? '/compare' : '/register'}
+                        data-cursor-label="Başla"
+                      >
+                        {isAuthenticated ? 'Karşılaştırma Yap' : 'Ücretsiz Hesap Oluştur'}
+                        <ArrowRight
+                          className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+                          aria-hidden="true"
+                        />
+                      </Link>
+                    </Button>
+                  </Magnetic>
+                  <Magnetic>
+                    <Button size="lg" variant="outline" asChild>
+                      <a href="#ozellikler">Özellikleri İncele</a>
+                    </Button>
+                  </Magnetic>
+                </div>
+              </HeroIn>
 
-              <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground lg:justify-start">
-                {['Kayıt Olmadan Deneyin', 'Kredi Kartı Yok', 'Türk Lirası Bazlı'].map((item) => (
-                  <li key={item} className="flex items-center gap-1">
-                    <Check className="h-3 w-3 text-success" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </FadeIn>
+              <HeroIn play={introDone} delay={0.84}>
+                <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground lg:justify-start">
+                  {['Kayıt Olmadan Deneyin', 'Kredi Kartı Yok', 'Türk Lirası Bazlı'].map((item) => (
+                    <li key={item} className="flex items-center gap-1">
+                      <Check className="h-3 w-3 text-success" aria-hidden="true" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </HeroIn>
+            </motion.div>
 
             {/* Right: the product, running */}
-            <FadeIn delay={0.08} className="min-w-0">
-              <Card className="lit-edge overflow-hidden border-primary/20 shadow-2xl">
+            <HeroIn play={introDone} delay={0.3} className="min-w-0 [perspective:1400px]">
+              <motion.div
+                style={
+                  reduced
+                    ? undefined
+                    : { rotateX: cardRotate, scale: cardScale, y: cardY, transformOrigin: 'center top' }
+                }
+              >
+              <Card className="lit-edge overflow-hidden border-primary/20 shadow-[0_40px_120px_-40px_hsl(var(--primary)/0.45)]">
                 <div className="border-b border-border bg-surface-raised/50 p-3.5 sm:p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="eyebrow text-muted-foreground">CANLI HESAP</p>
@@ -493,9 +604,26 @@ export default function LandingPage() {
                   ) : null}
                 </CardContent>
               </Card>
-            </FadeIn>
+              </motion.div>
+            </HeroIn>
           </div>
+
+          {/* Scroll cue — desktop only, where the hero fills the screen. */}
+          <HeroIn
+            play={introDone}
+            delay={1.1}
+            className="pointer-events-none absolute inset-x-0 bottom-4 hidden justify-center lg:flex"
+          >
+            <span className="flex flex-col items-center gap-2 text-[11px] text-muted-foreground">
+              Kaydırın
+              <span className="relative h-9 w-px overflow-hidden bg-border">
+                <span className="scroll-cue absolute inset-x-0 top-0 h-1/2 bg-primary" />
+              </span>
+            </span>
+          </HeroIn>
         </section>
+
+        <MarqueeBand />
 
         {/*
           ── Facts ──────────────────────────────────────────────────────────
@@ -517,8 +645,8 @@ export default function LandingPage() {
                 { value: 1990, format: 'integer' as const, label: 'Veri Başlangıcı' },
                 { value: 0, format: 'integer' as const, prefix: '₺', label: 'Aylık Ücret' },
               ].map((stat) => (
-                <RevealItem key={stat.label}>
-                  <p className="display text-3xl text-primary sm:text-4xl">
+                <RevealItem key={stat.label} className="border-l border-border pl-5">
+                  <p className="display text-4xl text-primary sm:text-5xl">
                     <AnimatedNumber
                       value={stat.value}
                       format={stat.format}
@@ -534,6 +662,24 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Manifesto ────────────────────────────────────────────────────
+            The pitch in one paragraph, lit word by word at the reader's own
+            scroll pace. */}
+        <section className="relative">
+          <div className="mx-auto w-full max-w-5xl px-4 py-24 sm:py-32">
+            <p className="eyebrow mb-8 flex items-center gap-3 text-primary">
+              <span className="font-mono text-muted-foreground">00</span>
+              <span className="h-px w-12 bg-primary/60" aria-hidden="true" />
+              NEDEN VAR
+            </p>
+            <ScrollHighlight
+              text={MANIFESTO}
+              highlight={['keşkesi', 'hesaplayın:', 'rakama']}
+              className="display-sm text-[clamp(1.6rem,3.4vw,3rem)] leading-[1.15]"
+            />
+          </div>
+        </section>
+
         {/* ── Feature showcase ─────────────────────────────────────────── */}
         <section id="ozellikler" className="scroll-anchor relative border-b border-border">
           <div
@@ -542,13 +688,12 @@ export default function LandingPage() {
           />
 
           <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
-            <Reveal className="mb-10 text-center">
-              <p className="eyebrow text-primary">ÖZELLİKLER</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Neler Yapabilirsiniz</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-                Bir özelliği seçin, o ekranı olduğu gibi görün.
-              </p>
-            </Reveal>
+            <SectionHeading
+              index="01"
+              eyebrow="ÖZELLİKLER"
+              title="Neler Yapabilirsiniz"
+              description="Bir özelliği seçin, o ekranı olduğu gibi görün."
+            />
 
             <Reveal delay={0.06}>
               <FeatureShowcase />
@@ -561,13 +706,12 @@ export default function LandingPage() {
           <div className="bloom right-0 top-1/4 h-72 w-72 bg-secondary/15" aria-hidden="true" />
 
           <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
-            <Reveal className="mb-8 text-center">
-              <p className="eyebrow text-primary">NASIL ÇALIŞIR</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Üç Adımda Sonuç</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-                Adımlar kendiliğinden ilerler; istediğiniz adıma tıklayarak durdurabilirsiniz.
-              </p>
-            </Reveal>
+            <SectionHeading
+              index="02"
+              eyebrow="NASIL ÇALIŞIR"
+              title="Üç Adımda Sonuç"
+              description="Adımlar kendiliğinden ilerler; istediğiniz adıma tıklayarak durdurabilirsiniz."
+            />
 
             <Reveal delay={0.06}>
               <StepsShowcase />
@@ -578,14 +722,12 @@ export default function LandingPage() {
         {/* ── Live movers ──────────────────────────────────────────────── */}
         <section className="relative border-y border-border">
           <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
-            <Reveal className="mb-8 text-center">
-              <p className="eyebrow text-primary">CANLI PİYASA</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Bugün Piyasada Ne Oluyor</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-                Aşağıdaki liste şu anki fiyatlardan hesaplanıyor. Bir hisseye tıklayarak
-                detayını açabilirsiniz.
-              </p>
-            </Reveal>
+            <SectionHeading
+              index="03"
+              eyebrow="CANLI PİYASA"
+              title="Bugün Piyasada Ne Oluyor"
+              description="Aşağıdaki liste şu anki fiyatlardan hesaplanıyor. Bir hisseye tıklayarak detayını açabilirsiniz."
+            />
 
             <Reveal delay={0.06}>
               <TodayMovers />
@@ -593,28 +735,13 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Popular comparisons ──────────────────────────────────────── */}
-        <section className="relative">
-          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
-            <Reveal className="mb-8 text-center">
-              <p className="eyebrow text-primary">HAZIR SENARYOLAR</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Sık Merak Edilen Karşılaştırmalar</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-                Birine tıklayın, hesap anında sizin için çalışsın.
-              </p>
-            </Reveal>
-
-            <PopularComparisons />
-          </div>
-        </section>
+        {/* ── Popular comparisons (pinned horizontal scroll on desktop) ──── */}
+        <PopularComparisons />
 
         {/* ── Manual vs product ────────────────────────────────────────── */}
         <section className="relative border-y border-border bg-surface/40">
           <div className="mx-auto w-full max-w-4xl px-4 py-16 sm:py-20">
-            <Reveal className="mb-8 text-center">
-              <p className="eyebrow text-primary">KARŞILAŞTIRMA</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Elle Hesaplamakla Arasındaki Fark</h2>
-            </Reveal>
+            <SectionHeading index="05" eyebrow="KARŞILAŞTIRMA" title="Elle Hesaplamakla Arasındaki Fark" />
 
             <Reveal delay={0.06}>
               <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -636,8 +763,15 @@ export default function LandingPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {COMPARISON_ROWS.map((row) => (
-                      <tr key={row.step}>
+                    {COMPARISON_ROWS.map((row, index) => (
+                      <motion.tr
+                        key={row.step}
+                        className="transition-colors hover:bg-primary/[0.04]"
+                        initial={reduced ? false : { opacity: 0, x: -16 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true, amount: 0.6 }}
+                        transition={{ duration: 0.6, ease: EASE_BRAND, delay: index * 0.07 }}
+                      >
                         <th scope="row" className="p-4 text-left font-medium">
                           {row.step}
                         </th>
@@ -651,7 +785,7 @@ export default function LandingPage() {
                             {row.app}
                           </span>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
@@ -663,10 +797,7 @@ export default function LandingPage() {
         {/* ── FAQ ──────────────────────────────────────────────────────── */}
         <section id="sss" className="scroll-anchor relative">
           <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:py-20">
-            <Reveal className="mb-8 text-center">
-              <p className="eyebrow text-primary">SIK SORULANLAR</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Merak Edilenler</h2>
-            </Reveal>
+            <SectionHeading index="06" eyebrow="SIK SORULANLAR" title="Merak Edilenler" />
 
             <Reveal delay={0.06}>
               <FaqAccordion items={FAQ} />
@@ -676,33 +807,60 @@ export default function LandingPage() {
 
         {/* ── CTA ──────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden border-t border-border">
-          <div
-            className="bloom left-1/2 top-0 h-64 w-[44rem] -translate-x-1/2 bg-secondary/20"
-            aria-hidden="true"
-          />
-          <div className="bloom bottom-0 left-1/4 h-56 w-96 bg-primary/15" aria-hidden="true" />
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <PointerAurora />
+          </div>
 
-          <div className="relative mx-auto w-full max-w-3xl px-4 py-20 text-center">
-            <Reveal>
-              <h2 className="display text-3xl sm:text-4xl lg:text-5xl">
-                Bir Sonraki Keşkeyi Yaşamadan Hesaplayın
-              </h2>
-              <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground sm:text-base">
-                Hesap oluşturun, portföyünüzü ekleyin, senaryolarınızı kaydedin ve paylaşın.
-                Tamamı ücretsiz.
+          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-24 sm:py-32 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="text-center lg:text-left">
+              <p className="eyebrow flex items-center justify-center gap-3 text-primary lg:justify-start">
+                <span className="font-mono text-muted-foreground">07</span>
+                <span className="h-px w-12 bg-primary/60" aria-hidden="true" />
+                BAŞLAYIN
               </p>
+              <h2 className="display mt-4 text-[clamp(2.5rem,6vw,5.5rem)]">
+                <SplitText
+                  text="Bir Sonraki Keşkeyi Yaşamadan Hesaplayın"
+                  trigger="view"
+                  wordClassName={(word) => (word === 'Hesaplayın' ? 'text-primary' : undefined)}
+                />
+              </h2>
+              <Reveal delay={0.2}>
+                <p className="mx-auto mt-6 max-w-lg text-sm text-muted-foreground sm:text-base lg:mx-0">
+                  Hesap oluşturun, portföyünüzü ekleyin, senaryolarınızı kaydedin ve paylaşın.
+                  Tamamı ücretsiz.
+                </p>
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                  <Button size="lg" variant="outline" asChild>
+                    <a href="#demo">Önce Deneyin</a>
+                  </Button>
+                </div>
+              </Reveal>
+            </div>
 
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                <Button size="lg" asChild>
-                  <Link to={isAuthenticated ? '/dashboard' : '/register'}>
-                    {isAuthenticated ? 'Panele Git' : 'Ücretsiz Başla'}
-                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <a href="#demo">Önce Deneyin</a>
-                </Button>
-              </div>
+            {/* The big round button: magnetic, fills from the bottom on hover. */}
+            <Reveal from="none" className="flex justify-center">
+              <Magnetic strength={0.4}>
+                <Link
+                  to={isAuthenticated ? '/dashboard' : '/register'}
+                  data-cursor-label="Hadi"
+                  className="group relative flex h-44 w-44 items-center justify-center overflow-hidden rounded-full border border-primary/40 text-primary transition-colors duration-500 hover:text-primary-foreground sm:h-56 sm:w-56"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 translate-y-full rounded-full bg-primary transition-transform duration-700 ease-brand group-hover:translate-y-0"
+                  />
+                  <span className="relative flex flex-col items-center gap-2">
+                    <ArrowUpRight
+                      className="h-8 w-8 transition-transform duration-500 ease-brand group-hover:rotate-45"
+                      aria-hidden="true"
+                    />
+                    <span className="display-sm text-lg">
+                      {isAuthenticated ? 'Panele Git' : 'Ücretsiz Başla'}
+                    </span>
+                  </span>
+                </Link>
+              </Magnetic>
             </Reveal>
           </div>
         </section>
@@ -733,7 +891,7 @@ export default function LandingPage() {
                   <li key={item.href}>
                     <a
                       href={item.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="link-draw text-sm text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {item.label}
                     </a>
@@ -762,7 +920,7 @@ export default function LandingPage() {
                   <li key={item.to}>
                     <Link
                       to={item.to}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="link-draw text-sm text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {item.label}
                     </Link>
@@ -782,7 +940,71 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
+        {/* Edge-to-edge sign-off. Sized in vw so it always spans the width. */}
+        <div className="overflow-hidden px-4 pb-4">
+          <GiantWordmark className="text-center text-[10.4vw]" />
+        </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Hero entrance that waits for the preloader. Under reduced motion it is a
+ * plain div; otherwise it holds hidden until `play`, then rises in.
+ */
+function HeroIn({
+  children,
+  className,
+  delay = 0,
+  play,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  play: boolean;
+}) {
+  const reduced = usePrefersReducedMotion();
+  if (reduced) return <div className={className}>{children}</div>;
+
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 24 }}
+      animate={play ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+      transition={{ duration: 0.9, ease: EASE_BRAND, delay: play ? delay : 0 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function MarqueeBand() {
+  return (
+    <section aria-label="Keşke Alsaydım" className="relative overflow-hidden border-y border-border bg-surface/40 py-6 sm:py-8">
+      <VelocityMarquee baseVelocity={-2.5}>
+        {MARQUEE_WORDS.map((word) => (
+          <span
+            key={word}
+            className="display flex items-center gap-6 pr-6 text-[clamp(2.75rem,7vw,6rem)] leading-none sm:gap-10 sm:pr-10"
+          >
+            {word}
+            <Sparkles className="h-[0.45em] w-[0.45em] text-primary" aria-hidden="true" />
+          </span>
+        ))}
+      </VelocityMarquee>
+      <VelocityMarquee baseVelocity={2} className="mt-3 sm:mt-4">
+        {MARQUEE_TICKERS.map((ticker) => (
+          <span
+            key={ticker}
+            className="display-sm flex items-center gap-6 pr-6 font-mono text-[clamp(1.25rem,2.4vw,2rem)] text-muted-foreground sm:gap-10 sm:pr-10"
+          >
+            {ticker}
+            <span className="h-1.5 w-1.5 rounded-full bg-primary/60" aria-hidden="true" />
+          </span>
+        ))}
+      </VelocityMarquee>
+    </section>
   );
 }

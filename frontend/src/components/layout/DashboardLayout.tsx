@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -36,7 +37,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { authService } from '@/services/authService';
 import { useUserProfile } from '@/hooks/useQueries';
-import { cn, initialsOf } from '@/lib/utils';
+import { cn, EASE_BRAND, initialsOf } from '@/lib/utils';
+import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
 
 const NAVIGATION = [
   { name: 'Panel', href: '/dashboard', icon: LayoutDashboard },
@@ -66,6 +68,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const reduced = usePrefersReducedMotion();
 
   const drawerRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -153,25 +156,45 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const activePage = NAVIGATION.find((item) => isActiveRoute(item.href));
 
-  const renderNav = (collapsed: boolean) => (
+  // `scope` keeps the desktop sidebar's and the drawer's indicators apart,
+  // otherwise opening the drawer would fly the pill across the screen.
+  const renderNav = (collapsed: boolean, scope: string) => (
     <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Ana gezinme">
-      {NAVIGATION.map((item) => {
+      {NAVIGATION.map((item, index) => {
         const active = isActiveRoute(item.href);
         const link = (
           <Link
             key={item.href}
             to={item.href}
             aria-current={active ? 'page' : undefined}
+            style={{ animationDelay: `${index * 40}ms` }}
             className={cn(
-              'group flex items-center rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors',
+              'group relative flex animate-fade-in items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
               collapsed && 'justify-center',
-              active
-                ? 'border-primary/25 bg-primary/12 text-primary'
-                : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
+              active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {!collapsed && <span className="ml-3 truncate">{item.name}</span>}
+            {active && (
+              <motion.span
+                layoutId={reduced ? undefined : `nav-active-${scope}`}
+                aria-hidden="true"
+                className="absolute inset-0 rounded-xl border border-primary/25 bg-primary/12"
+                transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              >
+                <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" />
+              </motion.span>
+            )}
+            {!active && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 scale-95 rounded-xl bg-accent opacity-0 transition-[opacity,transform] duration-300 group-hover:scale-100 group-hover:opacity-100"
+              />
+            )}
+            <item.icon
+              className="relative h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110"
+              aria-hidden="true"
+            />
+            {!collapsed && <span className="relative ml-3 truncate">{item.name}</span>}
             {collapsed && <span className="sr-only">{item.name}</span>}
           </Link>
         );
@@ -188,7 +211,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </nav>
   );
 
-  const renderSidebarBody = (collapsed: boolean, showCloseButton: boolean) => (
+  const renderSidebarBody = (collapsed: boolean, showCloseButton: boolean, scope: string) => (
     <>
       <div className="flex h-16 items-center justify-between gap-2 border-b border-border px-4">
         <Link to="/dashboard" className="flex items-center gap-3" aria-label="Panele git">
@@ -206,7 +229,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         )}
       </div>
 
-      {renderNav(collapsed)}
+      {renderNav(collapsed, scope)}
 
       <div className="border-t border-border p-3">
         <Link
@@ -248,14 +271,38 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         İçeriğe atla
       </a>
 
-      {/* Backdrop */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      {/* Backdrop + drawer. Unmounted when closed, which also keeps the
+          drawer's links out of the tab order. */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            key="backdrop"
+            className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          />
+        )}
+        {mobileOpen && (
+          <motion.div
+            key="drawer"
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Gezinme menüsü"
+            className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-surface shadow-2xl md:hidden"
+            initial={reduced ? false : { x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={reduced ? undefined : { x: '-100%' }}
+            transition={{ duration: 0.45, ease: EASE_BRAND }}
+          >
+            {renderSidebarBody(false, true, 'drawer')}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Desktop sidebar */}
       <aside
@@ -264,7 +311,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           sidebarCollapsed ? 'w-[84px]' : 'w-64'
         )}
       >
-        {renderSidebarBody(sidebarCollapsed, false)}
+        {renderSidebarBody(sidebarCollapsed, false, 'desktop')}
         <button
           type="button"
           onClick={() => setSidebarCollapsed((prev) => !prev)}
@@ -274,21 +321,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {sidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
       </aside>
-
-      {/* Mobile drawer */}
-      <div
-        ref={drawerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Gezinme menüsü"
-        // `hidden` (not just translate) keeps the links out of the tab order.
-        hidden={!mobileOpen}
-        className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-surface md:hidden'
-        )}
-      >
-        {renderSidebarBody(false, true)}
-      </div>
 
       <div className={cn('flex min-h-dvh flex-col transition-[padding]', sidebarCollapsed ? 'md:pl-[84px]' : 'md:pl-64')}>
         <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur-xl md:px-6">
@@ -304,8 +336,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <PanelLeft className="h-5 w-5" />
           </Button>
 
-          <h2 className="hidden shrink-0 text-sm font-medium text-muted-foreground lg:block">
-            {activePage?.name ?? (isActiveRoute('/settings') ? 'Ayarlar' : '')}
+          <h2 className="hidden h-5 shrink-0 overflow-hidden text-sm font-medium text-muted-foreground lg:block">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={activePage?.name ?? location.pathname}
+                className="block"
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '-100%', opacity: 0 }}
+                transition={{ duration: 0.3, ease: EASE_BRAND }}
+              >
+                {activePage?.name ?? (isActiveRoute('/settings') ? 'Ayarlar' : '')}
+              </motion.span>
+            </AnimatePresence>
           </h2>
 
           <div ref={searchInputRef} className="ml-auto w-full max-w-sm md:mx-4">

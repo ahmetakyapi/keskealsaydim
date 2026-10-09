@@ -67,6 +67,13 @@
     /* The house easing curve. Wired to Tailwind + the default transition
        timing so every transition inherits it without being restated. */
     --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
+    /* Curtain curve for wipes and reveals: slow in, decisive, slow out. */
+    --ease-curtain: cubic-bezier(0.76, 0, 0.24, 1);
+
+    /* Specular sweep across filled buttons. Light in both themes on purpose:
+       it reads as a highlight on the coloured surface, not as text. */
+    --sheen: 255 255 255;
+    --grain-opacity: 0.05;
   }
 
   .light {
@@ -113,6 +120,7 @@
     --glass-fill: 12 24 34;
     --glass-fill-opacity: 0.025;
     --glass-border-opacity: 0.09;
+    --grain-opacity: 0.035;
   }
 }
 
@@ -208,6 +216,56 @@
     @apply bg-muted-foreground/50;
   }
 
+  /*
+   * Film grain over everything. Static (no animation), pointer-transparent,
+   * and cheap: one tiny SVG noise tile. It takes the flat, digital edge off
+   * the gradients and gives the dark theme some tooth.
+   */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.35);
+    color: hsl(var(--foreground));
+  }
+
+  /* Lenis drives the scroll position; native smooth-scroll would fight it. */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  /*
+   * Theme switch: the new theme grows out of the click point as a circle
+   * (driven from themeStore). The default cross-fade is switched off so the
+   * two snapshots don't blend into a muddy middle frame.
+   */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
   /* Visible focus for keyboard users on every interactive element. */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
@@ -240,6 +298,137 @@
       linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))) border-box;
     border: 1px solid transparent;
     border-radius: var(--radius);
+  }
+
+  /*
+   * Pointer spotlight. `GlobalPointerFx` writes --mx/--my on whichever
+   * surface the pointer is over; the glow is just a radial gradient there.
+   */
+  [data-spotlight] {
+    position: relative;
+  }
+
+  [data-spotlight]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.45s var(--ease-brand);
+    background: radial-gradient(
+      380px circle at var(--mx, 50%) var(--my, 50%),
+      hsl(var(--primary) / 0.09),
+      transparent 60%
+    );
+  }
+
+  [data-spotlight]:hover::after {
+    opacity: 1;
+  }
+
+  /* Specular sweep on primary buttons. */
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .btn-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transform: translateX(-130%) skewX(-20deg);
+    background: linear-gradient(90deg, transparent, rgb(var(--sheen) / 0.3), transparent);
+    transition: transform 0.8s var(--ease-brand);
+  }
+
+  .btn-shine:hover::after {
+    transform: translateX(130%) skewX(-20deg);
+  }
+
+  /* Underline that draws from the left on hover and retracts to the right. */
+  .link-draw {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-position: 100% 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.5s var(--ease-brand), color 0.2s;
+  }
+
+  .link-draw:hover,
+  .link-draw:focus-visible {
+    background-size: 100% 1px;
+    background-position: 0% 100%;
+  }
+
+  /*
+   * Page entrance: the direct sections of a page rise in one after another.
+   * Ends on `transform: none` so no section is left as a containing block
+   * for fixed-position descendants once the animation is over.
+   */
+  .page-stagger > * > * {
+    animation: rise-in 0.7s var(--ease-brand) both;
+  }
+
+  .page-stagger > * > *:nth-child(2) { animation-delay: 60ms; }
+  .page-stagger > * > *:nth-child(3) { animation-delay: 120ms; }
+  .page-stagger > * > *:nth-child(4) { animation-delay: 180ms; }
+  .page-stagger > * > *:nth-child(5) { animation-delay: 240ms; }
+  .page-stagger > * > *:nth-child(6) { animation-delay: 300ms; }
+  .page-stagger > * > *:nth-child(n + 7) { animation-delay: 360ms; }
+
+  /* Same idea for a flat list of children, e.g. the auth form column. */
+  .stagger-children > * {
+    animation: rise-in 0.8s var(--ease-brand) both;
+  }
+
+  .stagger-children > *:nth-child(2) { animation-delay: 80ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 160ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 320ms; }
+  .stagger-children > *:nth-child(n + 6) { animation-delay: 400ms; }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Branded loader: the line draws, holds, lifts off, redraws. */
+  .brand-loader-line {
+    stroke-dasharray: 100;
+    animation: brand-draw 1.8s var(--ease-curtain) infinite;
+  }
+
+  @keyframes brand-draw {
+    0% {
+      stroke-dashoffset: 100;
+    }
+    50% {
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dashoffset: -100;
+    }
+  }
+
+  /* Big outlined numerals (404). Falls back to solid where unsupported. */
+  .text-outline {
+    color: hsl(var(--foreground));
+  }
+
+  @supports (-webkit-text-stroke: 1px black) {
+    .text-outline {
+      color: transparent;
+      -webkit-text-stroke: 1.5px hsl(var(--foreground) / 0.5);
+    }
   }
 
   .number-positive {
@@ -460,5 +649,19 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Hero scroll cue: a short bar travelling down a hairline. */
+.scroll-cue {
+  animation: scroll-cue 2.2s var(--ease-curtain) infinite;
+}
+
+@keyframes scroll-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(200%);
   }
 }

@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BrandLogo } from '@/components/BrandLogo';
+import { AuthShell } from '@/components/layout/AuthShell';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { isValidEmail } from '@/lib/utils';
+
+const HEADLINE = 'Rakamlar Sizi Bekliyor';
+const FOOTNOTE =
+  'Şifrenizi unuttuysanız şu an için sıfırlama yapamıyoruz; destek için bize ulaşın.';
 
 /** Safe post-login destination: internal paths only, never an absolute URL. */
 function safeNext(raw: string | null): string {
@@ -67,16 +72,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
-      <Link
-        to="/"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Ana sayfaya dön
-      </Link>
-
-      <Card className="w-full max-w-md">
+    <AuthShell headline={HEADLINE} footnote={FOOTNOTE}>
+      <Card className="w-full">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center text-center">
             <BrandLogo size="lg" showText={false} />
@@ -158,9 +155,6 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      <p className="mt-6 max-w-md text-center text-xs text-muted-foreground">
-        Şifrenizi unuttuysanız şu an için sıfırlama yapamıyoruz; destek için bize ulaşın.
-      </p>
-    </div>
+    </AuthShell>
   );
 }

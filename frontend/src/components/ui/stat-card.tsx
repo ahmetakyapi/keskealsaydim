@@ -47,12 +47,21 @@ export function StatCard({
   })();
 
   return (
-    <div className={cn('rounded-2xl border border-border bg-card p-5', className)}>
+    <div
+      data-spotlight=""
+      className={cn(
+        'group rounded-2xl border border-border bg-card p-5 transition-[border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/30',
+        className
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">{title}</p>
         {Icon && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
-            <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors duration-300 group-hover:bg-primary/15">
+            <Icon
+              className="h-4 w-4 text-muted-foreground transition-[color,transform] duration-500 group-hover:-rotate-6 group-hover:scale-110 group-hover:text-primary"
+              aria-hidden="true"
+            />
           </span>
         )}
       </div>

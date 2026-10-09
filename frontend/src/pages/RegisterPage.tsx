@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { Check, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { BrandLogo } from '@/components/BrandLogo';
+import { AuthShell } from '@/components/layout/AuthShell';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -38,6 +39,10 @@ function passwordChecks(password: string) {
     { label: 'En az bir rakam', ok: /\d/.test(password) },
   ];
 }
+
+const HEADLINE = 'Bir Sonraki Keşkeyi Önleyin';
+const FOOTNOTE =
+  'Keşke Alsaydım yatırım tavsiyesi vermez; gösterilen veriler bilgilendirme amaçlıdır.';
 
 export default function RegisterPage() {
   useDocumentTitle('Kayıt Ol');
@@ -95,16 +100,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
-      <Link
-        to="/"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Ana sayfaya dön
-      </Link>
-
-      <Card className="w-full max-w-md">
+    <AuthShell headline={HEADLINE} footnote={FOOTNOTE}>
+      <Card className="w-full">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center text-center">
             <BrandLogo size="lg" showText={false} />
@@ -251,9 +248,6 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
 
-      <p className="mt-6 max-w-md text-center text-xs text-muted-foreground">
-        Keşke Alsaydım yatırım tavsiyesi vermez; gösterilen veriler bilgilendirme amaçlıdır.
-      </p>
-    </div>
+    </AuthShell>
   );
 }

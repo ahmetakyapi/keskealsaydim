@@ -1,5 +1,6 @@
 # Keşke Alsaydım
 
+Turkish stock comparison and portfolio tracking app: "what if I had bought X instead?"
 
 ## Commit yazarı
 
@@ -15,121 +16,100 @@ git config user.email "ahmetakyapii@gmail.com"
 
 Bu kural sahibinin tüm repolarında geçerli (9 Ekim 2026).
 
-## Project Overview
-Turkish stock comparison & portfolio tracking app. "What if I had bought X instead?"
+## Stack
 
-## Tech Stack
-- **Frontend**: React 18 + Vite + TypeScript + TailwindCSS + Radix UI + Framer Motion + Recharts
-- **Backend**: Go serverless functions on Vercel (`/api/` + `/pkg/`)
-- **Database**: Neon PostgreSQL (pgbouncer pooler)
-- **Cache**: Upstash Redis via HTTP REST API
-- **State Management**: Zustand (auth, theme) + TanStack React Query (server state)
-- **Deployment**: Vercel
+- **Frontend** (`frontend/`): React 18 + Vite 5 + TypeScript, Tailwind 3, Radix UI,
+  Framer Motion, Lenis, Recharts, Zustand (auth, theme, motion) + TanStack Query.
+- **Backend**: Go 1.22 serverless functions on Vercel (`api/`), shared code in
+  `pkg/` (`auth`, `cache`, `db`, `finance`, `respond`).
+- **Data**: Neon Postgres through the pgbouncer pooler (pgx forced to
+  `QueryExecModeSimpleProtocol` in `pkg/db`, pinned by a test); Upstash Redis
+  over its HTTP REST API.
 
-## Development
+## Commands
 
-### Prerequisites
-- Go 1.22+
-- Node.js 20+
-- npm
-
-### Local Setup
 ```bash
-cp .env.example .env.local        # fill DATABASE_URL and JWT_SECRET at minimum
-cd frontend && npm install && cd ..
-for f in db/migration/V*.sql; do psql "$DATABASE_URL" -f "$f"; done
-npm start                          # Go API on :3000 + Vite on :5173
-```
-
-### Verify
-```bash
+npm start                  # root: Go API :3000 (cmd/server) + Vite :5173 (scripts/start-dev.sh)
 go vet ./... && go test ./...
-cd frontend && npm run lint && npm run test && npm run build
+cd frontend && npm run lint && npm run test && npm run build   # test = vitest run
 ```
 
-## Project Structure
-```
-api/              Go serverless handlers (one Handler per directory)
-pkg/              Shared Go packages (auth, cache, db, finance, respond)
-frontend/src/
-  pages/          Page components
-  components/ui/  Design-system primitives
-  components/     Feature components (SymbolSearch, Motion, compare/)
-  hooks/          React Query hooks (useQueries.ts) + small utility hooks
-  services/       API service layer (Axios)
-  stores/         Zustand stores
-  lib/            format.ts, chart.ts, api-error.ts, api-normalizers.ts, utils.ts
-  types/          TypeScript definitions
-db/migration/     SQL migration files (Flyway-style V1__, V2__, ...)
-```
+- `scripts/start-dev.sh` loads `.env.local`, otherwise falls back to the
+  **shell's** `DATABASE_URL`, then to a local default. A shell that exports a
+  production URL makes `npm start` (and any `psql "$DATABASE_URL"`) hit production.
+- Migrations: `db/migration/V<n>__<name>.sql` (Flyway-style, applied in order
+  with `psql`, no runner). Add a new file; never edit an applied one.
+- `docker-compose.yml` is legacy (local Redis, missing `db/init`); not used by `npm start`.
 
-## Key Conventions
+## Backend rules
 
-### Backend
-- One `Handler` per directory; use `respond.Ctx()` for a context with timeout.
-- Never use an `internal/` directory — Vercel wraps handlers in a different module.
-- Never use `[param].go` bracket filenames — Go rejects them.
-- All error responses go through `respond.Error(w, status, message)` with a
-  Turkish message. Validation failures are 400, not 500.
-- **Serverless function budget**: Vercel Hobby allows 12 functions per
-  deployment and the project is at that limit. Adding an endpoint means folding
-  it into an existing handler behind an `action`/`resource`/`id` query param and
-  adding a `vercel.json` rewrite — not creating a new directory.
-- Every new route must be added to **both** `vercel.json` and
-  `cmd/server/main.go`, or it will work in production but not locally.
+- One exported `Handler` per directory under `api/` (file name is free:
+  `index.go`, `me.go`, `overview.go`). No `internal/` directory (Vercel wraps
+  handlers in another module) and no `[param].go` filenames (Go rejects them).
+- **Function budget**: Vercel Hobby allows 12 functions and `api/` has exactly 12.
+  A new endpoint folds into an existing handler behind an `action`/`resource`/`id`
+  query param plus a `vercel.json` rewrite — never a new directory.
+- Every route goes into **both** `vercel.json` rewrites and `cmd/server/main.go`,
+  or it works in production but not locally.
+- Use `respond.Ctx()` for a request context with timeout. Errors go through
+  `respond.Error(w, status, message)` with a Turkish message; validation is 400, not 500.
 
-### Money and currency
-- `finance.BaseCurrency` (TRY) is the currency of every total the API returns.
-- A quote's own `Currency` field is authoritative; the stored `currency` column
-  is only a fallback when the live quote could not be fetched.
-- Historical values convert with `finance.RateSeriesToTRY` (per-day rate), not a
-  single spot rate. Spot conversion (`SpotRatesToTRY`) is only for "right now"
-  figures like the portfolio summary.
-- Prices are shown in the instrument's own currency; **totals** are always TRY.
+## Money and currency
 
-### Frontend
-- Use the `@/` path alias.
-- All data fetching goes through hooks in `frontend/src/hooks/useQueries.ts`.
-- **Never hard-code colours.** Use semantic tokens (`text-foreground`,
-  `bg-card`, `border-border`, `text-success`, `text-danger`). `text-white` and
-  `bg-white/10` break light mode, which is a supported theme.
-- Chart colours come from `useChartPalette()`, which re-reads CSS tokens on
-  theme change. Recharts cannot consume Tailwind classes.
-- Format money and percentages with the components in `components/ui/value.tsx`
-  (`Money`, `Percent`, `ChangeBadge`) or the helpers in `lib/format.ts`.
-  - `formatPercent` already adds the sign — never prefix `+` at the call site.
-  - Signed money renders as `−₺1.234`, never `₺-1.234`.
-  - A value that could not be fetched renders as `UnavailableValue`, never `0`.
-- Symbol input always uses `<SymbolSearch>` — it is the only combobox with
-  keyboard navigation, ARIA wiring and typed-symbol commit.
-- Destructive actions go through `<ConfirmDialog>`.
-- A failed query renders `<ErrorState>`; an empty result renders `<EmptyState>`.
-  Showing an empty state on error tells the user the wrong thing.
-- Motion: use the primitives in `components/Motion.tsx` (entrances, reveals)
-  and `components/fx/` (SplitText, Magnetic, PointerAurora, VelocityMarquee,
-  ScrollHighlight, HorizontalScroll, RouteCurtain, Preloader, TopLoader…).
-  Every one of them renders plainly under `prefers-reduced-motion`; a new
-  effect must do the same. Pointer effects are gated on `useFinePointer()`.
-  - Page transitions: `App.tsx` keys routes by *world* (landing, auth, app).
-    Changing world plays the column curtain; navigation inside the app shell
-    only plays `PageTransition` + the CSS `page-stagger` entrance.
-  - Loops are allowed only where they carry meaning (loaders, the marquees,
-    the live dot) and must stop off-screen or under reduced motion.
-  - Smooth scroll (Lenis, `useSmoothScroll`) is for marketing pages only —
-    never the app shell, whose dialogs and tables own their own scroll.
-  - Anything left with a `transform`/`filter` after an entrance becomes a
-    containing block for `position: fixed` children: end on `none`.
-  - Surfaces get the pointer glow with `data-spotlight` (Card does by
-    default); the glow itself is CSS, fed by one global listener.
-- Pure logic in `lib/` carries a Vitest suite (`src/lib/*.test.ts`). Anything
-  touching a sign, a currency, a date boundary or Turkish casing belongs there
-  — those are the four ways this app has actually been wrong before.
-- Turkish text is written with its diacritics (`Canlı`, not `Canli`). Titles,
-  buttons and menu items use Title Case; body copy uses sentence case.
-  Never use `text-transform: capitalize` — it produces `i → I` instead of `İ`.
+- `finance.BaseCurrency` (TRY) is the currency of every total the API returns;
+  prices stay in the instrument's own currency.
+- A live quote's `Currency` is authoritative; the stored `currency` column is
+  only a fallback when the quote could not be fetched.
+- Historical values convert with `finance.RateSeriesToTRY` (per-day rate).
+  `finance.SpotRatesToTRY` is only for "right now" figures like the portfolio summary.
 
-## Environment Variables
-See `.env.example`. Required: `DATABASE_URL`, `JWT_SECRET` (32+ chars).
-Optional but recommended in production: `UPSTASH_REDIS_REST_URL` +
-`UPSTASH_REDIS_REST_TOKEN` (without them the cache and auth rate limiting are
-both disabled), `FRONTEND_URL` (comma-separated list allowed).
+## Frontend rules
+
+- `@/` alias = `frontend/src`. Server state goes through the hooks in
+  `hooks/useQueries.ts`; only the auth flow calls `services/authService` directly.
+- **No hard-coded colours** — semantic tokens (`text-foreground`, `bg-card`,
+  `border-border`, `text-success`, `text-danger`). Light mode is supported;
+  `text-white` / `bg-white/10` break it. Chart colours come from
+  `useChartPalette()` (re-reads CSS tokens on theme change; Recharts can't use classes).
+- Numbers: `Money`, `Percent`, `ChangeBadge`, `UnavailableValue` from
+  `components/ui/value.tsx`, or `lib/format.ts`.
+  - `formatPercent` / `formatSignedCurrency` add the sign — never prefix `+`.
+  - Negative money is `−₺1.234` (U+2212), never `₺-1.234`.
+  - A value that could not be fetched is `UnavailableValue`, never `0`.
+- Symbol input is always `<SymbolSearch>` (keyboard nav, ARIA, typed-symbol commit).
+- Destructive actions use `<ConfirmDialog>`. A failed query renders `<ErrorState>`,
+  an empty result `<EmptyState>` — never an empty state on error.
+- Pure logic in `src/lib/` has a Vitest suite (`src/lib/*.test.ts`). Anything
+  touching a sign, a currency, a date boundary or Turkish casing gets a test —
+  those are the four ways this app has actually been wrong.
+- Turkish copy keeps its diacritics (`Canlı`, not `Canli`). Titles, buttons and
+  menu items are Title Case, body copy sentence case. Never
+  `text-transform: capitalize` (`i → I`, not `İ`).
+
+## Motion
+
+- Primitives: `components/Motion.tsx` (`FadeIn`, `PageTransition`, `Reveal*`,
+  `ScrollProgress`) and `components/fx/` (`SplitText`, `Magnetic`, `PointerAurora`,
+  `VelocityMarquee`, `ScrollHighlight`, `HorizontalScroll`, `RouteCurtain`,
+  `TopLoader`, `Cursor`, …). Each renders plainly under `prefers-reduced-motion`;
+  a new effect must too. Pointer effects are gated on `useFinePointer()`.
+- `App.tsx` keys routes by *world* (`worldOf`: the app shell vs each public page).
+  A world change plays the column `RouteCurtain`; in-app navigation only plays
+  `PageTransition` + CSS `page-stagger`.
+- First-visit intro: `fx/Preloader.tsx` — two price lines that move together,
+  then diverge; once per session, only on `/`, skipped by click/key or reduced
+  motion, 4 s failsafe. `motionStore.introDone` holds the hero until it lifts.
+- Loops only where they carry meaning (loaders, marquees, live dot) and must stop
+  off-screen or under reduced motion.
+- Lenis (`useSmoothScroll`) is landing-only — never the app shell.
+- An entrance must end on `transform: none` / no `filter`, or it traps
+  `position: fixed` children.
+- Pointer glow: add `data-spotlight` (`Card` and `StatCard` already do); CSS
+  draws it, fed by one listener in `GlobalPointerFx`.
+
+## Environment
+
+Names only (see `.env.example`): required `DATABASE_URL`, `JWT_SECRET` (32+ chars).
+Optional: `DB_MAX_CONNS` (default 4), `UPSTASH_REDIS_REST_URL` +
+`UPSTASH_REDIS_REST_TOKEN` (without them cache and auth rate limiting are off),
+`FRONTEND_URL` (comma-separated allowed), `VITE_API_URL` (default `/api`).

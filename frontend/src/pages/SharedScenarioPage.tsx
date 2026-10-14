@@ -39,7 +39,7 @@ export default function SharedScenarioPage() {
 
           <Button size="sm" asChild>
             <Link to={isAuthenticated ? '/compare' : '/register'}>
-              {isAuthenticated ? 'Kendi Karşılaştırmanı Yap' : 'Ücretsiz Dene'}
+              {isAuthenticated ? 'Kendi Karşılaştırmanı Yap' : 'Siz de Hesaplayın'}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </Button>
@@ -103,7 +103,7 @@ export default function SharedScenarioPage() {
               </p>
               <Button asChild>
                 <Link to={isAuthenticated ? '/compare' : '/register'}>
-                  {isAuthenticated ? 'Karşılaştırma Yap' : 'Ücretsiz Hesap Oluştur'}
+                  {isAuthenticated ? 'Karşılaştırma Yap' : 'Hesap Oluşturun'}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </Button>

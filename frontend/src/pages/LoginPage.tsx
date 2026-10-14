@@ -149,7 +149,7 @@ export default function LoginPage() {
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Hesabınız yok mu?{' '}
             <Link to="/register" className="font-medium text-primary hover:underline">
-              Ücretsiz Kayıt Olun
+              Kayıt Olun
             </Link>
           </p>
         </CardContent>

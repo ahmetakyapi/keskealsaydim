@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useMarketOverview } from '@/hooks/useQueries';
+import { displaySymbol } from '@/lib/symbols';
 import { cn, directionOf, formatNumber, formatPercentValue } from '@/lib/utils';
 
 /**
@@ -62,9 +63,7 @@ export function MarketTicker({ className }: { className?: string }) {
               tabIndex={index >= quotes.length ? -1 : undefined}
               className="flex shrink-0 items-baseline gap-2 border-r border-border px-5 py-3 text-xs transition-colors hover:bg-accent/50"
             >
-              <span className="font-medium text-foreground">
-                {quote.symbol.replace(/\.IS$/, '').replace(/=X$/, '')}
-              </span>
+              <span className="font-medium text-foreground">{displaySymbol(quote.symbol)}</span>
               <span className="text-muted-foreground" data-numeric="">
                 {formatNumber(quote.price, decimals)}
               </span>

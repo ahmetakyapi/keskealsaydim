@@ -114,8 +114,8 @@ const FAQ = [
     a: 'ABD hisseleri dolar cinsinden işlem görür. Karşılaştırma ve portföy toplamları her işlem gününün kuruyla Türk lirasına çevrilir; böylece kur hareketi de sonuca yansır. Bugünkü kurla toptan çevirmek yanlış sonuç verirdi.',
   },
   {
-    q: 'Ücretli mi?',
-    a: 'Hayır. Karşılaştırma, portföy takibi, izleme listesi ve fiyat alarmları ücretsizdir. Kredi kartı istemiyoruz.',
+    q: 'Hesap Açmadan Kullanabilir miyim?',
+    a: 'Bu sayfadaki örnek karşılaştırmayı ve size gönderilen paylaşım bağlantılarını hesap açmadan kullanabilirsiniz. Kendi karşılaştırmalarınızı kaydetmek, portföy tutmak ve alarm kurmak için hesap gerekir.',
   },
   {
     q: 'Yatırım Tavsiyesi Veriyor musunuz?',
@@ -250,7 +250,7 @@ export default function LandingPage() {
                   <Link to="/login">Giriş Yap</Link>
                 </Button>
                 <Button size="sm" asChild>
-                  <Link to="/register">Ücretsiz Başla</Link>
+                  <Link to="/register">Hesap Oluştur</Link>
                 </Button>
               </>
             )}
@@ -360,9 +360,8 @@ export default function LandingPage() {
                     <Button size="lg" asChild className="group">
                       <Link
                         to={isAuthenticated ? '/compare' : '/register'}
-                        data-cursor-label="Başla"
                       >
-                        {isAuthenticated ? 'Karşılaştırma Yap' : 'Ücretsiz Hesap Oluştur'}
+                        {isAuthenticated ? 'Karşılaştırma Yap' : 'Hesap Oluştur'}
                         <ArrowRight
                           className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
                           aria-hidden="true"
@@ -380,7 +379,7 @@ export default function LandingPage() {
 
               <HeroIn play={introDone} delay={0.84}>
                 <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground lg:justify-start">
-                  {['Kayıt Olmadan Deneyin', 'Kredi Kartı Yok', 'Türk Lirası Bazlı'].map((item) => (
+                  {['Kayıt Olmadan Deneyin', 'Temettü Dahil', 'Türk Lirası Bazlı'].map((item) => (
                     <li key={item} className="flex items-center gap-1">
                       <Check className="h-3 w-3 text-success" aria-hidden="true" />
                       {item}
@@ -507,17 +506,25 @@ export default function LandingPage() {
                           {formatLongDate(result.startDate)} tarihinde{' '}
                           {formatCurrency(result.amount)} ile
                         </p>
+                        {/* When the stock you bought wins, "THYAO alsaydınız" would
+                            tell you to buy what you already hold. */}
                         <p className="display-sm mt-1 text-lg leading-snug sm:text-xl">
-                          <span className={winnerIsB ? 'text-danger' : 'text-success'}>
-                            {winnerSymbol}
-                          </span>{' '}
-                          alsaydınız{' '}
+                          {winnerIsB ? (
+                            <>
+                              <span className="text-danger">{winnerSymbol}</span> alsaydınız{' '}
+                            </>
+                          ) : (
+                            <>
+                              İyi ki <span className="text-success">{winnerSymbol}</span>{' '}
+                              almışsınız: {result.symbolB} alsaydınız{' '}
+                            </>
+                          )}
                           <AnimatedNumber
                             value={Math.abs(gap)}
                             format="currency"
                             className="font-bold"
                           />{' '}
-                          daha fazlanız olurdu.
+                          {winnerIsB ? 'daha fazlanız olurdu.' : 'daha azınız olurdu.'}
                         </p>
 
                         <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -625,23 +632,23 @@ export default function LandingPage() {
         */}
         <section className="border-y border-border bg-surface/40">
           <div className="mx-auto w-full max-w-6xl px-4 py-9">
-            <RevealGroup className="grid grid-cols-2 gap-x-6 gap-y-7 lg:grid-cols-4" stagger={0.07}>
+            {/* "₺0 Aylık Ücret" used to be the fourth fact; price is not what
+                this page argues with, so the band keeps the three about data. */}
+            <RevealGroup className="grid grid-cols-3 gap-x-4 gap-y-7 sm:gap-x-6" stagger={0.07}>
               {[
                 {
                   value: market.data?.requestedSymbols ?? 43,
                   format: 'integer' as const,
                   label: 'Canlı Sembol',
                 },
-                { value: 10, format: 'integer' as const, label: 'Para Birimi' },
+                { value: 10, format: 'integer' as const, label: 'Desteklenen Para Birimi' },
                 { value: 1990, format: 'integer' as const, label: 'Veri Başlangıcı' },
-                { value: 0, format: 'integer' as const, prefix: '₺', label: 'Aylık Ücret' },
               ].map((stat) => (
-                <RevealItem key={stat.label} className="border-l border-border pl-5">
-                  <p className="display text-4xl text-primary sm:text-5xl">
+                <RevealItem key={stat.label} className="min-w-0 border-l border-border pl-3 sm:pl-5">
+                  <p className="display text-[clamp(1.75rem,8vw,3rem)] text-primary">
                     <AnimatedNumber
                       value={stat.value}
                       format={stat.format}
-                      prefix={'prefix' in stat ? stat.prefix : undefined}
                       decimals={0}
                       startOnView
                     />
@@ -803,7 +810,6 @@ export default function LandingPage() {
               <Reveal delay={0.2}>
                 <p className="mx-auto mt-6 max-w-lg text-sm text-muted-foreground sm:text-base lg:mx-0">
                   Hesap oluşturun, portföyünüzü ekleyin, senaryolarınızı kaydedin ve paylaşın.
-                  Tamamı ücretsiz.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                   <Button size="lg" variant="outline" asChild>
@@ -818,7 +824,6 @@ export default function LandingPage() {
               <Magnetic strength={0.4}>
                 <Link
                   to={isAuthenticated ? '/dashboard' : '/register'}
-                  data-cursor-label="Hadi"
                   className="group relative flex h-44 w-44 items-center justify-center overflow-hidden rounded-full border border-primary/40 text-primary transition-colors duration-500 hover:text-primary-foreground sm:h-56 sm:w-56"
                 >
                   <span
@@ -831,7 +836,7 @@ export default function LandingPage() {
                       aria-hidden="true"
                     />
                     <span className="display-sm text-lg">
-                      {isAuthenticated ? 'Panele Git' : 'Ücretsiz Başla'}
+                      {isAuthenticated ? 'Panele Git' : 'Hesap Oluştur'}
                     </span>
                   </span>
                 </Link>
@@ -888,7 +893,7 @@ export default function LandingPage() {
                       { to: '/settings', label: 'Ayarlar' },
                     ]
                   : [
-                      { to: '/register', label: 'Ücretsiz Kayıt' },
+                      { to: '/register', label: 'Kayıt Ol' },
                       { to: '/login', label: 'Giriş Yap' },
                     ]
                 ).map((item) => (

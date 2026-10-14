@@ -86,7 +86,6 @@ function PairPanel({ pair, index }: { pair: Pair; index: number }) {
     <Link
       to={hrefFor(pair)}
       data-spotlight=""
-      data-cursor-label="Hesapla"
       className="group flex h-[min(64vh,32rem)] w-[min(24rem,80vw)] shrink-0 flex-col justify-between overflow-hidden rounded-3xl border border-border bg-card p-8 transition-[border-color,transform] duration-500 ease-brand hover:-translate-y-2 hover:border-primary/40"
     >
       <div className="flex items-center justify-between text-xs text-muted-foreground">

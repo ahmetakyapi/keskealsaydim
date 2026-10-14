@@ -11,7 +11,6 @@ import { RouteCurtain } from '@/components/fx/RouteCurtain';
 import { Preloader } from '@/components/fx/Preloader';
 import { TopLoader } from '@/components/fx/TopLoader';
 import { usePendingSignal } from '@/hooks/usePendingSignal';
-import { CursorFollower } from '@/components/fx/Cursor';
 import { GlobalPointerFx } from '@/components/fx/GlobalPointerFx';
 
 const loaders = {
@@ -204,9 +203,6 @@ function App() {
         <GlobalPointerFx />
         <TopLoader />
         <Preloader />
-        {/* The cursor companion belongs to the marketing pages; inside the app
-            it would trail across every chart and table. */}
-        {world !== 'app' && <CursorFollower />}
 
         <AnimatePresence
           mode="wait"

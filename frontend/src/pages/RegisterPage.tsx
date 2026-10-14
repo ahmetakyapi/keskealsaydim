@@ -105,7 +105,7 @@ export default function RegisterPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col items-center text-center">
             <BrandLogo size="lg" showText={false} />
-            <h1 className="mt-4 text-xl font-semibold tracking-tight">Ücretsiz Hesap Oluşturun</h1>
+            <h1 className="mt-4 text-xl font-semibold tracking-tight">Hesap Oluşturun</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Portföyünüzü takip edin, senaryolarınızı kaydedin ve paylaşın.
             </p>

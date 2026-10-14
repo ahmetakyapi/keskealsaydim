@@ -85,14 +85,19 @@ cd frontend && npm run lint && npm run test && npm run build   # test = vitest r
 - Turkish copy keeps its diacritics (`Canlı`, not `Canli`). Titles, buttons and
   menu items are Title Case, body copy sentence case. Never
   `text-transform: capitalize` (`i → I`, not `İ`).
+- No "Ücretsiz" / price pitch in copy ("Hesap Oluştur", not "Ücretsiz Başla")
+  and no hand-typed figures in the landing previews: they read the hero's
+  demo query and the market overview (`components/landing/ProductPreviews.tsx`).
 
 ## Motion
 
 - Primitives: `components/Motion.tsx` (`FadeIn`, `PageTransition`, `Reveal*`,
   `ScrollProgress`) and `components/fx/` (`SplitText`, `Magnetic`, `PointerAurora`,
   `VelocityMarquee`, `ScrollHighlight`, `HorizontalScroll`, `RouteCurtain`,
-  `TopLoader`, `Cursor`, …). Each renders plainly under `prefers-reduced-motion`;
+  `TopLoader`, …). Each renders plainly under `prefers-reduced-motion`;
   a new effect must too. Pointer effects are gated on `useFinePointer()`.
+- No custom cursor or cursor companion (owner rule, every project): the
+  `CursorFollower` ring was removed in October 2026; don't bring it back.
 - `App.tsx` keys routes by *world* (`worldOf`: the app shell vs each public page).
   A world change plays the column `RouteCurtain`; in-app navigation only plays
   `PageTransition` + CSS `page-stagger`.

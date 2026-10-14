@@ -2,11 +2,11 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, TrendingDown, TrendingUp } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { ChangeBadge } from '@/components/ui/value';
+import { ChangeBadge, Money } from '@/components/ui/value';
 import { ShimmerRow } from '@/components/ui/skeleton';
 import { RevealGroup, RevealItem } from '@/components/Motion';
 import { useMarketOverview } from '@/hooks/useQueries';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import type { MarketQuote } from '@/types';
 
 /**
@@ -109,9 +109,9 @@ function MoverColumn({
                 </span>
 
                 <span className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm" data-numeric="">
-                    {formatNumber(quote.price)}
-                  </span>
+                  {/* LLY at 1.215,00 next to TUPRS at 391,00 read as one
+                      currency; each price now carries its own. */}
+                  <Money value={quote.price} currency={quote.currency || 'TRY'} price className="text-sm" />
                   <ChangeBadge value={quote.changePercent} size="sm" />
                 </span>
               </Link>

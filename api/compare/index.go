@@ -334,7 +334,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := respond.Ctx()
 		defer cancel()
 		shareToken := randomToken()
-		resultBytes, marshalErr := json.Marshal(result)
+		resultJSON, marshalErr := db.JSONParam(result)
 		if marshalErr != nil {
 			respond.LogError("compare", "marshal result", marshalErr)
 			respond.Error(w, http.StatusInternalServerError, "Senaryo kaydedilemedi")
@@ -349,7 +349,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			scenarioID, claims.UserID,
 			req.SymbolA, symbolAName, req.SymbolB, symbolBName,
 			resp.StartDate, resp.EndDate, req.Amount, req.AmountType,
-			resultBytes, nullStr(req.Title), nullStr(req.Notes), shareToken,
+			resultJSON, nullStr(req.Title), nullStr(req.Notes), shareToken,
 		)
 		if saveErr != nil {
 			respond.LogError("compare", "insert scenario", saveErr)

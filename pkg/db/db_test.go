@@ -87,3 +87,23 @@ func TestDatabaseURLFromEnvFallsBackToProviderAndPartVariables(t *testing.T) {
 		t.Fatalf("expected localhost sslmode=disable, got %q", parsed.Query().Get("sslmode"))
 	}
 }
+
+// TestJSONParamIsAString guards the json/jsonb argument type. Under the simple
+// protocol a []byte argument is written as a bytea literal and Postgres
+// rejects it for json columns, which silently broke saved scenarios and alert
+// notifications. The value has to stay a string.
+func TestJSONParamIsAString(t *testing.T) {
+	var arg any
+	arg, err := JSONParam(map[string]any{"symbol": "THYAO", "price": 279.25})
+	if err != nil {
+		t.Fatalf("JSONParam returned error: %v", err)
+	}
+
+	got, ok := arg.(string)
+	if !ok {
+		t.Fatalf("expected a string argument, got %T", arg)
+	}
+	if got != `{"price":279.25,"symbol":"THYAO"}` {
+		t.Fatalf("unexpected encoding: %s", got)
+	}
+}

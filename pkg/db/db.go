@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -131,6 +132,22 @@ func applyPoolTuning(cfg *pgxpool.Config) {
 	// M columns" and "unnamed prepared statement does not exist", and the
 	// dashboard's parallel calls failed at random.
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+}
+
+// JSONParam encodes v as the argument for a json/jsonb column.
+//
+// Under the simple protocol pgx writes every argument into the SQL text
+// itself, and a []byte becomes a bytea literal ('\x7b22…'). Postgres rejects
+// that for json/jsonb with "invalid input syntax for type json", so passing
+// json.Marshal's output straight through broke every saved scenario (and with
+// it every share link) and every alert notification. A string is sent as a
+// plain quoted literal and casts cleanly.
+func JSONParam(v any) (string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func pingPool(p *pgxpool.Pool) error {

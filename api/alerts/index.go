@@ -216,6 +216,9 @@ type priceAlert struct {
 	CreatedAt      time.Time  `json:"createdAt"`
 	CurrentPrice   float64    `json:"currentPrice"`
 	DistancePct    float64    `json:"distancePercent"`
+	// Currency the target and prices are in, from the live quote. Without it
+	// the screen printed an AAPL alert's dollar target with a lira sign.
+	Currency string `json:"currency,omitempty"`
 }
 
 type alertRequest struct {
@@ -277,14 +280,16 @@ func listAlerts(w http.ResponseWriter, pool *pgxpool.Pool, claims *auth.Claims) 
 
 	// There is no background worker on this stack, so alerts are evaluated
 	// whenever the user opens the screen. Triggered ones become notifications.
-	prices := currentPrices(alerts)
-	triggered := evaluateAlerts(ctx, pool, claims.UserID, alerts, prices)
+	quotes := currentQuotes(alerts)
+	triggered := evaluateAlerts(ctx, pool, claims.UserID, alerts, quotes)
 
 	for i := range alerts {
-		price, ok := prices[alerts[i].Symbol]
-		if !ok || price <= 0 {
+		q, ok := quotes[alerts[i].Symbol]
+		if !ok {
 			continue
 		}
+		price := q.price
+		alerts[i].Currency = q.currency
 		alerts[i].CurrentPrice = price
 		if alerts[i].TargetPrice > 0 {
 			alerts[i].DistancePct = round2((price - alerts[i].TargetPrice) / alerts[i].TargetPrice * 100)
@@ -332,40 +337,53 @@ func queryAlerts(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID) ([]p
 	return alerts, rows.Err()
 }
 
-// currentPrices fetches one quote per distinct symbol that still has a live alert.
-func currentPrices(alerts []priceAlert) map[string]float64 {
+// liveQuote is the part of a quote the alert screen needs.
+type liveQuote struct {
+	price    float64
+	currency string
+}
+
+// maxConcurrentQuotes keeps one screen load from bursting Yahoo into 429s
+// (the market overview learned the same limit).
+const maxConcurrentQuotes = 8
+
+// currentQuotes fetches one quote per distinct symbol in the list. Only live
+// alerts are evaluated, but every row needs its currency to print its prices.
+func currentQuotes(alerts []priceAlert) map[string]liveQuote {
 	symbols := make(map[string]bool)
 	for _, a := range alerts {
-		if a.Status == "ACTIVE" {
-			symbols[a.Symbol] = true
-		}
+		symbols[a.Symbol] = true
 	}
 	if len(symbols) == 0 {
-		return map[string]float64{}
+		return map[string]liveQuote{}
 	}
 
 	var (
 		mu     sync.Mutex
 		wg     sync.WaitGroup
-		prices = make(map[string]float64, len(symbols))
+		quotes = make(map[string]liveQuote, len(symbols))
+		slots  = make(chan struct{}, maxConcurrentQuotes)
 	)
 	for symbol := range symbols {
 		wg.Add(1)
 		go func(s string) {
 			defer wg.Done()
+			slots <- struct{}{}
+			defer func() { <-slots }()
+
 			q, err := finance.GetQuoteWithTimeout(s, quoteTimeout)
 			if err != nil || q == nil || q.Price <= 0 {
 				respond.LogError("alerts", "quote "+s, err)
 				return
 			}
 			mu.Lock()
-			prices[s] = q.Price
+			quotes[s] = liveQuote{price: q.Price, currency: q.Currency}
 			mu.Unlock()
 		}(symbol)
 	}
 	wg.Wait()
 
-	return prices
+	return quotes
 }
 
 type triggerInfo struct {
@@ -373,17 +391,18 @@ type triggerInfo struct {
 	at    time.Time
 }
 
-func evaluateAlerts(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID, alerts []priceAlert, prices map[string]float64) map[uuid.UUID]triggerInfo {
+func evaluateAlerts(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID, alerts []priceAlert, quotes map[string]liveQuote) map[uuid.UUID]triggerInfo {
 	fired := make(map[uuid.UUID]triggerInfo)
 
 	for _, a := range alerts {
 		if a.Status != "ACTIVE" {
 			continue
 		}
-		price, ok := prices[a.Symbol]
-		if !ok || price <= 0 {
+		q, ok := quotes[a.Symbol]
+		if !ok || q.price <= 0 {
 			continue
 		}
+		price := q.price
 		if !alertHit(a.Direction, a.TargetPrice, price) {
 			continue
 		}
@@ -403,7 +422,7 @@ func evaluateAlerts(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID, a
 			continue // another request won the race
 		}
 
-		payload, _ := json.Marshal(map[string]any{
+		payload, _ := db.JSONParam(map[string]any{
 			"symbol":      a.Symbol,
 			"targetPrice": a.TargetPrice,
 			"price":       price,
@@ -411,10 +430,10 @@ func evaluateAlerts(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID, a
 			"alertId":     a.ID,
 		})
 		title := fmt.Sprintf("%s Fiyat Alarmı", a.Symbol)
-		message := fmt.Sprintf("%s %s %s seviyesine ulaştı. Güncel fiyat: %s.",
+		message := fmt.Sprintf("%s %s olan %s seviyesine ulaştı. Güncel fiyat: %s.",
 			a.SymbolName, directionLabel(a.Direction),
-			strconv.FormatFloat(a.TargetPrice, 'f', 2, 64),
-			strconv.FormatFloat(price, 'f', 2, 64))
+			finance.FormatPriceTR(a.TargetPrice, q.currency),
+			finance.FormatPriceTR(price, q.currency))
 
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO notifications (id, user_id, type, title, message, data)

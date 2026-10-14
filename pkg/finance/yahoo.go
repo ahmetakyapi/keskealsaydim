@@ -275,7 +275,7 @@ func getQuote(ctx context.Context, symbol string) (*Quote, error) {
 		PrevClose:     prevClose,
 		Change:        change,
 		ChangePercent: changePct,
-		Open:          m.RegularMarketOpen,
+		Open:          dayOpen(m, cr.Chart.Result[0]),
 		DayHigh:       m.RegularMarketDayHigh,
 		DayLow:        m.RegularMarketDayLow,
 		Volume:        m.RegularMarketVolume,
@@ -513,6 +513,25 @@ func lastClose(result chartResult) float64 {
 	for i := len(closes) - 1; i >= 0; i-- {
 		if closes[i] > 0 {
 			return closes[i]
+		}
+	}
+	return 0
+}
+
+// dayOpen returns the session's opening price. The chart meta stopped
+// carrying regularMarketOpen, so the stock screen showed "Açılış ₺0,00" for
+// every symbol; the same number is still in the day's bar.
+func dayOpen(meta chartMeta, result chartResult) float64 {
+	if meta.RegularMarketOpen > 0 {
+		return meta.RegularMarketOpen
+	}
+	if len(result.Indicators.Quote) == 0 {
+		return 0
+	}
+	opens := result.Indicators.Quote[0].Open
+	for i := len(opens) - 1; i >= 0; i-- {
+		if opens[i] > 0 {
+			return opens[i]
 		}
 	}
 	return 0

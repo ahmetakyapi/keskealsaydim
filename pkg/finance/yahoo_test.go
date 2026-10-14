@@ -169,3 +169,18 @@ func TestRound4Rounds(t *testing.T) {
 		t.Fatalf("expected 2.0001, got %v", got)
 	}
 }
+
+func TestGetQuoteTakesOpenFromTheDayBar(t *testing.T) {
+	stubClient(t, func(req *http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK,
+			`{"chart":{"result":[{"meta":{"currency":"TRY","regularMarketPrice":279.25,"chartPreviousClose":286.25},"timestamp":[1],"indicators":{"quote":[{"open":[284.5],"close":[279.25]}]}}],"error":null}}`), nil
+	})
+
+	q, err := GetQuote("THYAO")
+	if err != nil {
+		t.Fatalf("GetQuote returned error: %v", err)
+	}
+	if q.Open != 284.5 {
+		t.Fatalf("expected the open from the day bar (284.5), got %v", q.Open)
+	}
+}

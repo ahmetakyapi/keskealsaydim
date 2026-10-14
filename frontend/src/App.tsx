@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -11,6 +11,7 @@ import { RouteCurtain } from '@/components/fx/RouteCurtain';
 import { Preloader } from '@/components/fx/Preloader';
 import { TopLoader } from '@/components/fx/TopLoader';
 import { usePendingSignal } from '@/hooks/usePendingSignal';
+import { safeNextPath } from '@/lib/next-path';
 import { GlobalPointerFx } from '@/components/fx/GlobalPointerFx';
 
 const loaders = {
@@ -129,9 +130,14 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
+  const [searchParams] = useSearchParams();
 
   if (isLoading) return <AuthGate />;
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  // Signing in flips this guard while the login page is still on screen
+  // behind the curtain. A fixed "/dashboard" here won that race against the
+  // form's own navigate(next), so a landing "popular comparison" opened
+  // signed out ended on the dashboard instead of the comparison.
+  if (isAuthenticated) return <Navigate to={safeNextPath(searchParams.get('next'))} replace />;
 
   return <>{children}</>;
 }

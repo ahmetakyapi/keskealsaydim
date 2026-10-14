@@ -12,17 +12,12 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { safeNextPath } from '@/lib/next-path';
 import { isValidEmail } from '@/lib/utils';
 
 const HEADLINE = 'Rakamlar Sizi Bekliyor';
 const FOOTNOTE =
   'Şifrenizi unuttuysanız şu an için sıfırlama yapamıyoruz; destek için bize ulaşın.';
-
-/** Safe post-login destination: internal paths only, never an absolute URL. */
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
-  return raw;
-}
 
 export default function LoginPage() {
   useDocumentTitle('Giriş Yap');
@@ -36,7 +31,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const next = safeNext(searchParams.get('next'));
+  const next = safeNextPath(searchParams.get('next'));
 
   // The interceptor appends `reason=expired` when it ends a stale session.
   useEffect(() => {

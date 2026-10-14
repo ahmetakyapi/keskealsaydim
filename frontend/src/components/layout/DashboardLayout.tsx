@@ -49,6 +49,13 @@ const NAVIGATION = [
   { name: 'Fiyat Alarmları', href: '/alerts', icon: Bell },
 ] as const;
 
+/** Screens reached from the header or a row rather than the sidebar. */
+const SECONDARY_PAGES = [
+  { name: 'Ayarlar', href: '/settings' },
+  { name: 'Bildirimler', href: '/notifications' },
+  { name: 'Hisse Detayı', href: '/stocks' },
+] as const;
+
 const THEME_OPTIONS: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Açık', icon: Sun },
   { value: 'dark', label: 'Koyu', icon: Moon },
@@ -155,6 +162,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     location.pathname === href || location.pathname.startsWith(`${href}/`);
 
   const activePage = NAVIGATION.find((item) => isActiveRoute(item.href));
+  // The header named only sidebar pages, so a stock or the inbox sat under
+  // an empty title.
+  const pageTitle =
+    activePage?.name ?? SECONDARY_PAGES.find((item) => isActiveRoute(item.href))?.name ?? '';
 
   // `scope` keeps the desktop sidebar's and the drawer's indicators apart,
   // otherwise opening the drawer would fly the pill across the screen.
@@ -339,14 +350,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <h2 className="hidden h-5 shrink-0 overflow-hidden text-sm font-medium text-muted-foreground lg:block">
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
-                key={activePage?.name ?? location.pathname}
+                key={pageTitle || location.pathname}
                 className="block"
                 initial={{ y: '100%', opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: '-100%', opacity: 0 }}
                 transition={{ duration: 0.3, ease: EASE_BRAND }}
               >
-                {activePage?.name ?? (isActiveRoute('/settings') ? 'Ayarlar' : '')}
+                {pageTitle}
               </motion.span>
             </AnimatePresence>
           </h2>
@@ -372,7 +383,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-danger-foreground">
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-none text-danger-foreground">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}

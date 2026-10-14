@@ -443,6 +443,8 @@ export interface PriceAlert {
   createdAt: string;
   currentPrice: number;
   distancePercent: number;
+  /** Currency of the target and prices, from the live quote. */
+  currency?: string;
 }
 
 export interface AlertsResponse {

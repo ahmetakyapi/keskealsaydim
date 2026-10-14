@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -97,6 +97,11 @@ export default function ComparePage() {
     amountType: 'MONEY',
   }));
 
+  // A link that already names both stocks — a landing page "popular
+  // comparison", the URL this page writes after a run, a refresh — promises
+  // an answer. It used to open on a filled form and an empty result.
+  const openedWithPair = useRef(Boolean(searchParams.get('a') && searchParams.get('b')));
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<CompareResponse | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -190,6 +195,21 @@ export default function ComparePage() {
       toast.error(getApiErrorMessage(err));
     }
   };
+
+  const runCompareRef = useRef(runCompare);
+  runCompareRef.current = runCompare;
+
+  useEffect(() => {
+    if (!openedWithPair.current) return;
+    // Deferred a tick: a mutation fired while the component is still being
+    // mounted (StrictMode mounts twice) loses its observer and stays
+    // "pending" forever, hiding the result behind the skeleton.
+    const timer = window.setTimeout(() => {
+      openedWithPair.current = false;
+      void runCompareRef.current();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleSwap = () => {
     setForm((current) => ({

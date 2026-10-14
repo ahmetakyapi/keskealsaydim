@@ -50,14 +50,16 @@ export function StatCard({
     <div
       data-spotlight=""
       className={cn(
-        'group rounded-2xl border border-border bg-card p-5 transition-[border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/30',
+        'group min-w-0 rounded-2xl border border-border bg-card p-4 transition-[border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/30 sm:p-5',
         className
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-[13px] text-muted-foreground sm:text-sm">{title}</p>
         {Icon && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors duration-300 group-hover:bg-primary/15">
+          // On a phone the cards sit two to a row; the icon would push the
+          // title onto two lines for no information.
+          <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors duration-300 group-hover:bg-primary/15 sm:flex">
             <Icon
               className="h-4 w-4 text-muted-foreground transition-[color,transform] duration-500 group-hover:-rotate-6 group-hover:scale-110 group-hover:text-primary"
               aria-hidden="true"
@@ -66,7 +68,9 @@ export function StatCard({
         )}
       </div>
 
-      <p className="mt-3 text-2xl font-semibold tracking-tight sm:text-[26px]">
+      {/* Scales with the viewport below `sm` so a seven-figure balance still
+          fits half a phone's width; `anywhere` is the last resort, not overflow. */}
+      <p className="mt-2 text-[clamp(1.05rem,4.6vw,1.5rem)] font-semibold tracking-tight [overflow-wrap:anywhere] sm:mt-3 sm:text-[26px]">
         {loading ? (
           <ShimmerBlock className="h-8 w-32" />
         ) : (

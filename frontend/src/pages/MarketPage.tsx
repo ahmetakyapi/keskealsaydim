@@ -32,6 +32,7 @@ import { ChangeBadge, Money } from '@/components/ui/value';
 import { useMarketOverview } from '@/hooks/useQueries';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useNow } from '@/hooks/useNow';
+import { describeSymbol, displaySymbol } from '@/lib/symbols';
 import { cn, formatCompact, formatNumber, formatRelativeTime, matchesQuery } from '@/lib/utils';
 import type { MarketCategory, MarketQuote } from '@/types';
 
@@ -75,7 +76,11 @@ export default function MarketPage() {
     const filtered = quotes.filter((quote) => {
       if (category !== 'ALL' && quote.category !== category) return false;
       if (!query) return true;
-      return matchesQuery(quote.symbol, query) || matchesQuery(quote.name, query);
+      return (
+        matchesQuery(quote.symbol, query) ||
+        matchesQuery(quote.name, query) ||
+        matchesQuery(displaySymbol(quote.symbol), query)
+      );
     });
 
     return [...filtered].sort((a, b) => {
@@ -104,6 +109,9 @@ export default function MarketPage() {
 
   const indices = quotes.filter((quote) => quote.category === 'INDEX');
   const currencies = quotes.filter((quote) => quote.category === 'CURRENCY');
+  // Gold closes the headline grid: four indices and three pairs left one
+  // empty slot, a lone card on a phone.
+  const gold = quotes.filter((quote) => quote.symbol === 'GC=F');
 
   const marketState = data?.marketState ?? 'UNKNOWN';
 
@@ -176,12 +184,18 @@ export default function MarketPage() {
             <ShimmerTable rows={2} />
           ) : (
             (indices.length > 0 || currencies.length > 0) && (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {[...indices, ...currencies].slice(0, 8).map((quote) => (
-                  <Card key={quote.symbol} className="p-4">
-                    <p className="truncate text-xs text-muted-foreground">{quote.name}</p>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[...indices, ...currencies, ...gold].slice(0, 8).map((quote) => (
+                  <Card key={quote.symbol} className="min-w-0 p-4">
+                    <p className="truncate text-xs text-muted-foreground">
+                      {displaySymbol(quote.symbol)}
+                    </p>
                     <p className="mt-1 text-lg font-semibold" data-numeric="">
-                      {formatNumber(quote.price, quote.category === 'CURRENCY' ? 4 : 2)}
+                      {quote.category === 'COMMODITY' ? (
+                        <Money value={quote.price} currency={quote.currency || 'USD'} price />
+                      ) : (
+                        formatNumber(quote.price, quote.category === 'CURRENCY' ? 4 : 2)
+                      )}
                     </p>
                     <div className="mt-2">
                       <ChangeBadge value={quote.changePercent} size="sm" />
@@ -237,9 +251,13 @@ export default function MarketPage() {
           <Card>
             <CardHeader className="gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* `w-full` + `min-w-0` lets the tab strip scroll inside the card
+                    on a phone; as a plain flex item it took its content width
+                    and pushed the page 174px wider than the screen. */}
                 <Tabs
                   value={category}
                   onValueChange={(value) => setCategory(value as MarketCategory | 'ALL')}
+                  className="w-full min-w-0 sm:w-auto"
                 >
                   <TabsList>
                     {CATEGORY_TABS.map((tab) => (
@@ -251,8 +269,8 @@ export default function MarketPage() {
                   </TabsList>
                 </Tabs>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="w-full sm:w-52">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
                     <Input
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
@@ -265,7 +283,12 @@ export default function MarketPage() {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      {/* The label hides on a phone; the name must not go with it. */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Sıralama: ${SORT_OPTIONS.find((option) => option.value === sortKey)?.label}`}
+                      >
                         <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
                         <span className="hidden sm:inline">
                           {SORT_OPTIONS.find((option) => option.value === sortKey)?.label}
@@ -327,11 +350,13 @@ function QuoteRow({ quote, onOpen }: { quote: MarketQuote; onOpen: () => void })
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-accent/50"
+        className="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-accent/50"
       >
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{quote.symbol.replace(/\.IS$/, '')}</p>
-          <p className="truncate text-xs text-muted-foreground">{quote.name}</p>
+          <p className="text-sm font-medium">{displaySymbol(quote.symbol)}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {describeSymbol(quote.symbol, quote.name)}
+          </p>
         </div>
 
         <div className="hidden text-right sm:block">
@@ -348,9 +373,16 @@ function QuoteRow({ quote, onOpen }: { quote: MarketQuote; onOpen: () => void })
           </p>
         </div>
 
-        <div className="w-28 text-right">
-          {quote.currency && quote.currency !== 'TRY' ? (
-            <Money value={quote.price} currency={quote.currency} price className="text-sm font-semibold" />
+        <div className="w-24 shrink-0 text-right sm:w-28">
+          {/* Shares and futures are prices and carry their currency, lira
+              included; index points and exchange rates are not money. */}
+          {quote.category !== 'INDEX' && quote.category !== 'CURRENCY' ? (
+            <Money
+              value={quote.price}
+              currency={quote.currency || 'TRY'}
+              price
+              className="text-sm font-semibold"
+            />
           ) : (
             <span className="text-sm font-semibold" data-numeric="">
               {formatNumber(quote.price, decimals)}
@@ -358,7 +390,7 @@ function QuoteRow({ quote, onOpen }: { quote: MarketQuote; onOpen: () => void })
           )}
         </div>
 
-        <div className="w-24 text-right">
+        <div className="w-[4.75rem] shrink-0 text-right sm:w-24">
           <ChangeBadge value={quote.changePercent} size="sm" />
         </div>
       </button>

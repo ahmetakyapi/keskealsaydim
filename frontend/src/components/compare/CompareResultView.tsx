@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Money, Percent } from '@/components/ui/value';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChartPalette } from '@/hooks/useChartPalette';
-import { axisDefaults, downsample } from '@/lib/chart';
+import { axisDefaults, dateTickFormatter, downsample } from '@/lib/chart';
 import {
   cn,
   formatCompact,
@@ -85,6 +85,8 @@ export function CompareResultView({
     [series, symbolA, symbolB]
   );
 
+  const tickDate = useMemo(() => dateTickFormatter(startDate, endDate), [startDate, endDate]);
+
   const tie = Math.abs(difference.percentagePoints) < 0.005;
 
   return (
@@ -115,11 +117,19 @@ export function CompareResultView({
             <p className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
               İki seçenek de neredeyse aynı sonucu verdi.
             </p>
-          ) : (
+          ) : winnerIsB ? (
             <p className="mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl">
-              <span className={winnerIsB ? 'text-danger' : 'text-success'}>{winnerSymbol}</span>{' '}
-              alsaydınız,{' '}
+              <span className="text-danger">{winnerSymbol}</span> alsaydınız,{' '}
               <Money value={Math.abs(valueGap)} className="font-semibold" /> daha fazla paranız
+              olurdu.
+            </p>
+          ) : (
+            // The bought stock won. "THYAO alsaydınız…" told the reader to buy
+            // what they already hold; say it was the better call instead.
+            <p className="mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl">
+              İyi ki <span className="text-success">{winnerSymbol}</span> almışsınız:{' '}
+              {loserSymbol} alsaydınız{' '}
+              <Money value={Math.abs(valueGap)} className="font-semibold" /> daha az paranız
               olurdu.
             </p>
           )}
@@ -185,7 +195,7 @@ export function CompareResultView({
                     dataKey="date"
                     {...axisDefaults(palette)}
                     minTickGap={48}
-                    tickFormatter={(value: string) => formatDate(value).slice(0, 5)}
+                    tickFormatter={tickDate}
                   />
                   <YAxis
                     {...axisDefaults(palette)}

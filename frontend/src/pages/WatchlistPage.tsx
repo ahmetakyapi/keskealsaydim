@@ -159,8 +159,9 @@ export default function WatchlistPage() {
 
       {(leader || laggard) && (
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* A lone card spans the row instead of leaving half of it empty. */}
           {leader && (
-            <Card className="p-4">
+            <Card className={cn('p-4', !laggard && 'sm:col-span-2')}>
               <p className="text-xs text-muted-foreground">Günün Lideri</p>
               <div className="mt-1.5 flex items-center justify-between gap-3">
                 <span className="text-lg font-semibold">{leader.symbol}</span>
@@ -169,7 +170,7 @@ export default function WatchlistPage() {
             </Card>
           )}
           {laggard && (
-            <Card className="p-4">
+            <Card className={cn('p-4', !leader && 'sm:col-span-2')}>
               <p className="text-xs text-muted-foreground">Günün Zayıf Halkası</p>
               <div className="mt-1.5 flex items-center justify-between gap-3">
                 <span className="text-lg font-semibold">{laggard.symbol}</span>
@@ -205,7 +206,12 @@ export default function WatchlistPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                {/* The label hides on a phone; the name must not go with it. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Sıralama: ${SORT_OPTIONS.find((option) => option.value === sortKey)?.label}`}
+                >
                   <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">
                     {SORT_OPTIONS.find((option) => option.value === sortKey)?.label}

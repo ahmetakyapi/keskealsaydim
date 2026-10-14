@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowDown, ArrowUp, BellPlus, BellRing, Play, Square, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BellPlus, BellRing, Pause, Play, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,12 +21,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Money, Percent } from '@/components/ui/value';
+import { Money } from '@/components/ui/value';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SymbolSearch } from '@/components/SymbolSearch';
 import { useAlerts, useCreateAlert, useDeleteAlert, useStockQuote, useUpdateAlert } from '@/hooks/useQueries';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { cn, formatDate, TODAY_ISO } from '@/lib/utils';
+import { distanceToTarget } from '@/lib/alerts';
+import { cn, formatDate, formatPercentValue, formatPrice, TODAY_ISO } from '@/lib/utils';
 import type { AlertDirection, AlertStatus, PriceAlert } from '@/types';
 
 const STATUS_META: Record<AlertStatus, { label: string; variant: 'default' | 'success' | 'neutral' | 'warning' }> = {
@@ -138,10 +140,10 @@ export default function AlertsPage() {
           {visibleAlerts.map((alert) => {
             const statusMeta = STATUS_META[alert.status];
             const DirectionIcon = alert.direction === 'ABOVE' ? ArrowUp : ArrowDown;
-            const reached =
-              alert.direction === 'ABOVE'
-                ? alert.currentPrice >= alert.targetPrice
-                : alert.currentPrice > 0 && alert.currentPrice <= alert.targetPrice;
+            // Older API responses carry no currency; BIST is the default market.
+            const currency = alert.currency ?? 'TRY';
+            const distance = distanceToTarget(alert.currentPrice, alert.targetPrice, alert.direction);
+            const reached = distance?.reached ?? false;
 
             return (
               <li key={alert.id}>
@@ -179,7 +181,7 @@ export default function AlertsPage() {
                         <span className="text-muted-foreground">
                           {alert.direction === 'ABOVE' ? 'Şu seviyenin üstünde:' : 'Şu seviyenin altında:'}
                         </span>
-                        <Money value={alert.targetPrice} currency="TRY" price className="font-medium" />
+                        <Money value={alert.targetPrice} currency={currency} price className="font-medium" />
                       </p>
 
                       {alert.expiresAt && alert.status === 'ACTIVE' && (
@@ -190,7 +192,7 @@ export default function AlertsPage() {
                       {alert.status === 'TRIGGERED' && alert.triggeredAt && (
                         <p className="mt-1 text-xs text-success">
                           {formatDate(alert.triggeredAt)} tarihinde tetiklendi
-                          {alert.triggeredPrice ? ` · ${alert.triggeredPrice.toFixed(2)}` : ''}
+                          {alert.triggeredPrice ? ` · ${formatPrice(alert.triggeredPrice, currency)}` : ''}
                         </p>
                       )}
                     </div>
@@ -202,15 +204,19 @@ export default function AlertsPage() {
                           <>
                             <Money
                               value={alert.currentPrice}
+                              currency={currency}
                               price
                               className="block text-sm font-semibold"
                             />
-                            <Percent
-                              value={alert.distancePercent}
-                              className="text-xs"
-                              colored={false}
-                            />
-                            <span className="ml-1 text-xs text-muted-foreground">hedefe göre</span>
+                            {alert.status === 'ACTIVE' && distance && (
+                              <span className="text-xs text-muted-foreground" data-numeric="">
+                                {distance.reached
+                                  ? 'Hedefe ulaştı'
+                                  : `Hedefe ${formatPercentValue(Math.abs(distance.movePercent), 1)} ${
+                                      distance.movePercent > 0 ? 'yükseliş' : 'düşüş'
+                                    } kaldı`}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <p className="text-sm text-muted-foreground">—</p>
@@ -219,18 +225,26 @@ export default function AlertsPage() {
 
                       <div className="flex items-center gap-1">
                         {(alert.status === 'ACTIVE' || alert.status === 'CANCELLED') && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={alert.status === 'ACTIVE' ? 'Alarmı durdur' : 'Alarmı başlat'}
-                            onClick={() => void toggleStatus(alert)}
-                          >
-                            {alert.status === 'ACTIVE' ? (
-                              <Square className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </Button>
+                          // A square read as a checkbox; pause/play says what happens.
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={alert.status === 'ACTIVE' ? 'Alarmı durdur' : 'Alarmı yeniden başlat'}
+                                onClick={() => void toggleStatus(alert)}
+                              >
+                                {alert.status === 'ACTIVE' ? (
+                                  <Pause className="h-4 w-4" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {alert.status === 'ACTIVE' ? 'Durdur' : 'Yeniden Başlat'}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                         <Button
                           variant="ghost"

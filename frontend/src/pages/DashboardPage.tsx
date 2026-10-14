@@ -34,7 +34,16 @@ import {
 import { useChartPalette } from '@/hooks/useChartPalette';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useNow } from '@/hooks/useNow';
-import { cn, formatCurrency, formatDate, formatNumber, formatRelativeTime } from '@/lib/utils';
+import { distanceToTarget } from '@/lib/alerts';
+import { displaySymbol } from '@/lib/symbols';
+import {
+  cn,
+  formatCurrency,
+  formatDate,
+  formatNumber,
+  formatPercentValue,
+  formatRelativeTime,
+} from '@/lib/utils';
 
 function greetingFor(date: Date): string {
   const hour = date.getHours();
@@ -177,7 +186,7 @@ export default function DashboardPage() {
           />
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatCard
             title="Portföy Değeri"
             value={summary?.totalValue ?? 0}
@@ -421,10 +430,12 @@ export default function DashboardPage() {
                 compact
               />
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 {[...indices, ...currencies].slice(0, 6).map((quote) => (
-                  <div key={quote.symbol} className="rounded-xl border border-border p-3">
-                    <p className="truncate text-xs text-muted-foreground">{quote.name}</p>
+                  <div key={quote.symbol} className="min-w-0 rounded-xl border border-border p-3">
+                    <p className="truncate text-xs text-muted-foreground">
+                      {displaySymbol(quote.symbol)}
+                    </p>
                     <p className="mt-1 font-semibold" data-numeric="">
                       {formatNumber(quote.price, quote.category === 'CURRENCY' ? 4 : 2)}
                     </p>
@@ -559,23 +570,41 @@ export default function DashboardPage() {
               />
             ) : (
               <ul className="divide-y divide-border">
-                {activeAlerts.slice(0, 4).map((alert) => (
-                  <li key={alert.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{alert.symbol}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {alert.direction === 'ABOVE' ? 'üstüne çıkarsa' : 'altına inerse'}{' '}
-                        <Money value={alert.targetPrice} price />
-                      </p>
-                    </div>
-                    {alert.currentPrice > 0 && (
-                      <div className="text-right">
-                        <Money value={alert.currentPrice} price className="block text-sm" />
-                        <Percent value={alert.distancePercent} className="text-xs" colored={false} />
+                {activeAlerts.slice(0, 4).map((alert) => {
+                  const currency = alert.currency ?? 'TRY';
+                  const distance = distanceToTarget(
+                    alert.currentPrice,
+                    alert.targetPrice,
+                    alert.direction
+                  );
+                  return (
+                    <li key={alert.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{alert.symbol}</p>
+                        <p className="text-xs text-muted-foreground">
+                          <Money value={alert.targetPrice} currency={currency} price />{' '}
+                          {alert.direction === 'ABOVE' ? 'üstüne çıkarsa' : 'altına inerse'}
+                        </p>
                       </div>
-                    )}
-                  </li>
-                ))}
+                      {alert.currentPrice > 0 && (
+                        <div className="text-right">
+                          <Money
+                            value={alert.currentPrice}
+                            currency={currency}
+                            price
+                            className="block text-sm"
+                          />
+                          {distance && !distance.reached && (
+                            <span className="text-xs text-muted-foreground" data-numeric="">
+                              {formatPercentValue(Math.abs(distance.movePercent), 1)}{' '}
+                              {distance.movePercent > 0 ? 'yükseliş' : 'düşüş'} kaldı
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

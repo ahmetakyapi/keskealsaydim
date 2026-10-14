@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { downsample, formatIndexedTick, toIndexed } from './chart';
+import { dateTickFormatter, downsample, formatIndexedTick, toIndexed } from './chart';
 
 describe('downsample', () => {
   const points = Array.from({ length: 1000 }, (_, i) => ({ i }));
@@ -51,5 +51,28 @@ describe('formatIndexedTick', () => {
   it('renders gains and losses relative to the base', () => {
     expect(formatIndexedTick(955)).toBe('+%855');
     expect(formatIndexedTick(60)).toBe('−%40');
+  });
+});
+
+describe('dateTickFormatter', () => {
+  it('labels short ranges by day and month', () => {
+    const tick = dateTickFormatter('2026-07-14', '2026-10-14');
+    expect(tick('2026-08-03')).toBe('03.08');
+  });
+
+  it('adds the year once a range spans more than a few months', () => {
+    const tick = dateTickFormatter('2023-10-16', '2026-10-14');
+    expect(tick('2025-01-17')).toBe('Oca 2025');
+    // The point of the change: the same day in two years no longer reads alike.
+    expect(tick('2024-01-17')).not.toBe(tick('2025-01-17'));
+  });
+
+  it('reads the calendar day, not the UTC instant', () => {
+    const tick = dateTickFormatter('2026-10-01', '2026-10-31');
+    expect(tick('2026-10-01')).toBe('01.10');
+  });
+
+  it('passes through a value it cannot parse', () => {
+    expect(dateTickFormatter('2026-01-01', '2026-02-01')('bugün')).toBe('bugün');
   });
 });

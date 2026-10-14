@@ -102,7 +102,7 @@ export default function NotificationsPage() {
         description="Fiyat alarmlarınız tetiklendiğinde ve portföyünüzle ilgili gelişmelerde burada haber alırsınız."
         meta={
           unreadCount > 0 ? (
-            <Badge variant="danger">{unreadCount} okunmamış</Badge>
+            <Badge variant="danger">{unreadCount} Okunmamış</Badge>
           ) : (
             <Badge variant="neutral">Hepsi okundu</Badge>
           )
@@ -220,7 +220,7 @@ export default function NotificationsPage() {
                         className="mt-1 h-auto p-0"
                         onClick={() => void handleOpen(notification)}
                       >
-                        {symbol} detayına git
+                        {symbol} Detayına Git
                         <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                       </Button>
                     )}

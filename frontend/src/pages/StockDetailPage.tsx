@@ -28,12 +28,13 @@ import {
 } from '@/hooks/useQueries';
 import { useChartPalette } from '@/hooks/useChartPalette';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { axisDefaults } from '@/lib/chart';
+import { axisDefaults, dateTickFormatter } from '@/lib/chart';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   formatCompact,
   formatDate,
   formatDateTime,
+  formatPercent,
   formatPrice,
   subtractMonths,
   subtractYears,
@@ -105,6 +106,25 @@ export default function StockDetailPage() {
 
   const currency = quote?.currency ?? 'TRY';
 
+  // A missing field arrives as 0, and "Açılış ₺0,00" reads as a real price.
+  const priceOrDash = (value: number) => (value > 0 ? formatPrice(value, currency) : '—');
+
+  const tickDate = useMemo(
+    () =>
+      chartData.length > 1
+        ? dateTickFormatter(chartData[0].date, chartData[chartData.length - 1].date)
+        : (value: string) => value,
+    [chartData]
+  );
+
+  // Opened from a shared link or a new tab there is no page to go back to,
+  // and `navigate(-1)` would leave the app; the market list is the parent.
+  const goBack = () => {
+    const historyIndex = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (historyIndex > 0) navigate(-1);
+    else navigate('/market');
+  };
+
   const handleWatchlistToggle = async () => {
     try {
       if (watchlistEntry) {
@@ -122,7 +142,7 @@ export default function StockDetailPage() {
   if (quoteQuery.isError) {
     return (
       <div className="space-y-5">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="sm" onClick={goBack}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Geri
         </Button>
@@ -140,7 +160,7 @@ export default function StockDetailPage() {
 
   return (
     <div className="space-y-5">
-      <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(-1)}>
+      <Button variant="ghost" size="sm" className="-ml-2" onClick={goBack}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Geri
       </Button>
@@ -216,12 +236,12 @@ export default function StockDetailPage() {
             </div>
 
             <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm sm:grid-cols-4">
-              <Stat label="Açılış" value={formatPrice(quote.open, currency)} />
-              <Stat label="Gün Yüksek" value={formatPrice(quote.high, currency)} />
-              <Stat label="Gün Düşük" value={formatPrice(quote.low, currency)} />
-              <Stat label="Önceki Kapanış" value={formatPrice(quote.previousClose, currency)} />
-              <Stat label="52H Yüksek" value={formatPrice(quote.week52High, currency)} />
-              <Stat label="52H Düşük" value={formatPrice(quote.week52Low, currency)} />
+              <Stat label="Açılış" value={priceOrDash(quote.open)} />
+              <Stat label="Gün Yüksek" value={priceOrDash(quote.high)} />
+              <Stat label="Gün Düşük" value={priceOrDash(quote.low)} />
+              <Stat label="Önceki Kapanış" value={priceOrDash(quote.previousClose)} />
+              <Stat label="52H Yüksek" value={priceOrDash(quote.week52High)} />
+              <Stat label="52H Düşük" value={priceOrDash(quote.week52Low)} />
               <Stat label="Hacim" value={quote.volume > 0 ? formatCompact(quote.volume) : '—'} />
               <Stat
                 label="Piyasa Değeri"
@@ -239,8 +259,8 @@ export default function StockDetailPage() {
             {rangeReturn !== null && (
               <p className="mt-1 text-sm text-muted-foreground">
                 Seçili dönem getirisi:{' '}
-                <span className={rangeReturn >= 0 ? 'text-success' : 'text-danger'}>
-                  {rangeReturn >= 0 ? '+' : '−'}%{Math.abs(rangeReturn).toFixed(2)}
+                <span className={rangeReturn >= 0 ? 'text-success' : 'text-danger'} data-numeric="">
+                  {formatPercent(rangeReturn)}
                 </span>
               </p>
             )}
@@ -287,7 +307,7 @@ export default function StockDetailPage() {
                     dataKey="date"
                     {...axisDefaults(palette)}
                     minTickGap={40}
-                    tickFormatter={(value: string) => formatDate(value).slice(0, 5)}
+                    tickFormatter={tickDate}
                   />
                   <YAxis
                     {...axisDefaults(palette)}

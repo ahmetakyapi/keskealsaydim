@@ -70,13 +70,15 @@ export function StatCard({
 
       {/* Scales with the viewport below `sm` so a seven-figure balance still
           fits half a phone's width; `anywhere` is the last resort, not overflow. */}
-      <p className="mt-2 text-[clamp(1.05rem,4.6vw,1.5rem)] font-semibold tracking-tight [overflow-wrap:anywhere] sm:mt-3 sm:text-[26px]">
+      {/* A div, not a p: the loading shimmer is a div, and a div inside a
+          p is invalid markup React warns about on every dashboard load. */}
+      <div className="mt-2 text-[clamp(1.05rem,4.6vw,1.5rem)] font-semibold tracking-tight [overflow-wrap:anywhere] sm:mt-3 sm:text-[26px]">
         {loading ? (
           <ShimmerBlock className="h-8 w-32" />
         ) : (
           <span className={cn(masked && 'select-none blur-sm')}>{body}</span>
         )}
-      </p>
+      </div>
 
       {hint && !loading && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
       {footer && !loading && <div className="mt-3">{footer}</div>}

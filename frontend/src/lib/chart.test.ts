@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateTickFormatter, downsample, formatIndexedTick, toIndexed } from './chart';
+import { dateTickFormatter, downsample, formatIndexedTick, monthStartTicks, toIndexed } from './chart';
 
 describe('downsample', () => {
   const points = Array.from({ length: 1000 }, (_, i) => ({ i }));
@@ -74,5 +74,27 @@ describe('dateTickFormatter', () => {
 
   it('passes through a value it cannot parse', () => {
     expect(dateTickFormatter('2026-01-01', '2026-02-01')('bugün')).toBe('bugün');
+  });
+});
+
+describe('monthStartTicks', () => {
+  it('puts one tick on the first sample of each month of a long range', () => {
+    const dates = ['2026-03-02', '2026-03-20', '2026-04-01', '2026-06-03', '2026-06-25', '2026-10-13'];
+    expect(monthStartTicks(dates)).toEqual(['2026-03-02', '2026-04-01', '2026-06-03', '2026-10-13']);
+  });
+
+  it('never yields two ticks that print the same month label', () => {
+    const dates = Array.from({ length: 220 }, (_, i) => {
+      const d = new Date(2026, 2, 2 + i);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
+    const ticks = monthStartTicks(dates) ?? [];
+    const tick = dateTickFormatter(dates[0], dates[dates.length - 1]);
+    const labels = ticks.map(tick);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('leaves day-labelled ranges to the chart', () => {
+    expect(monthStartTicks(['2026-07-14', '2026-08-14', '2026-10-14'])).toBeUndefined();
   });
 });

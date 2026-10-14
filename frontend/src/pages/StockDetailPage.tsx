@@ -28,7 +28,7 @@ import {
 } from '@/hooks/useQueries';
 import { useChartPalette } from '@/hooks/useChartPalette';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { axisDefaults, dateTickFormatter } from '@/lib/chart';
+import { axisDefaults, dateTickFormatter, monthStartTicks } from '@/lib/chart';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   formatCompact,
@@ -116,6 +116,7 @@ export default function StockDetailPage() {
         : (value: string) => value,
     [chartData]
   );
+  const dateTicks = useMemo(() => monthStartTicks(chartData.map((point) => point.date)), [chartData]);
 
   // Opened from a shared link or a new tab there is no page to go back to,
   // and `navigate(-1)` would leave the app; the market list is the parent.
@@ -253,8 +254,10 @@ export default function StockDetailPage() {
       ) : null}
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-          <div>
+        {/* Stacked on a phone: side by side, the five range tabs squeezed the
+            title into a one-word column and ran past the card's edge. */}
+        <CardHeader className="flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <CardTitle>Fiyat Grafiği</CardTitle>
             {rangeReturn !== null && (
               <p className="mt-1 text-sm text-muted-foreground">
@@ -266,7 +269,11 @@ export default function StockDetailPage() {
             )}
           </div>
 
-          <Tabs value={range} onValueChange={(value) => setRange(value as RangeValue)}>
+          <Tabs
+            value={range}
+            onValueChange={(value) => setRange(value as RangeValue)}
+            className="w-full min-w-0 sm:w-auto"
+          >
             <TabsList>
               {RANGES.map((item) => (
                 <TabsTrigger key={item.value} value={item.value}>
@@ -307,6 +314,7 @@ export default function StockDetailPage() {
                     dataKey="date"
                     {...axisDefaults(palette)}
                     minTickGap={40}
+                    ticks={dateTicks}
                     tickFormatter={tickDate}
                   />
                   <YAxis

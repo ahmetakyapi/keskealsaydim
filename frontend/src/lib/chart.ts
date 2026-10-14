@@ -93,15 +93,41 @@ function parseDay(value: string): Date | null {
  * get "Oca 2025" instead.
  */
 export function dateTickFormatter(first: string, last: string): (value: string) => string {
-  const start = parseDay(first);
-  const end = parseDay(last);
-  const spanDays = start && end ? Math.abs(end.getTime() - start.getTime()) / DAY_MS : 0;
-  const format = spanDays > DAY_TICKS_MAX_DAYS ? (date: Date) => monthYearFormat.format(date) : dayMonth;
+  const format = labelsByMonth(first, last) ? (date: Date) => monthYearFormat.format(date) : dayMonth;
 
   return (value: string) => {
     const date = parseDay(value);
     return date ? format(date) : value;
   };
+}
+
+function labelsByMonth(first: string, last: string): boolean {
+  const start = parseDay(first);
+  const end = parseDay(last);
+  const spanDays = start && end ? Math.abs(end.getTime() - start.getTime()) / DAY_MS : 0;
+  return spanDays > DAY_TICKS_MAX_DAYS;
+}
+
+/**
+ * Tick positions to pair with `dateTickFormatter`: on a month-labelled axis,
+ * the first sample of each month. Left to space ticks by pixels, Recharts put
+ * two of them in the same month on a seven-month range and the axis read
+ * "Haz 2026 · Haz 2026". It still thins these to fit. Short ranges return
+ * undefined and keep Recharts' own spacing.
+ */
+export function monthStartTicks(dates: string[]): string[] | undefined {
+  if (dates.length < 2 || !labelsByMonth(dates[0], dates[dates.length - 1])) return undefined;
+
+  const ticks: string[] = [];
+  let lastMonth = '';
+  for (const date of dates) {
+    const month = date.slice(0, 7);
+    if (month !== lastMonth) {
+      ticks.push(date);
+      lastMonth = month;
+    }
+  }
+  return ticks;
 }
 
 /**

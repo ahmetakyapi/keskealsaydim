@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Money, Percent } from '@/components/ui/value';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChartPalette } from '@/hooks/useChartPalette';
-import { axisDefaults, dateTickFormatter, downsample } from '@/lib/chart';
+import { axisDefaults, dateTickFormatter, downsample, monthStartTicks } from '@/lib/chart';
 import {
   cn,
   formatCompact,
@@ -86,6 +86,10 @@ export function CompareResultView({
   );
 
   const tickDate = useMemo(() => dateTickFormatter(startDate, endDate), [startDate, endDate]);
+  const dateTicks = useMemo(
+    () => monthStartTicks(chartData.map((point) => point.date as string)),
+    [chartData]
+  );
 
   const tie = Math.abs(difference.percentagePoints) < 0.005;
 
@@ -195,6 +199,7 @@ export function CompareResultView({
                     dataKey="date"
                     {...axisDefaults(palette)}
                     minTickGap={48}
+                    ticks={dateTicks}
                     tickFormatter={tickDate}
                   />
                   <YAxis

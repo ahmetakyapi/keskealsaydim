@@ -197,8 +197,11 @@ export default function AlertsPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
+                    {/* On a phone this group wraps under the target: price on the
+                        left, controls on the right edge, rather than a narrow
+                        right-aligned block stranded mid-row. */}
+                    <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end">
+                      <div className="text-left sm:text-right">
                         <p className="text-xs text-muted-foreground">Güncel</p>
                         {alert.currentPrice > 0 ? (
                           <>

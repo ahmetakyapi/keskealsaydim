@@ -104,7 +104,7 @@ export default function NotificationsPage() {
           unreadCount > 0 ? (
             <Badge variant="danger">{unreadCount} Okunmamış</Badge>
           ) : (
-            <Badge variant="neutral">Hepsi okundu</Badge>
+            <Badge variant="neutral">Hepsi Okundu</Badge>
           )
         }
         actions={

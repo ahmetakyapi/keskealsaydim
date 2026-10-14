@@ -255,7 +255,8 @@ export function AlertPreview() {
           <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-muted p-2">
             <BellRing className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
             <p className="text-xs text-muted-foreground">
-              Hedefe ulaşıldığında bildirim listenize bir kayıt düşer.
+              Örnek hedefler, canlı fiyatlar. Hedefe ulaşıldığında bildirim listenize bir kayıt
+              düşer.
             </p>
           </div>
         </>

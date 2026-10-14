@@ -47,10 +47,10 @@ import {
 
 function greetingFor(date: Date): string {
   const hour = date.getHours();
-  if (hour < 6) return 'İyi geceler';
+  if (hour < 6) return 'İyi Geceler';
   if (hour < 12) return 'Günaydın';
-  if (hour < 18) return 'İyi günler';
-  return 'İyi akşamlar';
+  if (hour < 18) return 'İyi Günler';
+  return 'İyi Akşamlar';
 }
 
 export default function DashboardPage() {
